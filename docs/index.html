@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GM3D Level Editor - in-game 3D level editor for GameMaker</title>
+<meta name="description" content="Embeddable 3D level editor for GameMaker (GML) on the GM3D runtime. Edit levels in-game, save them as JSON.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="bg" aria-hidden="true"><span class="orb orb-a"></span><span class="orb orb-b"></span><span class="grid"></span></div>
+
+<nav class="nav">
+  <div class="wrap nav-inner">
+    <a class="brand" href="#top"><img src="icon.png" alt="" width="28" height="28"><span>GM3D Level Editor</span></a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#quickstart">Quick start</a>
+      <a href="#api">API</a>
+      <a href="#controls">Controls</a>
+      <a class="btn small primary" href="https://github.com/manuel-di-iorio/GM3D-Level-Editor">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <img src="icon.png" alt="GM3D Level Editor icon" class="logo reveal" width="84" height="84">
+      <h1 class="reveal">Build worlds <span class="grad">inside your game.</span></h1>
+      <p class="tagline reveal">An in-game 3D level editor for GameMaker. Plug it into your project and build, edit, and save levels without leaving your game.</p>
+      <p class="cta reveal">
+        <a class="btn primary big" href="https://github.com/manuel-di-iorio/GM3D-Level-Editor">Get it on GitHub</a>
+        <a class="btn big" href="#quickstart">Quick start</a>
+      </p>
+    </div>
+    <!-- Replace screenshot.png with your editor screenshot (put the file in docs/) -->
+    <figure class="shot reveal">
+      <img src="screenshot.png" alt="GM3D Level Editor screenshot">
+    </figure>
+  </div>
+</header>
+
+<main class="wrap">
+  <section id="features" class="reveal">
+    <h2>Everything you need to ship levels</h2>
+    <p class="sub">No external tools. Press F1 and edit right inside the running game.</p>
+    <ul class="grid">
+      <li><strong>In-game editing</strong><br>Toggle with F1; the gateway steps the live world while closed.</li>
+      <li><strong>TRS gizmo</strong><br>Translate, rotate and scale with world or local axes and drag planes.</li>
+      <li><strong>Outliner + Inspector</strong><br>Filter, rename (F2), focus (F), per-axis transform rows.</li>
+      <li><strong>Undo / redo</strong><br>Snapshot history with selection restore.</li>
+      <li><strong>JSON scenes</strong><br>One descriptor per placement. Save, load, new.</li>
+      <li><strong>Snap + nudge</strong><br>Position/rotation snap and arrow-key nudge, all undoable.</li>
+    </ul>
+  </section>
+
+  <section id="requirements" class="reveal">
+    <h2>Requirements</h2>
+    <ul class="checks">
+      <li>GameMaker with <strong>GMRT 0.21</strong> (from the Package Manager)</li>
+      <li>Tick <strong>“Disable file system sandbox”</strong> in Game Options &gt; Windows, or scenes cannot be saved/loaded from anywhere</li>
+    </ul>
+  </section>
+
+  <section id="quickstart" class="reveal">
+    <h2>Quick start</h2>
+    
+    <p><strong>1. Import the editor package</strong> - drag <a href="https://github.com/manuel-di-iorio/GM3D-Level-Editor/blob/main/gm3d_editor.yymps">gm3d_editor.yymps</a> onto the GameMaker IDE to import the scripts. You also need GMRT 0.21 (Package Manager), which provides <code>GM3D_*</code> and <code>ImGui</code>.</p>
+    <p><strong>2. Add an object</strong> with 5 events (full working example in <code>objects/oEditor</code>). Load each model once, register it with a unique name:</p>
+    <div class="codeblock terminal">
+      <div class="term-bar"><span></span><span></span><span></span><button class="copy" data-copy="qs2">Copy</button></div>
+<pre id="qs2"><code class="lang-gml">// Create
+ed = gm3d_editor_init(id, {
+    scene: global.my_scene, // your live GM3D_Scene
+    cam: global.my_camera,  // your camera node (the editor flies it while open)
+});
+gm3d_editor_asset_add(ed, "Tree", my_load_model("models/tree.glb"));
+gm3d_editor_load("myscene.json"); // or start empty
+
+// Step
+gm3d_editor_step(ed);
+if (!gm3d_editor_is_active()) my_game_step(); // live world only while closed
+
+// Draw
+my_game_render();
+
+// Draw GUI
+if (gm3d_editor_is_active()) gm3d_editor_draw(ed);
+
+// Clean Up
+gm3d_editor_cleanup(ed);</code></pre>
+    </div>
+    <p class="sub">While the editor is open it owns the camera and the scene: pause your own simulation and resume it in <code>on_close</code>. Nodes your game spawns itself can join Scene/Inspector/save/undo via <code>gm3d_editor_track_node(ed, asset_name, node)</code>.</p>
+  </section>
+
+  <section id="api" class="reveal">
+    <h2>Public API</h2>
+    <table>
+      <thead><tr><th>Function</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>gm3d_editor_init(self, opts)</code></td><td>Boot editor state</td></tr>
+        <tr><td><code>gm3d_editor_step(ed)</code> / <code>gm3d_editor_draw(ed)</code></td><td>Per-frame update + 3D overlay (gizmo, selection)</td></tr>
+        <tr><td><code>gm3d_editor_cleanup(ed)</code></td><td>Autosave-if-dirty, destroy, cleanup</td></tr>
+        <tr><td><code>gm3d_editor_enable / disable / toggle / is_active()</code></td><td>Open/close the editor</td></tr>
+        <tr><td><code>gm3d_editor_asset_add(ed, name, model)</code> / <code>gm3d_editor_asset_clear(ed)</code></td><td>Models library (names should be unique)</td></tr>
+        <tr><td><code>gm3d_editor_track_node(ed, asset, node, label?)</code></td><td>Adopt a code-spawned instance into Scene/Inspector/save/undo</td></tr>
+        <tr><td><code>gm3d_editor_load(fname)</code></td><td>Load a scene file</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="format" class="reveal">
+    <h2>Scene file format</h2>
+    <p class="sub"><code>{ "version": 1, "nodes": [...] }</code>, one descriptor per asset placement:</p>
+    <div class="codeblock terminal">
+      <div class="term-bar"><span></span><span></span><span></span><button class="copy" data-copy="fmt">Copy</button></div>
+<pre id="fmt"><code class="lang-json">{
+  "asset": "Tree",
+  "name": "Tree 2",
+  "position": [1.0, 0.0, 2.0],
+  "rotation": [0.0, 0.0, 0.0, 1.0],
+  "scale": [1.0, 1.0, 1.0]
+}</code></pre>
+    </div>
+  </section>
+
+  <section id="controls" class="reveal">
+    <h2>Controls</h2>
+    <table>
+      <thead><tr><th>Input</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td>F1</td><td>Toggle editor</td></tr>
+        <tr><td>1 / 2 / 3</td><td>Move / Rotate / Scale tool</td></tr>
+        <tr><td>Left-drag model (Models panel)</td><td>Spawn into the scene</td></tr>
+        <tr><td>Left-click / drag</td><td>Select (additive rectangle with drag)</td></tr>
+        <tr><td>Right-drag + WASD/QE, wheel, Shift</td><td>Fly camera</td></tr>
+        <tr><td>Middle-drag</td><td>Pan view in screen space (around the selection if any)</td></tr>
+        <tr><td>F (or double-click in Scene)</td><td>Focus selection</td></tr>
+        <tr><td>F2</td><td>Rename (labels are display-only)</td></tr>
+        <tr><td>Arrows</td><td>Nudge selection on the ground plane (undoable)</td></tr>
+        <tr><td>Ctrl (held while dragging)</td><td>Temporary snap</td></tr>
+        <tr><td>Del</td><td>Delete selection</td></tr>
+        <tr><td>Ctrl+D</td><td>Duplicate</td></tr>
+        <tr><td>Ctrl+S / Ctrl+L / Ctrl+N</td><td>Save / Load / New scene</td></tr>
+        <tr><td>Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z)</td><td>Undo / Redo</td></tr>
+        <tr><td>Esc</td><td>Cancel gesture / rename / close dialog</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="final reveal">
+    <h2>Ready to build worlds?</h2>
+    <p class="sub">Grab the project, wire one object, press F1.</p>
+    <p class="cta"><a class="btn primary big" href="https://github.com/manuel-di-iorio/GM3D-Level-Editor">Get it on GitHub</a></p>
+    <p class="sub small">Demo models by <a href="https://kenney.nl">Kenney</a> (CC0). MIT licensed - see <a href="https://github.com/manuel-di-iorio/GM3D-Level-Editor/blob/main/LICENSE.md">LICENSE</a>.</p>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap"><p>GM3D Level Editor · <a href="https://github.com/manuel-di-iorio/GM3D-Level-Editor">GitHub</a></p></div>
+</footer>
+
+<script>
+// Syntax highlighting (dependency-free).
+// GML-first grammar with a JS fallback: GML is C-like, so the JS token
+// set covers it; GML-only keywords (global, self, enum, mod, div, repeat,
+// with, ...) are added on top. JSON blocks get their own light pass.
+function escHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+var GML_KEYWORDS = 'break|case|catch|constructor|continue|default|do|else|enum|exit|false|for|function|global|globalvar|if|new|repeat|return|self|other|static|switch|throw|true|try|undefined|until|var|while|with|and|or|not|mod|div|begin|end';
+var gmlRe = new RegExp(
+  '(\\/\\/[^\\n]*)' +                    // 1: comment
+  '|("(?:[^"\\\\\\n]|\\\\.)*")' +        // 2: string
+  "|('(?:[^'\\\\\\n]|\\\\.)*')" +        // 3: string (single-quoted)
+  '|(\\b\\d+(?:\\.\\d+)?\\b)' +          // 4: number
+  '|\\b(' + GML_KEYWORDS + ')\\b' +      // 5: keyword
+  '|(GM3D_\\w+|ImGui)(?!\\w)' +          // 6: builtin / runtime class
+  '|([A-Za-z_]\\w*(?=\\s*\\())',         // 7: function call
+  'g'
+);
+function highlightGml(src) {
+  var out = '';
+  var pos = 0;
+  gmlRe.lastIndex = 0;
+  var m;
+  while ((m = gmlRe.exec(src)) !== null) {
+    out += escHtml(src.slice(pos, m.index));
+    var tok = m[0];
+    var cls = m[1] ? 'tok-c' : m[2] || m[3] ? 'tok-s' : m[4] ? 'tok-n'
+      : m[5] ? 'tok-k' : m[6] ? 'tok-b' : 'tok-f';
+    out += '<span class="' + cls + '">' + escHtml(tok) + '</span>';
+    pos = m.index + tok.length;
+  }
+  return out + escHtml(src.slice(pos));
+}
+var jsonRe = /(\/\/[^\n]*)|("(?:[^"\\\n]|\\.)*")(\s*:)?|\b(\d+(?:\.\d+)?)\b|\b(true|false|null)\b/g;
+function highlightJson(src) {
+  var out = '';
+  var pos = 0;
+  jsonRe.lastIndex = 0;
+  var m;
+  while ((m = jsonRe.exec(src)) !== null) {
+    out += escHtml(src.slice(pos, m.index));
+    var cls = m[1] ? 'tok-c' : m[2] ? (m[3] ? 'tok-jk' : 'tok-s')
+      : m[4] ? 'tok-n' : 'tok-jb';
+    out += '<span class="' + cls + '">' + escHtml(m[0]) + '</span>';
+    pos = m.index + m[0].length;
+  }
+  return out + escHtml(src.slice(pos));
+}
+document.querySelectorAll('pre code.lang-gml, pre code.lang-json').forEach(function (el) {
+  var raw = el.textContent;
+  el.innerHTML = el.classList.contains('lang-json') ? highlightJson(raw) : highlightGml(raw);
+});
+// Copy buttons
+document.querySelectorAll('button.copy').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    var el = document.getElementById(btn.getAttribute('data-copy'));
+    var text = el ? el.innerText : '';
+    if (navigator.clipboard) { navigator.clipboard.writeText(text); }
+    btn.textContent = 'Copied';
+    setTimeout(function () { btn.textContent = 'Copy'; }, 1500);
+  });
+});
+// Scroll reveal
+var io = new IntersectionObserver(function (entries) {
+  entries.forEach(function (e) {
+    if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+  });
+}, { threshold: 0.12 });
+document.querySelectorAll('.reveal').forEach(function (el, i) {
+  el.style.transitionDelay = Math.min((i % 6) * 60, 300) + 'ms';
+  io.observe(el);
+});
+// Nav shadow on scroll
+var nav = document.querySelector('.nav');
+addEventListener('scroll', function () {
+  nav.classList.toggle('scrolled', scrollY > 10);
+}, { passive: true });
+</script>
+</body>
+</html>

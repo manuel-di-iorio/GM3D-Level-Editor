@@ -1,0 +1,13 @@
+{
+  "$GMScript":"v1",
+  "%Name":"scr_demo",
+  "isCompatibility":false,
+  "isDnD":false,
+  "name":"scr_demo",
+  "parent":{
+    "name":"GM3D_Editor",
+    "path":"GM3D_Editor.yyp",
+  },
+  "resourceType":"GMScript",
+  "resourceVersion":"2.0",
+}

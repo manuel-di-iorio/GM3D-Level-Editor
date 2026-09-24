@@ -1,0 +1,12 @@
+{
+  "$GMShader":"",
+  "%Name":"sAnimated",
+  "name":"sAnimated",
+  "parent":{
+    "name":"GM3D_Editor",
+    "path":"GM3D_Editor.yyp",
+  },
+  "resourceType":"GMShader",
+  "resourceVersion":"2.0",
+  "type":1,
+}
