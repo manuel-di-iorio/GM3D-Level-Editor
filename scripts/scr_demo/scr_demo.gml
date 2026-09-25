@@ -1,6 +1,12 @@
 /// Create the runtime scene, renderer and default environment/light/camera.
 /// @param {Id.Instance} _self owning object instance
 function demo_create(_self) {
+	// NOTE: no display_reset() here on purpose: it flushes GPU textures and
+	// wipes the ImGui font atlas (GMRT backend), making the editor UI
+	// disappear. MSAA stays off (default 0); grid shimmer is handled
+	// shader-side instead (procedural grid + distance bands).
+	// NOTE: the viewport background is owned by the editor (applied on open,
+	// restored on close), not by the game: see __gm3d_ed_bg_apply/restore.
 	_self.scene = GM3D_Scene.createEmpty();
 
 	_self.renderer = new GM3D_Renderer();

@@ -2,13 +2,17 @@
 /// Scene picking: pick-all, click cycling and rect selection.
 
 /// Returns all root nodes under a screen point, nearest first.
+/// The transient editor grid is never pickable.
 /// @param _nodes Scene root nodes from the runtime adapter.
-function __gm3d_ed_pick_all(_nodes, _vp, _mx, _my) {
+function __gm3d_ed_pick_all(_ed, _nodes, _vp, _mx, _my) {
 	var _ray = __gm3d_ed_screen_ray(_vp, _mx, _my);
 	var _hits = [];
 	for (var _i = 0; _i < array_length(_nodes); _i++) {
 		var _node = _nodes[_i];
 		if (_node.parent != undefined) {
+			continue;
+		}
+		if (__gm3d_ed_is_grid(_ed, _node)) {
 			continue;
 		}
 		var _box = __gm3d_ed_node_aabb(_node);
@@ -27,7 +31,7 @@ function __gm3d_ed_pick_all(_nodes, _vp, _mx, _my) {
 /// Cycles through overlapping objects under the cursor on repeated clicks.
 /// @param _nodes Scene root nodes from the runtime adapter.
 function __gm3d_ed_pick_cycle(_ed, _nodes, _vp, _mx, _my) {
-	var _hits = __gm3d_ed_pick_all(_nodes, _vp, _mx, _my);
+	var _hits = __gm3d_ed_pick_all(_ed, _nodes, _vp, _mx, _my);
 	if (array_length(_hits) == 0) {
 		_ed.pick_cycle_index = -1;
 		return undefined;
@@ -46,12 +50,16 @@ function __gm3d_ed_pick_cycle(_ed, _nodes, _vp, _mx, _my) {
 }
 
 /// Returns root nodes intersecting a normalized screen rect.
+/// The transient editor grid is never pickable.
 /// @param _r Normalized rect { x0, y0, x1, y1 }.
-function __gm3d_ed_pick_rect(_nodes, _vp, _r) {
+function __gm3d_ed_pick_rect(_ed, _nodes, _vp, _r) {
 	var _out = [];
 	for (var _i = 0; _i < array_length(_nodes); _i++) {
 		var _node = _nodes[_i];
 		if (_node.parent != undefined) {
+			continue;
+		}
+		if (__gm3d_ed_is_grid(_ed, _node)) {
 			continue;
 		}
 		var _box = __gm3d_ed_node_aabb(_node);

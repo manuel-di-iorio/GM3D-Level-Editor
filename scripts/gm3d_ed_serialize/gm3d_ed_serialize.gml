@@ -15,6 +15,9 @@ function __gm3d_ed_scene_path(_ed) {
 
 /// Converts a live asset node to a descriptor, or undefined for structural nodes.
 function __gm3d_ed_node_to_descriptor(_ed, _node) {
+	if (__gm3d_ed_is_grid(_ed, _node)) {
+		return undefined;
+	}
 	var _ad = __gm3d_ed_asset_desc(_ed, _node);
 	if (_ad != undefined) {
 		return {

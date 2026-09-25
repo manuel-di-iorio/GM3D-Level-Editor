@@ -14,6 +14,8 @@ function gm3d_editor_init(_self, _rt) {
 	var _ed = __gm3d_ed_create(_self, _rt);
 	__gm3d_ed_cam_remember(_ed);
 	__gm3d_ed_ui_load(_ed);
+	__gm3d_ed_bg_apply(_ed);
+	__gm3d_ed_grid_ensure(_ed);
 	global.gm3d_editor_active = _ed.active;
 	global.gm3d_editor_inst = _ed;
 	return _ed;
@@ -103,6 +105,13 @@ function gm3d_editor_draw(_ed) {
 /// Unregisters the editor instance; call from CleanUp event.
 function gm3d_editor_cleanup(_ed) {
 	__gm3d_ed_ui_save(_ed);
+	__gm3d_ed_bg_restore(_ed);
+	__gm3d_ed_grid_remove(_ed);
+	_ed.grid_mat = undefined;
+	if (_ed != undefined && variable_struct_exists(_ed, "grid_src") && _ed.grid_src != undefined) {
+		_ed.grid_src.destroy();
+		_ed.grid_src = undefined;
+	}
 	if (_ed != undefined && variable_global_exists("gm3d_editor_inst") && global.gm3d_editor_inst == _ed) {
 		global.gm3d_editor_inst = undefined;
 	}
@@ -132,6 +141,40 @@ function gm3d_editor_inst() {
 	return _st;
 }
 
+/// Editor viewport background: soft dark blue, applied on open.
+/// The GM3D camera exposes no documented clear color; the background comes
+/// from the display buffer clear + the room background layer, so the editor
+/// sets the window colour and hides the room "Background" layer while open.
+function __gm3d_ed_bg_apply(_ed) {
+	if (_ed == undefined) {
+		return;
+	}
+	if (!variable_struct_exists(_ed, "prev_win_colour") || _ed.prev_win_colour == undefined) {
+		_ed.prev_win_colour = window_get_colour();
+	}
+	window_set_colour(#181825);
+	var _lyr = layer_get_id("Background");
+	_ed.bg_layer = _lyr;
+	if (_lyr != -1) {
+		layer_set_visible(_lyr, false);
+	}
+}
+
+/// Restores the window colour and room background hidden by bg_apply.
+function __gm3d_ed_bg_restore(_ed) {
+	if (_ed == undefined) {
+		return;
+	}
+	if (variable_struct_exists(_ed, "prev_win_colour") && _ed.prev_win_colour != undefined) {
+		window_set_colour(_ed.prev_win_colour);
+		_ed.prev_win_colour = undefined;
+	}
+	if (variable_struct_exists(_ed, "bg_layer") && _ed.bg_layer != undefined && _ed.bg_layer != -1) {
+		layer_set_visible(_ed.bg_layer, true);
+	}
+	_ed.bg_layer = undefined;
+}
+
 /// Sets the editor open state.
 /// @param {Bool} _on true to open, false to close
 function __gm3d_ed_set_active(_ed, _on) {
@@ -142,10 +185,15 @@ function __gm3d_ed_set_active(_ed, _on) {
 	_ed.active = _on;
 	global.gm3d_editor_active = _on;
 	if (_was && !_on) {
+		__gm3d_ed_bg_restore(_ed);
+		__gm3d_ed_grid_remove(_ed);
 		__gm3d_ed_cam_home(_ed);
 		if (variable_struct_exists(_ed.rt, "on_close")) {
 			_ed.rt.on_close(_ed.inst);
 		}
+	} else if (!_was && _on) {
+		__gm3d_ed_bg_apply(_ed);
+		__gm3d_ed_grid_ensure(_ed);
 	}
 }
 
@@ -377,6 +425,12 @@ function __gm3d_ed_create(_inst, _rt) {
 		snap_on: false,
 		snap_pos: 0.5,
 		snap_rot: 15,
+		show_grid: true,
+		grid_node: undefined,
+		grid_src: undefined,
+		grid_mat: undefined,
+		prev_win_colour: undefined,
+		bg_layer: undefined,
 		gw: 1366,
 		gh: 768,
 	};
@@ -419,6 +473,7 @@ function __gm3d_ed_step(_ed, _dt) {
 
 	__gm3d_ed_cam_fly(_ed, _vp, _dt, !_typing, _in_vp && _ed.drag_lib == undefined);
 	__gm3d_ed_cam_anim_step(_ed, _dt);
+	__gm3d_ed_grid_ensure(_ed);
 
 	__gm3d_ed_step_hotkeys(_ed, _keys, _typing);
 	__gm3d_ed_step_cancel(_ed, _keys, _typing);
@@ -610,7 +665,7 @@ function __gm3d_ed_step_rect(_ed, _vp, _mx, _my) {
 		if (!mouse_check_button(mb_left)) {
 			var _r = __gm3d_ed_rect_norm(_ed.rect);
 			if (abs(_r.x1 - _r.x0) > 6 || abs(_r.y1 - _r.y0) > 6) {
-				var _hits = __gm3d_ed_pick_rect(_ed.rt.scene.getNodes(), _vp, _r);
+				var _hits = __gm3d_ed_pick_rect(_ed, _ed.rt.scene.getNodes(), _vp, _r);
 				if (keyboard_check(vk_shift)) {
 					for (var _i = 0; _i < array_length(_hits); _i++) {
 						if (!__gm3d_ed_sel_has(_ed, _hits[_i])) {

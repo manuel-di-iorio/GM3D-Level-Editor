@@ -1,5 +1,104 @@
 /// @module gm3d_ed_scene_ops
-/// Scene operations: new, delete, duplicate, focus and drop point.
+/// Scene operations: new, delete, duplicate, focus, drop point and grid.
+///
+/// Editor grid: datafiles/grid.glb is spawned into the live scene as a
+/// transient root node (never registered in ed.tracked, so save / load /
+/// undo / outliner ignore it by construction). It is added on editor boot
+/// and on reopen, and removed on close and on cleanup so the game never
+/// sees it. Unlike the old 2D overlay it depth-tests against models.
+
+/// True when _node is the transient editor grid.
+/// Matches by reference first, then by node name: scene nodes have no
+/// stable identity across getNodes() calls (see module header in core),
+/// so reference equality alone cannot be trusted here.
+function __gm3d_ed_is_grid(_ed, _node) {
+	if (_node == undefined) {
+		return false;
+	}
+	if (_ed != undefined && variable_struct_exists(_ed, "grid_node") && _ed.grid_node != undefined) {
+		if (_node == _ed.grid_node) {
+			return true;
+		}
+	}
+	if (is_string(_node.name) && _node.name == "__editor_grid") {
+		return true;
+	}
+	return false;
+}
+
+/// Spawns the grid node when missing; removes it when show_grid is off.
+function __gm3d_ed_grid_ensure(_ed) {
+	if (_ed == undefined || _ed.rt == undefined || _ed.rt.scene == undefined) {
+		return;
+	}
+	if (!variable_struct_exists(_ed, "grid_node")) {
+		_ed.grid_node = undefined;
+	}
+	if (!variable_struct_exists(_ed, "grid_src")) {
+		_ed.grid_src = undefined;
+	}
+	if (!variable_struct_exists(_ed, "grid_mat")) {
+		_ed.grid_mat = undefined;
+	}
+	if (!variable_struct_exists(_ed, "show_grid") || !_ed.show_grid) {
+		__gm3d_ed_grid_remove(_ed);
+		return;
+	}
+	if (_ed.grid_node != undefined) {
+		return;
+	}
+	if (_ed.grid_src == undefined) {
+		var _path = working_directory + "grid.glb";
+		if (!file_exists(_path)) {
+			return;
+		}
+		var _src = GM3D_Scene.loadGltf(_path);
+		if (_src == undefined) {
+			return;
+		}
+		var _mats = _src.getMaterials();
+		for (var _i = 0; _i < array_length(_mats); ++_i) {
+			// Grid shader: same lighting as sStatic plus distance fade that
+			// dissolves far lines instead of letting them shimmer (no MSAA).
+			_mats[_i].setShader(sGrid);
+		}
+		_src.freeze();
+		_ed.grid_src = _src;
+	}
+	var _n = _ed.grid_src.spawnInto(_ed.rt.scene, undefined);
+	if (_n == undefined) {
+		return;
+	}
+	_ed.grid_node = _n;
+	var _gmats = _ed.grid_src.getMaterials();
+	_ed.grid_mat = array_length(_gmats) > 0 ? _gmats[0] : undefined;
+	__gm3d_ed_grid_bg_sync(_ed);
+	_ed.rt.scene.update(0);
+}
+
+/// Pushes the live window colour into the grid shader background uniform,
+/// so line edges always blend toward the real background.
+function __gm3d_ed_grid_bg_sync(_ed) {
+	if (_ed == undefined || !variable_struct_exists(_ed, "grid_mat") || _ed.grid_mat == undefined) {
+		return;
+	}
+	var _c = window_get_colour();
+	_ed.grid_mat.setFloatArray("u_grid_bg", [colour_get_red(_c) / 255, colour_get_green(_c) / 255, colour_get_blue(_c) / 255]);
+}
+
+/// Destroys the grid node when present (game must never see it).
+function __gm3d_ed_grid_remove(_ed) {
+	if (_ed == undefined || !variable_struct_exists(_ed, "grid_node")) {
+		return;
+	}
+	if (_ed.grid_node != undefined) {
+		_ed.grid_node.destroy();
+		_ed.grid_node = undefined;
+		if (_ed.rt != undefined && _ed.rt.scene != undefined) {
+			_ed.rt.scene.update(0);
+		}
+	}
+}
 
 /// Ground-plane drop point for the mouse (exact raycast, never 2D approx).
 function __gm3d_ed_drop_point(_ed, _vp, _mx, _my) {

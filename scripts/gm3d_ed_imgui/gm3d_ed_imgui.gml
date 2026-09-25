@@ -176,14 +176,6 @@ function __gm3d_ed_imgui_ensure(_ed) {
 		filter: "",
 		scene_filter: "",
 		ax_active: {},
-		icons: {
-			move: asset_get_index("sprUiMove"),
-			rotate: asset_get_index("sprUiRotateModel"),
-			scale: asset_get_index("sprUiScaleModel"),
-			home: asset_get_index("sprUiCenter"),
-		},
-		img_nudge: variable_struct_exists(ImGui, "GetCursorPosY") && variable_struct_exists(ImGui, "SetCursorPosY"),
-		img_frame: variable_struct_exists(ImGui, "GetFrameHeight") ? ImGui.GetFrameHeight() : 0,
 	};
 }
 
@@ -220,22 +212,11 @@ function __gm3d_ed_imgui_draw(_ed) {
 	}
 }
 
-/// Draws one toolbar tool button with an icon and a caption; highlighted while active.
-/// @param _icon resolved sprite asset (see _ed.imgui.icons).
+/// Draws one toolbar tool button with a caption; highlighted while active.
 /// @param _tip tooltip text.
-/// @param _label visible caption next to the icon.
+/// @param _label visible caption.
 /// @return True when clicked.
-function __gm3d_ed_imgui_tool_btn(_ed, _icon, _tip, _label, _active, _w = 16, _h = 16, _dy = 0) {
-	var _off = _dy;
-	if (_ed.imgui.img_frame > 0) {
-		_off += max(0, (_ed.imgui.img_frame - _h) / 2);
-	}
-	if (_ed.imgui.img_nudge && _off != 0) {
-		ImGui.SetCursorPosY(ImGui.GetCursorPosY() + _off);
-	}
-	ImGui.Image(_icon, 0, c_white, 1, _w, _h);
-	var _hov = ImGui.IsItemHovered();
-	ImGui.SameLine();
+function __gm3d_ed_imgui_tool_btn(_tip, _label, _active) {
 	var _pushed = 0;
 	if (_active) {
 		ImGui.PushStyleColor(ImGuiCol.Button, make_colour_rgb(47, 111, 237), 1);
@@ -243,7 +224,7 @@ function __gm3d_ed_imgui_tool_btn(_ed, _icon, _tip, _label, _active, _w = 16, _h
 	}
 	var _hit = ImGui.Button(_label);
 	__gm3d_ed_imgui_pop(_pushed);
-	if (_hov || ImGui.IsItemHovered()) {
+	if (ImGui.IsItemHovered()) {
 		ImGui.SetTooltip(_tip);
 	}
 	return _hit;
@@ -260,15 +241,15 @@ function __gm3d_ed_imgui_toolbar(_ed) {
 		ImGui.End();
 		return;
 	}
-	if (__gm3d_ed_imgui_tool_btn(_ed, _ed.imgui.icons.move, "Move (1)", "Move", _ed.giz.tool == Gm3dEdTool.Translate, 16, 16)) {
+	if (__gm3d_ed_imgui_tool_btn("Move (1)", "Move", _ed.giz.tool == Gm3dEdTool.Translate)) {
 		_ed.giz.tool = Gm3dEdTool.Translate;
 	}
 	ImGui.SameLine();
-	if (__gm3d_ed_imgui_tool_btn(_ed, _ed.imgui.icons.rotate, "Rotate (2)", "Rotate", _ed.giz.tool == Gm3dEdTool.Rotate)) {
+	if (__gm3d_ed_imgui_tool_btn("Rotate (2)", "Rotate", _ed.giz.tool == Gm3dEdTool.Rotate)) {
 		_ed.giz.tool = Gm3dEdTool.Rotate;
 	}
 	ImGui.SameLine();
-	if (__gm3d_ed_imgui_tool_btn(_ed, _ed.imgui.icons.scale, "Scale (3)", "Scale", _ed.giz.tool == Gm3dEdTool.Scale)) {
+	if (__gm3d_ed_imgui_tool_btn("Scale (3)", "Scale", _ed.giz.tool == Gm3dEdTool.Scale)) {
 		_ed.giz.tool = Gm3dEdTool.Scale;
 	}
 	ImGui.SameLine();
@@ -276,7 +257,9 @@ function __gm3d_ed_imgui_toolbar(_ed) {
 	ImGui.SameLine();
 	_ed.snap_on = ImGui.Checkbox("Snap", _ed.snap_on);
 	ImGui.SameLine();
-	if (__gm3d_ed_imgui_tool_btn(_ed, _ed.imgui.icons.home, "Reset camera to the initial view", "Home", false)) {
+	_ed.show_grid = ImGui.Checkbox("Grid", _ed.show_grid);
+	ImGui.SameLine();
+	if (__gm3d_ed_imgui_tool_btn("Reset camera to the initial view", "Home", false)) {
 		__gm3d_ed_cam_home(_ed);
 	}
 	ImGui.End();
@@ -510,7 +493,7 @@ function __gm3d_ed_imgui_menu(_ed) {
 		_ed.snap_rot = max(0.5, _ed.snap_rot);
 		ImGui.EndMenu();
 	}
-	if (ImGui.BeginMenu("Windows")) {
+	if (ImGui.BeginMenu("View")) {
 		if (ImGui.MenuItem(_ui.win_assets.open ? "[x] Models" : "[  ] Models")) {
 			_ui.win_assets.open = !_ui.win_assets.open;
 		}
@@ -525,6 +508,9 @@ function __gm3d_ed_imgui_menu(_ed) {
 		}
 		if (ImGui.MenuItem(_ui.win_cube.open ? "[x] View Cube" : "[  ] View Cube")) {
 			_ui.win_cube.open = !_ui.win_cube.open;
+		}
+		if (ImGui.MenuItem(_ed.show_grid ? "[x] Grid" : "[  ] Grid")) {
+			_ed.show_grid = !_ed.show_grid;
 		}
 		ImGui.Separator();
 		if (ImGui.MenuItem("Reset Layout")) {
