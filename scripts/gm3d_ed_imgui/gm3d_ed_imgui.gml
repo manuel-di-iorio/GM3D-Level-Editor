@@ -260,7 +260,7 @@ function __gm3d_ed_imgui_toolbar(_ed) {
 	_ed.show_grid = ImGui.Checkbox("Grid", _ed.show_grid);
 	ImGui.SameLine();
 	if (__gm3d_ed_imgui_tool_btn("Reset camera to the initial view", "Home", false)) {
-		__gm3d_ed_cam_home(_ed);
+		__gm3d_ed_cam_home(_ed, true);
 	}
 	ImGui.End();
 }

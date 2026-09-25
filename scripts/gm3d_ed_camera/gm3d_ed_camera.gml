@@ -24,19 +24,35 @@ function __gm3d_ed_cam_remember(_ed) {
 	_ed.cam_home = { pos: [_p.x, _p.y, _p.z], rot: [_q.x, _q.y, _q.z, _q.w] };
 }
 
-/// Restores the boot camera pose.
-function __gm3d_ed_cam_home(_ed) {
+/// Restores the boot camera pose, instantly or gliding like viewcube snaps.
+/// @param {Bool} _smooth true glides over 0.5s via cam_anim, false snaps
+function __gm3d_ed_cam_home(_ed, _smooth = false) {
 	if (_ed == undefined || _ed.cam_home == undefined || _ed.rt == undefined || _ed.rt.cam == undefined) {
 		return;
 	}
 	var _h = _ed.cam_home;
-	_ed.rt.cam.setLocalPosition(new GM3D_Vec3(_h.pos[0], _h.pos[1], _h.pos[2]));
-	var _q = new GM3D_Quaternion();
-	_q.x = _h.rot[0];
-	_q.y = _h.rot[1];
-	_q.z = _h.rot[2];
-	_q.w = _h.rot[3];
-	_ed.rt.cam.setLocalRotation(_q);
+	var _tp = new GM3D_Vec3(_h.pos[0], _h.pos[1], _h.pos[2]);
+	var _tq = new GM3D_Quaternion();
+	_tq.x = _h.rot[0];
+	_tq.y = _h.rot[1];
+	_tq.z = _h.rot[2];
+	_tq.w = _h.rot[3];
+	if (!_smooth) {
+		_ed.rt.cam.setLocalPosition(_tp);
+		_ed.rt.cam.setLocalRotation(_tq);
+		_ed.cam_anim = undefined;
+		return;
+	}
+	var _pp = _ed.rt.cam.getLocalPosition();
+	var _cq = _ed.rt.cam.getLocalRotation();
+	_ed.cam_anim = {
+		t: 0,
+		dur: 0.5,
+		q0: [_cq.x, _cq.y, _cq.z, _cq.w],
+		q1: [_tq.x, _tq.y, _tq.z, _tq.w],
+		p0: [_pp.x, _pp.y, _pp.z],
+		p1: [_tp.x, _tp.y, _tp.z],
+	};
 }
 
 /// Applies orbit deltas to the camera node.
