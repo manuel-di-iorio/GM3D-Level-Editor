@@ -141,8 +141,11 @@ function __gm3d_ed_set_active(_ed, _on) {
 	var _was = _ed.active;
 	_ed.active = _on;
 	global.gm3d_editor_active = _on;
-	if (_was && !_on && variable_struct_exists(_ed.rt, "on_close")) {
-		_ed.rt.on_close(_ed.inst);
+	if (_was && !_on) {
+		__gm3d_ed_cam_home(_ed);
+		if (variable_struct_exists(_ed.rt, "on_close")) {
+			_ed.rt.on_close(_ed.inst);
+		}
 	}
 }
 
