@@ -166,7 +166,7 @@ function __gm3d_ed_gizmo_hover(_ed, _vp, _mx, _my) {
 		}
 	}
 	var _best = -1;
-	var _bestD = 529.0;
+	var _bestD = 400.0; // 20px squared axis grab distance
 	for (var _a = 0; _a < 3; _a++) {
 		var _d;
 		if (_ed.giz.tool == Gm3dEdTool.Rotate) {
@@ -709,6 +709,7 @@ function __gm3d_ed_draw_selbox(_node, _vp, _ed) {
 		[3, 7],
 	];
 	var _col = make_colour_rgb(255, 220, 80);
+	draw_set_alpha(0.4);
 	for (var _e = 0; _e < 12; _e++) {
 		var _a = _scr[_edges[_e][0]];
 		var _b = _scr[_edges[_e][1]];
@@ -716,4 +717,5 @@ function __gm3d_ed_draw_selbox(_node, _vp, _ed) {
 			__gm3d_ed_vp_line(_ed, _a[0], _a[1], _b[0], _b[1], 1.5, _col);
 		}
 	}
+	draw_set_alpha(1);
 }
