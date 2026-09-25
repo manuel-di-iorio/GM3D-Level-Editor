@@ -431,7 +431,7 @@ function __gm3d_ed_gizmo_draw_axes(_ed, _vp, _pivot, _ps, _dirs, _ws, _cols, _hl
 		var _al = 1;
 		if (_ed.giz.drag != -1 && !_mine) {
 			_bcol = merge_colour(_bcol, c_white, 0.6);
-			_al = 0.45;
+			_al = 0.2;
 		}
 		if (_ed.giz.tool == Gm3dEdTool.Translate) {
 			var _e = __gm3d_ed_world_to_screen(
@@ -463,9 +463,11 @@ function __gm3d_ed_gizmo_draw_axes(_ed, _vp, _pivot, _ps, _dirs, _ws, _cols, _hl
 		} else if (_ed.giz.tool == Gm3dEdTool.Rotate) {
 			var _pts = __gm3d_ed_gizmo_ring_pts(_vp, _pivot, _dirs[_a], _ws);
 			var _th = _ed.giz.hover == _a || _ed.giz.drag == _a ? 3 : 2;
+			draw_set_alpha(_al);
 			for (var _p = 0; _p < array_length(_pts) - 1; _p++) {
 				__gm3d_ed_vp_line(_ed, _pts[_p][0], _pts[_p][1], _pts[_p + 1][0], _pts[_p + 1][1], _th, _bcol);
 			}
+			draw_set_alpha(1);
 		}
 	}
 }
@@ -477,9 +479,15 @@ function __gm3d_ed_gizmo_draw_viewring(_ed, _vp, _pivot, _look, _ws) {
 		var _vh = _ed.giz.hover == 6 || _ed.giz.drag == 6;
 		var _vth = _vh ? 3 : 2;
 		var _vcol = _vh ? c_yellow : c_white;
+		var _val = 1;
+		if (_ed.giz.drag != -1 && _ed.giz.drag != 6) {
+			_val = 0.2;
+		}
+		draw_set_alpha(_val);
 		for (var _v = 0; _v < array_length(_vpts) - 1; _v++) {
 			__gm3d_ed_vp_line(_ed, _vpts[_v][0], _vpts[_v][1], _vpts[_v + 1][0], _vpts[_v + 1][1], _vth, _vcol);
 		}
+		draw_set_alpha(1);
 	}
 }
 
@@ -491,7 +499,7 @@ function __gm3d_ed_gizmo_draw_center(_ed, _ps) {
 		var _bal = 1;
 		if (_ed.giz.drag != -1 && _ed.giz.drag != -2) {
 			_bcol = make_colour_rgb(200, 200, 200);
-			_bal = 0.45;
+			_bal = 0.2;
 		}
 		var _br = _bhov ? 6 : 4;
 		var _brim = merge_colour(_bcol, c_black, 0.35);
