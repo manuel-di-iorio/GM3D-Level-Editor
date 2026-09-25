@@ -53,6 +53,22 @@ function __gm3d_ed_new_scene(_ed) {
 	_ed.scene_file = "";
 }
 
+/// Drops unsaved session edits, restoring the last saved state.
+/// Reloads from disk when a scene file exists, else clears to empty.
+/// On reload failure the live scene is kept (no data loss).
+/// Used by "Don't save" on close; new/load rebuild by themselves.
+function __gm3d_ed_discard_changes(_ed) {
+	var _path = __gm3d_ed_scene_path(_ed);
+	if (_path != "" && file_exists(_path)) {
+		if (__gm3d_ed_load_scene(_ed)) {
+			__gm3d_ed_sel_clear(_ed);
+			__gm3d_ed_history_clear(_ed);
+		}
+		return;
+	}
+	__gm3d_ed_new_scene(_ed);
+}
+
 /// Deletes the current selection; undoable.
 function __gm3d_ed_delete_sel(_ed) {
 	if (array_length(_ed.sel) == 0) {

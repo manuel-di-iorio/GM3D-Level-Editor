@@ -260,7 +260,7 @@ function __gm3d_ed_imgui_toolbar(_ed) {
 		ImGui.End();
 		return;
 	}
-	if (__gm3d_ed_imgui_tool_btn(_ed, _ed.imgui.icons.move, "Move (1)", "Move", _ed.giz.tool == Gm3dEdTool.Translate, 16, 16, 2)) {
+	if (__gm3d_ed_imgui_tool_btn(_ed, _ed.imgui.icons.move, "Move (1)", "Move", _ed.giz.tool == Gm3dEdTool.Translate, 16, 16)) {
 		_ed.giz.tool = Gm3dEdTool.Translate;
 	}
 	ImGui.SameLine();
@@ -364,6 +364,9 @@ function __gm3d_ed_imgui_confirm(_ed) {
 	}
 	ImGui.SameLine();
 	if (ImGui.Button("Don't save", 0, 0)) {
+		if (_c.action == "close") {
+			__gm3d_ed_discard_changes(_ed);
+		}
 		__gm3d_ed_confirm_do(_ed, _c.action);
 		_ed.confirm = undefined;
 	}
