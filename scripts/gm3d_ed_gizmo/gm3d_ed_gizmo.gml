@@ -27,18 +27,12 @@ function __gm3d_ed_gizmo_dirs(_ed) {
 	return [new GM3D_Vec3(1, 0, 0), GM3D_Vec3.up(), GM3D_Vec3.forward()];
 }
 
-/// Cached world handle length for the current selection.
+/// World handle length for the current selection.
+/// Recomputed every frame from the camera distance so the gizmo keeps a
+/// constant screen size (ed.giz.size pixels): it never looks smaller from
+/// far away or bigger from up close.
 function __gm3d_ed_gizmo_len(_ed, _vp, _pivot) {
-	var _key = "";
-	for (var _i = 0; _i < array_length(_ed.sel); _i++) {
-		_key += _ed.sel[_i].name + "|";
-	}
-	var _g = _ed.giz;
-	if (_g.len_key == undefined || _g.len_key != _key) {
-		_g.len_key = _key;
-		_g.len = __gm3d_ed_gizmo_world_size(_vp, _pivot, _g.size);
-	}
-	return _g.len;
+	return __gm3d_ed_gizmo_world_size(_vp, _pivot, _ed.giz.size);
 }
 
 /// World size matching a screen length in pixels.
@@ -118,17 +112,40 @@ function __gm3d_ed_gizmo_ring_pts(_vp, _pivot, _axis, _ws) {
 	return _pts;
 }
 
+/// Normalized pivot-to-camera vector, or undefined when unavailable.
+function __gm3d_ed_gizmo_cam_view(_vp, _pivot) {
+	if (_vp == undefined || _vp.camNode == undefined || _pivot == undefined) {
+		return undefined;
+	}
+	var _cp = _vp.camNode.getWorldPosition();
+	var _view = new GM3D_Vec3(_cp.x - _pivot.x, _cp.y - _pivot.y, _cp.z - _pivot.z);
+	_view.normalizeSafe(0.000001);
+	return _view;
+}
+
 /// Quad corners of the translate plane opposite one axis.
-function __gm3d_ed_gizmo_quad(_pivot, _dirs, _a, _h) {
+/// Each span arm is flipped toward the camera (like UeTransformControls
+/// _getAxisVector) so the quad always sits in the camera-facing octant.
+function __gm3d_ed_gizmo_quad(_pivot, _dirs, _a, _h, _view = undefined) {
 	var _b = (_a + 1) mod 3;
 	var _c = (_a + 2) mod 3;
+	var _sb = 1.0;
+	var _sc = 1.0;
+	if (_view != undefined) {
+		if (_dirs[_b].dot(_view) < 0) {
+			_sb = -1.0;
+		}
+		if (_dirs[_c].dot(_view) < 0) {
+			_sc = -1.0;
+		}
+	}
 	var _pb = _pivot.clone();
-	_pb.addScaledVector(_dirs[_b], _h);
+	_pb.addScaledVector(_dirs[_b], _h * _sb);
 	var _pc = _pivot.clone();
-	_pc.addScaledVector(_dirs[_c], _h);
+	_pc.addScaledVector(_dirs[_c], _h * _sc);
 	var _pbc = _pivot.clone();
-	_pbc.addScaledVector(_dirs[_b], _h);
-	_pbc.addScaledVector(_dirs[_c], _h);
+	_pbc.addScaledVector(_dirs[_b], _h * _sb);
+	_pbc.addScaledVector(_dirs[_c], _h * _sc);
 	return [_pivot, _pb, _pbc, _pc];
 }
 
@@ -150,19 +167,72 @@ function __gm3d_ed_gizmo_hover(_ed, _vp, _mx, _my) {
 	}
 	var _dirs = __gm3d_ed_gizmo_dirs(_ed);
 	var _ws = __gm3d_ed_gizmo_len(_ed, _vp, _pivot);
+	var _qview = __gm3d_ed_gizmo_cam_view(_vp, _pivot);
 	var _f = __gm3d_ed_view_forward(_ed);
 	var _look = new GM3D_Vec3(-_f.x, -_f.y, -_f.z);
 	if (_ed.giz.tool == Gm3dEdTool.Translate) {
+		// Quad priority over axes: exact hits first (best = largest screen
+		// area, i.e. most facing the camera), then a small padded border so
+		// edge clicks near an axis shaft still grab the quad.
+		var _qb = -1;
+		var _qb_area = -1;
 		for (var _q = 0; _q < 3; _q++) {
-			var _sp = __gm3d_ed_clip_screen_poly(_vp, __gm3d_ed_gizmo_quad(_pivot, _dirs, _q, _ws * 0.3));
+			var _sp = __gm3d_ed_clip_screen_poly(_vp, __gm3d_ed_gizmo_quad(_pivot, _dirs, _q, _ws * 0.3, _qview));
 			if (array_length(_sp) < 3) {
 				continue;
 			}
+			var _inside = false;
 			for (var _t = 1; _t < array_length(_sp) - 1; _t++) {
 				if (__gm3d_ed_tri_hit(_mx, _my, _sp[0][0], _sp[0][1], _sp[_t][0], _sp[_t][1], _sp[_t + 1][0], _sp[_t + 1][1])) {
-					return 3 + _q;
+					_inside = true;
+					break;
 				}
 			}
+			if (!_inside) {
+				continue;
+			}
+			var _area = 0;
+			var _nq = array_length(_sp);
+			for (var _e = 0; _e < _nq; _e++) {
+				var _p0 = _sp[_e];
+				var _p1 = _sp[(_e + 1) mod _nq];
+				_area += _p0[0] * _p1[1] - _p1[0] * _p0[1];
+			}
+			_area = abs(_area) * 0.5;
+			if (_area > _qb_area) {
+				_qb_area = _area;
+				_qb = _q;
+			}
+		}
+		if (_qb != -1) {
+			return 3 + _qb;
+		}
+		// Padded border pass: still quad priority over the 20px axis grab.
+		var _pad2 = 36.0; // 6px squared
+		var _pb = -1;
+		var _pb_d = 1000000000;
+		for (var _q2 = 0; _q2 < 3; _q2++) {
+			var _sp2 = __gm3d_ed_clip_screen_poly(_vp, __gm3d_ed_gizmo_quad(_pivot, _dirs, _q2, _ws * 0.3, _qview));
+			var _n2 = array_length(_sp2);
+			if (_n2 < 3) {
+				continue;
+			}
+			var _dmin = 1000000000;
+			for (var _e2 = 0; _e2 < _n2; _e2++) {
+				var _a2 = _sp2[_e2];
+				var _b2 = _sp2[(_e2 + 1) mod _n2];
+				var _dd = __gm3d_ed_point_seg_dist2(_mx, _my, _a2[0], _a2[1], _b2[0], _b2[1]);
+				if (_dd < _dmin) {
+					_dmin = _dd;
+				}
+			}
+			if (_dmin <= _pad2 && _dmin < _pb_d) {
+				_pb_d = _dmin;
+				_pb = _q2;
+			}
+		}
+		if (_pb != -1) {
+			return 3 + _pb;
 		}
 	}
 	var _best = -1;
@@ -395,8 +465,9 @@ function __gm3d_ed_gizmo_draw_selboxes(_ed, _vp) {
 /// Draws translate plane quads.
 function __gm3d_ed_gizmo_draw_translate_quads(_ed, _vp, _pivot, _dirs, _ws, _cols, _hls) {
 	if (_ed.giz.tool == Gm3dEdTool.Translate) {
+		var _qview = __gm3d_ed_gizmo_cam_view(_vp, _pivot);
 		for (var _qa = 0; _qa < 3; _qa++) {
-			var _qp = __gm3d_ed_clip_screen_poly(_vp, __gm3d_ed_gizmo_quad(_pivot, _dirs, _qa, _ws * 0.3));
+			var _qp = __gm3d_ed_clip_screen_poly(_vp, __gm3d_ed_gizmo_quad(_pivot, _dirs, _qa, _ws * 0.3, _qview));
 			if (array_length(_qp) < 3) {
 				continue;
 			}

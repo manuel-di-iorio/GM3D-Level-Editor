@@ -369,7 +369,7 @@ function __gm3d_ed_create(_inst, _rt) {
 			tool: Gm3dEdTool.Translate,
 			hover: -1,
 			drag: -1,
-			size: 90,
+			size: 120,
 			starts: [],
 			pivot: undefined,
 			dir: undefined,
