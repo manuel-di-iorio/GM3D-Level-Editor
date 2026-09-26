@@ -17,9 +17,7 @@ for (var _i = 0, _n = array_length(_lib); _i < _n; _i++) {
 	gm3d_editor_asset_add(ed, _model[0], demo_load_model(id, _model[1]));
 }
 
-// The demo light and environment join the editor like any other node:
-// they show in Scene, save to JSON and undo. The demo camera stays the
-// editor viewport camera (never tracked, never saved).
+// The demo light and environment join the editor like any other node
 gm3d_editor_light_add(ed, id.lightNode, "Sun");
 gm3d_editor_environment_add(ed, id.envNode, "Environment");
 
