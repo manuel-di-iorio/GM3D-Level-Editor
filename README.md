@@ -60,6 +60,7 @@ While the editor is open it owns the camera and the scene: pause your own simula
 
 ```json
 {
+  "kind": "asset",
   "asset": "Tree",
   "name": "Tree 2",
   "position": [1.0, 0.0, 2.0],

@@ -21,6 +21,7 @@ function __gm3d_ed_node_to_descriptor(_ed, _node) {
 	var _ad = __gm3d_ed_asset_desc(_ed, _node);
 	if (_ad != undefined) {
 		return {
+			kind: "asset",
 			asset: _ad.asset,
 			name: _ad.name,
 			position: _ad.position,
@@ -90,6 +91,14 @@ function __gm3d_ed_validate_descs(_nodes) {
 		if (!variable_struct_exists(_d, "name") || !is_string(_d.name)) {
 			return false;
 		}
+		// kind is new: missing means legacy asset descriptor (version 1 files
+		// written before kind existed). When present it must be "asset" until
+		// light/camera/environment kinds land (see docs/plans).
+		if (variable_struct_exists(_d, "kind")) {
+			if (!is_string(_d.kind) || _d.kind != "asset") {
+				return false;
+			}
+		}
 		if (!__gm3d_ed_is_num3(_d, "position") || !__gm3d_ed_is_num4(_d, "rotation") || !__gm3d_ed_is_num3(_d, "scale")) {
 			return false;
 		}
@@ -142,6 +151,14 @@ function __gm3d_ed_rebuild(_ed, _nodes) {
 	}
 	for (var _i = 0; _i < array_length(_placementData); ++_i) {
 		var _p = _placementData[_i];
+		// Legacy files have no kind: treat missing kind as "asset".
+		var _kind = "asset";
+		if (variable_struct_exists(_p, "kind")) {
+			_kind = _p.kind;
+		}
+		if (_kind != "asset") {
+			throw "unknown kind '" + string(_kind) + "'";
+		}
 		var _akey = _p.name;
 		if (_p.asset != undefined) {
 			_akey = _p.asset;
