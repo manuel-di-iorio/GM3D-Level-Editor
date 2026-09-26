@@ -16,7 +16,7 @@ function __gm3d_ed_history_snap(_ed) {
 	var _nodes = __gm3d_ed_serialize_scene(_ed);
 	var _sel = [];
 	for (var _i = 0; _i < array_length(_ed.sel); _i++) {
-		var _d = __gm3d_ed_asset_desc(_ed, _ed.sel[_i]);
+		var _d = __gm3d_ed_node_desc(_ed, _ed.sel[_i]);
 		if (_d != undefined) {
 			array_push(_sel, _d);
 		}
@@ -47,7 +47,19 @@ function __gm3d_ed_history_commit(_ed, _before) {
 
 /// True when two placement descriptors match within float tolerance.
 function __gm3d_ed_desc_match(_a, _b) {
-	if (_a.asset != _b.asset || _a.name != _b.name) {
+	var _ka = variable_struct_exists(_a, "kind") ? _a.kind : "asset";
+	var _kb = variable_struct_exists(_b, "kind") ? _b.kind : "asset";
+	if (_ka != _kb) {
+		return false;
+	}
+	if (_ka == "asset") {
+		var _aa = variable_struct_exists(_a, "asset") ? _a.asset : _a.name;
+		var _ab = variable_struct_exists(_b, "asset") ? _b.asset : _b.name;
+		if (_aa != _ab) {
+			return false;
+		}
+	}
+	if (_a.name != _b.name) {
 		return false;
 	}
 	var _t = 0.0001;
@@ -89,7 +101,7 @@ function __gm3d_ed_history_restore_sel(_ed, _sel_descs) {
 				if (_used[_j]) {
 					continue;
 				}
-				var _d = __gm3d_ed_asset_desc(_ed, _roots[_j]);
+				var _d = __gm3d_ed_node_desc(_ed, _roots[_j]);
 				if (_d == undefined) {
 					continue;
 				}

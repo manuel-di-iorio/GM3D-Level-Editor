@@ -60,7 +60,7 @@ function __gm3d_ed_grid_ensure(_ed) {
 		for (var _i = 0; _i < array_length(_mats); ++_i) {
 			// Grid shader: same lighting as sStatic plus distance fade that
 			// dissolves far lines instead of letting them shimmer (no MSAA).
-			_mats[_i].setShader(sGrid);
+			_mats[_i].setShader(shGM3DGrid);
 		}
 		_src.freeze();
 		_ed.grid_src = _src;
@@ -206,6 +206,14 @@ function __gm3d_ed_duplicate_sel(_ed) {
 	var _off = _ed.cfg.duplicate_offset;
 	for (var _i = 0; _i < _n; _i++) {
 		var _s = _ed.sel[_i];
+		var _kind = __gm3d_ed_kind_of(_ed, _s);
+		if (_kind == "light" || _kind == "camera" || _kind == "environment") {
+			var _c = __gm3d_ed_duplicate_prop(_ed, _s, _kind, _off);
+			if (_c != undefined) {
+				array_push(_out, _c);
+			}
+			continue;
+		}
 		var _aname = __gm3d_ed_asset_name(_ed, _s);
 		if (_aname == undefined) {
 			continue;
@@ -238,6 +246,70 @@ function __gm3d_ed_duplicate_sel(_ed) {
 	if (_before != undefined) {
 		__gm3d_ed_history_commit(_ed, _before);
 	}
+}
+
+/// Duplicates one light/camera/environment node with an offset; undoable via caller.
+/// @return New node or undefined.
+function __gm3d_ed_duplicate_prop(_ed, _src, _kind, _off) {
+	var _en = __gm3d_ed_registry_find(_ed, _src);
+	if (_en == undefined || !is_struct(_en.data)) {
+		return undefined;
+	}
+	var _lbl = __gm3d_ed_fresh_label(_ed, __gm3d_ed_label_get(_ed, _src));
+	var _node = _ed.rt.scene.createNode(_lbl);
+	if (_node == undefined) {
+		return undefined;
+	}
+	var _sp = _src.getLocalPosition();
+	_node.setLocalPosition(new GM3D_Vec3(_sp.x + _off, _sp.y, _sp.z + _off));
+	_node.setLocalScale(_src.getLocalScale().clone());
+	_node.setLocalRotation(_src.getLocalRotation().clone());
+	var _data = undefined;
+	if (_kind == "light") {
+		var _lc = new GM3D_LightComponent();
+		_node.addComponent(_lc);
+		_data = {
+			type: _en.data.type,
+			color: [_en.data.color[0], _en.data.color[1], _en.data.color[2]],
+			intensity: _en.data.intensity,
+			range: _en.data.range,
+			inner: _en.data.inner,
+			outer: _en.data.outer,
+			enabled: _en.data.enabled == true,
+		};
+		__gm3d_ed_light_apply(_node, _data);
+	} else if (_kind == "camera") {
+		var _cc = new GM3D_CameraComponent();
+		_node.addComponent(_cc);
+		_data = {
+			projection: _en.data.projection,
+			fov: _en.data.fov,
+			ow: _en.data.ow,
+			oh: _en.data.oh,
+			near: _en.data.near,
+			far: _en.data.far,
+			enabled: _en.data.enabled == true,
+		};
+		__gm3d_ed_camera_apply(_node, _data);
+	} else {
+		var _ec = new GM3D_EnvironmentVolumeComponent();
+		_node.addComponent(_ec);
+		_data = {
+			size: [_en.data.size[0], _en.data.size[1], _en.data.size[2]],
+			ambient: [_en.data.ambient[0], _en.data.ambient[1], _en.data.ambient[2]],
+			fog: _en.data.fog == true,
+			fogcolor: [_en.data.fogcolor[0], _en.data.fogcolor[1], _en.data.fogcolor[2]],
+			fogstart: _en.data.fogstart,
+			fogend: _en.data.fogend,
+			enabled: _en.data.enabled == true,
+		};
+		__gm3d_ed_env_apply(_node, _data);
+	}
+	_ed.rt.scene.update(0);
+	var _pp = _node.getLocalPosition();
+	__gm3d_ed_kind_register(_ed, _node, _kind, "", [_pp.x, _pp.y, _pp.z], _lbl, _data);
+	__gm3d_ed_cameras_mute(_ed);
+	return _node;
 }
 
 /// Returns the focus target for the current selection.

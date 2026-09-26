@@ -16,6 +16,7 @@ function gm3d_editor_init(_self, _rt) {
 	__gm3d_ed_ui_load(_ed);
 	__gm3d_ed_bg_apply(_ed);
 	__gm3d_ed_grid_ensure(_ed);
+	__gm3d_ed_cameras_mute(_ed);
 	global.gm3d_editor_active = _ed.active;
 	global.gm3d_editor_inst = _ed;
 	return _ed;
@@ -88,6 +89,7 @@ function gm3d_editor_draw(_ed) {
 			}
 		}
 		__gm3d_ed_gizmo_draw(_ed, _vp);
+		__gm3d_ed_overlay_draw(_ed, _vp);
 		__gm3d_ed_viewcube_draw(_ed, _vp);
 	}
 	if (!_ed.active) {
@@ -106,6 +108,7 @@ function gm3d_editor_draw(_ed) {
 function gm3d_editor_cleanup(_ed) {
 	__gm3d_ed_ui_save(_ed);
 	__gm3d_ed_bg_restore(_ed);
+	__gm3d_ed_cameras_restore(_ed);
 	__gm3d_ed_grid_remove(_ed);
 	_ed.grid_mat = undefined;
 	if (_ed != undefined && variable_struct_exists(_ed, "grid_src") && _ed.grid_src != undefined) {
@@ -187,6 +190,7 @@ function __gm3d_ed_set_active(_ed, _on) {
 	if (_was && !_on) {
 		__gm3d_ed_bg_restore(_ed);
 		__gm3d_ed_grid_remove(_ed);
+		__gm3d_ed_cameras_restore(_ed);
 		__gm3d_ed_cam_home(_ed);
 		if (variable_struct_exists(_ed.rt, "on_close")) {
 			_ed.rt.on_close(_ed.inst);
@@ -194,6 +198,7 @@ function __gm3d_ed_set_active(_ed, _on) {
 	} else if (!_was && _on) {
 		__gm3d_ed_bg_apply(_ed);
 		__gm3d_ed_grid_ensure(_ed);
+		__gm3d_ed_cameras_mute(_ed);
 	}
 }
 
@@ -322,7 +327,8 @@ function gm3d_editor_load(_fname) {
 	return false;
 }
 
-/// Clears to an empty scene, keeping environment, light and camera.
+/// Clears to an empty scene. Lights, cameras and the environment are tracked
+/// nodes like models, so new scene removes them as well.
 function gm3d_editor_new_scene() {
 	var _e = gm3d_editor_inst();
 	if (_e == undefined) {
@@ -524,6 +530,9 @@ function __gm3d_ed_step_hotkeys(_ed, _keys, _typing) {
 				var _hb = undefined;
 				_hb = __gm3d_ed_history_snap(_ed);
 				for (var _ni = 0; _ni < array_length(_ed.sel); _ni++) {
+					if (!__gm3d_ed_tool_allowed(_ed, _ed.sel[_ni], Gm3dEdTool.Translate) || __gm3d_ed_hidden_get(_ed, _ed.sel[_ni])) {
+						continue;
+					}
 					var _np = _ed.sel[_ni].getLocalPosition();
 					_ed.sel[_ni].setLocalPosition(new GM3D_Vec3(_np.x + _njx * _nst, _np.y, _np.z + _njz * _nst));
 				}

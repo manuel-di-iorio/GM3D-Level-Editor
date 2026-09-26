@@ -1,11 +1,13 @@
 /// @module gm3d_ed_imgui
 /// ImGui shell with toolbar, menu, assets, scene, inspector and confirm dialog.
-/// Binding notes (GMRT ImGui, from ImGUI.yyb metadata): image widgets take a
-/// sprite via asset_get_index (a bare asset constant crashes the runner),
+/// Binding notes (GMRT ImGui, from ImGUI.yyb metadata + YoYoGames/ImGUI-Sample):
+/// image widgets take a sprite via asset_get_index (a bare asset constant crashes the runner),
 /// only raster sprites work (vector sprites crash), and the signatures are
 /// Image(sprite, subImage, colour, alpha, width, height, uvs) and
 /// ImageButton(strID, sprite, subImage, colour, alpha, colourBG, alphaBG,
-/// width, height, uvs).
+/// width, height, uvs). Width/height 0 means native sprite size; OMIT uvs for
+/// the full sprite (passing undefined throws; [0,0,1,1] samples the whole
+/// texture page).
 
 /// True when a GUI point falls on the 3D viewport (not above ImGui windows).
 function __gm3d_ed_in_viewport(_ed, _mx, _my) {
@@ -176,6 +178,8 @@ function __gm3d_ed_imgui_ensure(_ed) {
 		filter: "",
 		scene_filter: "",
 		ax_active: {},
+		flt_active: {},
+		show_kind: { m: true, l: true, c: true, e: true },
 	};
 }
 
@@ -378,7 +382,8 @@ function __gm3d_ed_imgui_place(_ed) {
 	var _lw = 250;
 	var _lh = clamp((_gh - _top - 16) * 0.55, 220, 640);
 	var _iw = 280;
-	var _ih = 125;
+	// Transform + one kind section (light/camera/env); ImGui scrolls the rest.
+	var _ih = clamp((_gh - _top - 16) * 0.4, 220, 360);
 	return {
 		assets: { x: 8, y: _top, w: _lw, h: _lh },
 		scn: { x: 8, y: _top + _lh + _gap, w: _lw, h: max(140, _gh - (_top + _lh + _gap) - 8) },
@@ -491,6 +496,35 @@ function __gm3d_ed_imgui_menu(_ed) {
 		_ed.snap_pos = max(0.01, _ed.snap_pos);
 		_ed.snap_rot = ImGui.InputFloat("Snap rot", _ed.snap_rot, 1, 5);
 		_ed.snap_rot = max(0.5, _ed.snap_rot);
+		ImGui.EndMenu();
+	}
+	if (ImGui.BeginMenu("Create")) {
+		if (ImGui.MenuItem("Directional Light")) {
+			__gm3d_ed_create_light(_ed, "directional");
+		}
+		if (ImGui.MenuItem("Point Light")) {
+			__gm3d_ed_create_light(_ed, "point");
+		}
+		// SPOT DISABLED: the GMRT pipeline exposes no cone uniforms, so spot
+		// lights render as points. Re-enable when the runtime supports them.
+		// if (ImGui.MenuItem("Spot Light")) {
+		// 	__gm3d_ed_create_light(_ed, "spot");
+		// }
+		ImGui.Separator();
+		if (ImGui.MenuItem("Perspective Camera")) {
+			__gm3d_ed_create_camera(_ed, "perspective");
+		}
+		if (ImGui.MenuItem("Ortho Camera")) {
+			__gm3d_ed_create_camera(_ed, "ortho");
+		}
+		ImGui.Separator();
+		if (__gm3d_ed_env_node(_ed) == undefined) {
+			if (ImGui.MenuItem("Environment")) {
+				__gm3d_ed_create_env(_ed);
+			}
+		} else {
+			ImGui.TextDisabled("Environment (already in scene)");
+		}
 		ImGui.EndMenu();
 	}
 	if (ImGui.BeginMenu("View")) {
@@ -626,10 +660,63 @@ function __gm3d_ed_imgui_inspector(_ed) {
 	} else {
 		var _title = _n == 1 ? __gm3d_ed_label_get(_ed, _ed.sel[0]) : string(_n) + " objects";
 		ImGui.Text(_title);
-		ImGui.Separator();
-		__gm3d_ed_imgui_axis_row(_ed, 0, "Position");
-		__gm3d_ed_imgui_axis_row(_ed, 1, "Rotation");
-		__gm3d_ed_imgui_axis_row(_ed, 2, "Scale");
+		var _skind = undefined;
+		var _stype = undefined;
+		if (_n == 1) {
+			_skind = __gm3d_ed_kind_of(_ed, _ed.sel[0]);
+			if (_skind == "light") {
+				var _sen0 = __gm3d_ed_registry_find(_ed, _ed.sel[0]);
+				if (_sen0 != undefined && is_struct(_sen0.data) && is_string(_sen0.data.type)) {
+					_stype = _sen0.data.type;
+				}
+			}
+		}
+		// Transform rows that cannot affect the node are hidden entirely:
+		// directional shows rotation only, point shows position only,
+		// cameras and spots show position + rotation, environment none.
+		var _show_p = true;
+		var _show_r = true;
+		var _show_s = true;
+		if (_n == 1 && _skind != undefined && _skind != "asset") {
+			if (_skind == "environment") {
+				_show_p = false;
+				_show_r = false;
+				_show_s = false;
+			} else if (_skind == "camera") {
+				_show_s = false;
+			} else if (_skind == "light") {
+				_show_s = false;
+				if (_stype == "directional") {
+					_show_p = false;
+				} else if (_stype == "point") {
+					_show_r = false;
+				}
+			}
+		}
+		if (_show_p || _show_r || _show_s) {
+			ImGui.Separator();
+		}
+		if (_show_p) {
+			__gm3d_ed_imgui_axis_row(_ed, 0, "Position");
+		}
+		if (_show_r) {
+			__gm3d_ed_imgui_axis_row(_ed, 1, "Rotation");
+		}
+		if (_show_s) {
+			__gm3d_ed_imgui_axis_row(_ed, 2, "Scale");
+		}
+		if (_n == 1 && _skind != undefined && _skind != "asset") {
+			var _sen = __gm3d_ed_registry_find(_ed, _ed.sel[0]);
+			if (_sen != undefined && is_struct(_sen.data)) {
+				if (_skind == "light") {
+					__gm3d_ed_imgui_light_sec(_ed, _ed.sel[0], _sen);
+				} else if (_skind == "camera") {
+					__gm3d_ed_imgui_camera_sec(_ed, _ed.sel[0], _sen);
+				} else if (_skind == "environment") {
+					__gm3d_ed_imgui_env_sec(_ed, _ed.sel[0], _sen);
+				}
+			}
+		}
 	}
 	ImGui.End();
 }
@@ -671,6 +758,343 @@ function __gm3d_ed_imgui_axis_row(_ed, _mode, _label) {
 		}
 	}
 	ImGui.PopID();
+}
+
+/// Float field with commit-on-defocus for prop sections.
+/// @return Committed value, or undefined when untouched.
+function __gm3d_ed_imgui_prop_float(_ed, _key, _label, _val, _w) {
+	if (_ed.imgui == undefined) {
+		__gm3d_ed_imgui_ensure(_ed);
+	}
+	if (!variable_struct_exists(_ed.imgui, "flt_active")) {
+		_ed.imgui.flt_active = {};
+	}
+	ImGui.SetNextItemWidth(_w);
+	var _nv = ImGui.InputFloat(_label, _val, 0, 0);
+	var _now = ImGui.IsItemActive();
+	var _was = _ed.imgui.flt_active[$ _key] == true;
+	_ed.imgui.flt_active[$ _key] = _now;
+	if (_was && !_now && _nv != _val) {
+		return _nv;
+	}
+	return undefined;
+}
+
+/// Finishes a prop edit: re-points tracked rows and commits undo.
+/// @param _hb before-snapshot from __gm3d_ed_history_snap.
+function __gm3d_ed_props_end(_ed, _hb) {
+	__gm3d_ed_rows_follow(_ed, _ed.sel);
+	if (_hb != undefined) {
+		__gm3d_ed_history_commit(_ed, _hb);
+	}
+}
+
+/// True when the ImGui binding exposes a widget (probed once, then cached).
+/// Guards widgets that exist in docs but may miss from the GMRT binding
+/// (e.g. SeparatorText): never call an unprobed widget directly.
+function __gm3d_ed_imgui_has_widget(_ed, _name) {
+	if (_ed.imgui == undefined) {
+		__gm3d_ed_imgui_ensure(_ed);
+	}
+	if (!variable_struct_exists(_ed.imgui, "widget_probe")) {
+		_ed.imgui.widget_probe = {};
+	}
+	if (variable_struct_exists(_ed.imgui.widget_probe, _name)) {
+		return _ed.imgui.widget_probe[$ _name] == true;
+	}
+	var _ok = false;
+	try {
+		var _f = ImGui[$ _name];
+		_ok = (_f != undefined);
+	} catch (_e) {
+		_ok = false;
+	}
+	_ed.imgui.widget_probe[$ _name] = _ok;
+	return _ok;
+}
+
+/// RGB row with commit-on-defocus; writes into _col when a channel commits.
+/// @return True when a commit happened.
+function __gm3d_ed_imgui_rgb_row(_ed, _key, _label, _col) {
+	ImGui.Text(_label);
+	var _names = ["R", "G", "B"];
+	var _chg = false;
+	for (var _a = 0; _a < 3; _a++) {
+		if (_a == 0) {
+			ImGui.SameLine(80);
+		} else {
+			ImGui.SameLine();
+		}
+		var _cv = __gm3d_ed_imgui_prop_float(_ed, _key + _names[_a], "##" + _key + _names[_a], _col[_a], 46);
+		if (_cv != undefined) {
+			_col[_a] = clamp(_cv, 0, 255);
+			_chg = true;
+		}
+	}
+	return _chg;
+}
+
+/// Light section of the inspector (single selection).
+function __gm3d_ed_imgui_light_sec(_ed, _node, _en) {
+	var _d = _en.data;
+	ImGui.Separator();
+	ImGui.Text("Light");
+	if (ImGui.RadioButton("Directional", _d.type == "directional")) {
+		var _hb = __gm3d_ed_history_snap(_ed);
+		_d.type = "directional";
+		__gm3d_ed_light_apply(_node, _d);
+		__gm3d_ed_props_end(_ed, _hb);
+	}
+	if (ImGui.RadioButton("Point", _d.type == "point")) {
+		var _hb9 = __gm3d_ed_history_snap(_ed);
+		_d.type = "point";
+		if (_d.range < 0.5) {
+			_d.range = 50.0;
+		}
+		__gm3d_ed_light_apply(_node, _d);
+		__gm3d_ed_props_end(_ed, _hb9);
+	}
+	// SPOT DISABLED: same reason as the Create menu (no cone uniforms in the
+	// pipeline). Loaded spot entries still show below with their cone fields.
+	// if (ImGui.RadioButton("Spot", _d.type == "spot")) {
+	// 	var _hb0 = __gm3d_ed_history_snap(_ed);
+	// 	_d.type = "spot";
+	// 	if (_d.range < 0.5) {
+	// 		_d.range = 50.0;
+	// 	}
+	// 	__gm3d_ed_light_apply(_node, _d);
+	// 	__gm3d_ed_props_end(_ed, _hb0);
+	// }
+	var _nen = ImGui.Checkbox("Enabled", _d.enabled == true);
+	if (_nen != (_d.enabled == true)) {
+		var _hb2 = __gm3d_ed_history_snap(_ed);
+		_d.enabled = _nen;
+		__gm3d_ed_light_apply(_node, _d);
+		__gm3d_ed_props_end(_ed, _hb2);
+	}
+	var _nv = __gm3d_ed_imgui_prop_float(_ed, "light_int", "Intensity", _d.intensity, 120);
+	if (_nv != undefined) {
+		var _hb3 = __gm3d_ed_history_snap(_ed);
+		_d.intensity = max(_nv, 0);
+		__gm3d_ed_light_apply(_node, _d);
+		__gm3d_ed_props_end(_ed, _hb3);
+	}
+	var _nc = [_d.color[0], _d.color[1], _d.color[2]];
+	if (__gm3d_ed_imgui_rgb_row(_ed, "light_col", "Color", _nc)) {
+		var _hb4 = __gm3d_ed_history_snap(_ed);
+		_d.color = _nc;
+		__gm3d_ed_light_apply(_node, _d);
+		__gm3d_ed_props_end(_ed, _hb4);
+	}
+	if (_d.type != "directional") {
+		var _rg = __gm3d_ed_imgui_prop_float(_ed, "light_range", "Range", _d.range, 120);
+		if (_rg != undefined) {
+			var _hb5 = __gm3d_ed_history_snap(_ed);
+			_d.range = max(_rg, 0.01);
+			__gm3d_ed_light_apply(_node, _d);
+			__gm3d_ed_props_end(_ed, _hb5);
+		}
+	}
+	if (_d.type == "spot") {
+		var _ni = __gm3d_ed_imgui_prop_float(_ed, "light_inner", "Inner cone", _d.inner, 120);
+		if (_ni != undefined) {
+			var _hb6 = __gm3d_ed_history_snap(_ed);
+			_d.inner = clamp(_ni, 0, 89);
+			__gm3d_ed_light_apply(_node, _d);
+			__gm3d_ed_props_end(_ed, _hb6);
+		}
+		var _no = __gm3d_ed_imgui_prop_float(_ed, "light_outer", "Outer cone", _d.outer, 120);
+		if (_no != undefined) {
+			var _hb7 = __gm3d_ed_history_snap(_ed);
+			_d.outer = clamp(_no, 1, 89);
+			__gm3d_ed_light_apply(_node, _d);
+			__gm3d_ed_props_end(_ed, _hb7);
+		}
+	}
+}
+
+/// Camera section of the inspector (single selection).
+function __gm3d_ed_imgui_camera_sec(_ed, _node, _en) {
+	var _d = _en.data;
+	ImGui.Separator();
+	ImGui.Text("Camera");
+	if (ImGui.RadioButton("Perspective", _d.projection != "ortho")) {
+		var _hb = __gm3d_ed_history_snap(_ed);
+		_d.projection = "perspective";
+		__gm3d_ed_camera_apply(_node, _d);
+		__gm3d_ed_props_end(_ed, _hb);
+	}
+	if (ImGui.RadioButton("Ortho", _d.projection == "ortho")) {
+		var _hb9 = __gm3d_ed_history_snap(_ed);
+		_d.projection = "ortho";
+		__gm3d_ed_camera_apply(_node, _d);
+		__gm3d_ed_props_end(_ed, _hb9);
+	}
+	var _nen = ImGui.Checkbox("Enabled", _d.enabled == true);
+	if (_nen != (_d.enabled == true)) {
+		var _hb2 = __gm3d_ed_history_snap(_ed);
+		_d.enabled = _nen;
+		__gm3d_ed_camera_apply(_node, _d);
+		__gm3d_ed_props_end(_ed, _hb2);
+	}
+	if (_d.projection == "ortho") {
+		var _ow = __gm3d_ed_imgui_prop_float(_ed, "cam_ow", "Ortho width", _d.ow, 120);
+		if (_ow != undefined) {
+			var _hb3 = __gm3d_ed_history_snap(_ed);
+			_d.ow = max(_ow, 0.01);
+			__gm3d_ed_camera_apply(_node, _d);
+			__gm3d_ed_props_end(_ed, _hb3);
+		}
+		var _oh = __gm3d_ed_imgui_prop_float(_ed, "cam_oh", "Ortho height", _d.oh, 120);
+		if (_oh != undefined) {
+			var _hb4 = __gm3d_ed_history_snap(_ed);
+			_d.oh = max(_oh, 0.01);
+			__gm3d_ed_camera_apply(_node, _d);
+			__gm3d_ed_props_end(_ed, _hb4);
+		}
+	} else {
+		var _fv = __gm3d_ed_imgui_prop_float(_ed, "cam_fov", "FovY deg", _d.fov, 120);
+		if (_fv != undefined) {
+			var _hb5 = __gm3d_ed_history_snap(_ed);
+			_d.fov = clamp(_fv, 1, 179);
+			__gm3d_ed_camera_apply(_node, _d);
+			__gm3d_ed_props_end(_ed, _hb5);
+		}
+	}
+	var _nr = __gm3d_ed_imgui_prop_float(_ed, "cam_near", "Near", _d.near, 120);
+	if (_nr != undefined) {
+		var _hb6 = __gm3d_ed_history_snap(_ed);
+		_d.near = max(_nr, 0.01);
+		__gm3d_ed_camera_apply(_node, _d);
+		__gm3d_ed_props_end(_ed, _hb6);
+	}
+	var _fr = __gm3d_ed_imgui_prop_float(_ed, "cam_far", "Far", _d.far, 120);
+	if (_fr != undefined) {
+		var _hb7 = __gm3d_ed_history_snap(_ed);
+		_d.far = max(_fr, _d.near + 0.01);
+		__gm3d_ed_camera_apply(_node, _d);
+		__gm3d_ed_props_end(_ed, _hb7);
+	}
+	// Live cameras stay muted while the editor is open (only the viewport
+	// camera renders); the Enabled flag above is the game-side file value.
+	__gm3d_ed_cameras_mute(_ed);
+}
+
+/// Environment section of the inspector (single selection).
+function __gm3d_ed_imgui_env_sec(_ed, _node, _en) {
+	var _d = _en.data;
+	ImGui.Separator();
+	ImGui.Text("Environment");
+	var _nen = ImGui.Checkbox("Enabled", _d.enabled == true);
+	if (_nen != (_d.enabled == true)) {
+		var _hb = __gm3d_ed_history_snap(_ed);
+		_d.enabled = _nen;
+		__gm3d_ed_env_apply(_node, _d);
+		__gm3d_ed_props_end(_ed, _hb);
+	}
+	ImGui.Text("Size");
+	var _ns = [_d.size[0], _d.size[1], _d.size[2]];
+	var _names = ["X", "Y", "Z"];
+	var _chg = false;
+	for (var _a = 0; _a < 3; _a++) {
+		if (_a == 0) {
+			ImGui.SameLine(80);
+		} else {
+			ImGui.SameLine();
+		}
+		var _sv = __gm3d_ed_imgui_prop_float(_ed, "env_size" + _names[_a], "##envsize" + _names[_a], _ns[_a], 46);
+		if (_sv != undefined) {
+			_ns[_a] = max(_sv, 0.01);
+			_chg = true;
+		}
+	}
+	if (_chg) {
+		var _hb2 = __gm3d_ed_history_snap(_ed);
+		_d.size = _ns;
+		__gm3d_ed_env_apply(_node, _d);
+		__gm3d_ed_props_end(_ed, _hb2);
+	}
+	var _na = [_d.ambient[0], _d.ambient[1], _d.ambient[2]];
+	if (__gm3d_ed_imgui_rgb_row(_ed, "env_amb", "Ambient", _na)) {
+		var _hb3 = __gm3d_ed_history_snap(_ed);
+		_d.ambient = _na;
+		__gm3d_ed_env_apply(_node, _d);
+		__gm3d_ed_props_end(_ed, _hb3);
+	}
+	var _nfg = ImGui.Checkbox("Fog", _d.fog == true);
+	if (_nfg != (_d.fog == true)) {
+		var _hb4 = __gm3d_ed_history_snap(_ed);
+		_d.fog = _nfg;
+		__gm3d_ed_env_apply(_node, _d);
+		__gm3d_ed_props_end(_ed, _hb4);
+	}
+	if (_d.fog == true) {
+		var _nf = [_d.fogcolor[0], _d.fogcolor[1], _d.fogcolor[2]];
+		if (__gm3d_ed_imgui_rgb_row(_ed, "env_fogc", "Fog color", _nf)) {
+			var _hb5 = __gm3d_ed_history_snap(_ed);
+			_d.fogcolor = _nf;
+			__gm3d_ed_env_apply(_node, _d);
+			__gm3d_ed_props_end(_ed, _hb5);
+		}
+		var _fs = __gm3d_ed_imgui_prop_float(_ed, "env_fogs", "Fog start", _d.fogstart, 120);
+		if (_fs != undefined) {
+			var _hb6 = __gm3d_ed_history_snap(_ed);
+			_d.fogstart = _fs;
+			__gm3d_ed_env_apply(_node, _d);
+			__gm3d_ed_props_end(_ed, _hb6);
+		}
+		var _fe = __gm3d_ed_imgui_prop_float(_ed, "env_foge", "Fog end", _d.fogend, 120);
+		if (_fe != undefined) {
+			var _hb7 = __gm3d_ed_history_snap(_ed);
+			_d.fogend = max(_fe, _d.fogstart + 0.01);
+			__gm3d_ed_env_apply(_node, _d);
+			__gm3d_ed_props_end(_ed, _hb7);
+		}
+	}
+}
+
+/// Eye toggle button for Scene rows. Uses the sprGM3DIconEye sprite when the
+/// project has it (dimmed when hidden), else a text button.
+/// @return True when clicked.
+function __gm3d_ed_imgui_eye(_ed, _hidden) {
+	static _eye_spr = -2;
+	if (_eye_spr == -2) {
+		try {
+			_eye_spr = asset_get_index("sprGM3DIconEye");
+		} catch (_e) {
+			_eye_spr = -1;
+		}
+	}
+	var _hit = false;
+	if (_eye_spr != -1) {
+		var _tint = _hidden ? make_colour_rgb(105, 115, 135) : c_white;
+		// Frameless icon: transparent button colors, sprite at native 15x9.
+		ImGui.PushStyleColor(ImGuiCol.Button, c_black, 0);
+		ImGui.PushStyleColor(ImGuiCol.ButtonHovered, make_colour_rgb(47, 111, 237), 0.35);
+		ImGui.PushStyleColor(ImGuiCol.ButtonActive, make_colour_rgb(47, 111, 237), 0.5);
+		try {
+			// 9 args: uvs omitted entirely (undefined throws in this
+			// binding); omitted uvs default to the full sprite.
+			_hit = ImGui.ImageButton("eye", _eye_spr, 0, _tint, 1, c_black, 0, 15, 9);
+		} catch (_e2) {
+			_eye_spr = -1;
+			_hit = ImGui.Button(_hidden ? "Show##eye" : "Hide##eye");
+		}
+		__gm3d_ed_imgui_pop(3);
+	} else if (__gm3d_ed_imgui_has_widget(_ed, "SmallButton")) {
+		try {
+			_hit = ImGui.SmallButton(_hidden ? "Show##eye" : "Hide##eye");
+		} catch (_e3) {
+			_ed.imgui.widget_probe[$ "SmallButton"] = false;
+			_hit = ImGui.Button(_hidden ? "Show##eye" : "Hide##eye");
+		}
+	} else {
+		_hit = ImGui.Button(_hidden ? "Show##eye" : "Hide##eye");
+	}
+	if (ImGui.IsItemHovered()) {
+		ImGui.SetTooltip(_hidden ? "Show in viewport" : "Hide from viewport");
+	}
+	return _hit;
 }
 
 /// Begins renaming a tracked scene node into a textbox.
@@ -715,6 +1139,29 @@ function __gm3d_ed_imgui_scene_list(_ed) {
 	var _ui = _ed.imgui;
 	ImGui.SetNextItemWidth(-1);
 	_ui.scene_filter = __gm3d_ed_imgui_text_hint("##scenefilter", "Filter nodes...", _ui.scene_filter);
+	if (!variable_struct_exists(_ui, "show_kind")) {
+		_ui.show_kind = { m: true, l: true, c: true, e: true };
+	}
+	var _sk = _ui.show_kind;
+	_sk.m = ImGui.Checkbox("M", _sk.m);
+	if (ImGui.IsItemHovered()) {
+		ImGui.SetTooltip("Show models");
+	}
+	ImGui.SameLine();
+	_sk.l = ImGui.Checkbox("L", _sk.l);
+	if (ImGui.IsItemHovered()) {
+		ImGui.SetTooltip("Show lights");
+	}
+	ImGui.SameLine();
+	_sk.c = ImGui.Checkbox("C", _sk.c);
+	if (ImGui.IsItemHovered()) {
+		ImGui.SetTooltip("Show cameras");
+	}
+	ImGui.SameLine();
+	_sk.e = ImGui.Checkbox("E", _sk.e);
+	if (ImGui.IsItemHovered()) {
+		ImGui.SetTooltip("Show environment");
+	}
 	ImGui.Separator();
 	if (_ed.rt == undefined) {
 		ImGui.TextDisabled("No scene");
@@ -735,8 +1182,32 @@ function __gm3d_ed_imgui_scene_list(_ed) {
 	for (var _i = 0; _i < array_length(_roots); _i++) {
 		var _nd = _roots[_i];
 		var _dl = __gm3d_ed_label_get(_ed, _nd);
+		var _nk = __gm3d_ed_kind_of(_ed, _nd);
+		if (_nk == "light" && !_sk.l) {
+			continue;
+		}
+		if (_nk == "camera" && !_sk.c) {
+			continue;
+		}
+		if (_nk == "environment" && !_sk.e) {
+			continue;
+		}
+		if (_nk != "light" && _nk != "camera" && _nk != "environment" && !_sk.m) {
+			continue;
+		}
 		if (_flt != "" && string_pos(_flt, string_lower(_dl)) <= 0) {
 			continue;
+		}
+		var _row = _dl;
+		if (_nk == "light") {
+			_row = "[L] " + _dl;
+		} else if (_nk == "camera") {
+			_row = "[C] " + _dl;
+		} else if (_nk == "environment") {
+			_row = "[E] " + _dl;
+		}
+		if (__gm3d_ed_hidden_get(_ed, _nd)) {
+			_row += " [hidden]";
 		}
 		ImGui.PushID(_i);
 		var _renaming = false;
@@ -754,8 +1225,13 @@ function __gm3d_ed_imgui_scene_list(_ed) {
 				__gm3d_ed_rename_cancel(_ed);
 			}
 		} else {
+			var _ishid = __gm3d_ed_hidden_get(_ed, _nd);
+			if (__gm3d_ed_imgui_eye(_ed, _ishid)) {
+				__gm3d_ed_hidden_set(_ed, _nd, !_ishid);
+			}
+			ImGui.SameLine();
 			var _sel = __gm3d_ed_sel_has(_ed, _nd);
-			if (ImGui.Selectable(_dl, _sel)) {
+			if (ImGui.Selectable(_row, _sel)) {
 				__gm3d_ed_scene_click(_ed, _nd, _i);
 			}
 			var _dbl = false;

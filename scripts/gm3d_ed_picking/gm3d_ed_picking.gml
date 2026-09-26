@@ -2,11 +2,14 @@
 /// Scene picking: pick-all, click cycling and rect selection.
 
 /// Returns all root nodes under a screen point, nearest first.
-/// The transient editor grid is never pickable.
+/// The transient editor grid is never pickable. Tracked lights, cameras and
+/// the environment have no mesh bounds, so they hit-test on their overlay
+/// icon (screen-space, 14 px radius).
 /// @param _nodes Scene root nodes from the runtime adapter.
 function __gm3d_ed_pick_all(_ed, _nodes, _vp, _mx, _my) {
 	var _ray = __gm3d_ed_screen_ray(_vp, _mx, _my);
-	var _hits = [];
+	var _icon = [];
+	var _mesh = [];
 	for (var _i = 0; _i < array_length(_nodes); _i++) {
 		var _node = _nodes[_i];
 		if (_node.parent != undefined) {
@@ -15,16 +18,39 @@ function __gm3d_ed_pick_all(_ed, _nodes, _vp, _mx, _my) {
 		if (__gm3d_ed_is_grid(_ed, _node)) {
 			continue;
 		}
+		if (__gm3d_ed_hidden_get(_ed, _node)) {
+			continue;
+		}
 		var _box = __gm3d_ed_node_aabb(_node);
 		if (!_box.valid) {
+			if (__gm3d_ed_registry_find(_ed, _node) == undefined) {
+				continue;
+			}
+			var _c = __gm3d_ed_world_to_screen(_vp, _node.getWorldPosition());
+			if (_c == undefined) {
+				continue;
+			}
+			if (point_distance(_c[0], _c[1], _mx, _my) > 14) {
+				continue;
+			}
+			var _cp = _vp.camNode.getWorldPosition();
+			var _wp = _node.getWorldPosition();
+			array_push(_icon, { node: _node, dist: point_distance_3d(_cp.x, _cp.y, _cp.z, _wp.x, _wp.y, _wp.z) });
 			continue;
 		}
 		var _t = __gm3d_ed_ray_aabb(_ray.origin, _ray.dir, _box.min, _box.max);
 		if (_t >= 0) {
-			array_push(_hits, { node: _node, dist: _t });
+			array_push(_mesh, { node: _node, dist: _t });
 		}
 	}
-	__gm3d_ed_sort_by_field(_hits, "dist", true);
+	// Overlay icons (lights, cameras, environment) win over mesh hits so
+	// small gizmos stay clickable even inside geometry.
+	__gm3d_ed_sort_by_field(_icon, "dist", true);
+	__gm3d_ed_sort_by_field(_mesh, "dist", true);
+	var _hits = _icon;
+	for (var _j = 0; _j < array_length(_mesh); _j++) {
+		array_push(_hits, _mesh[_j]);
+	}
 	return _hits;
 }
 
@@ -62,8 +88,20 @@ function __gm3d_ed_pick_rect(_ed, _nodes, _vp, _r) {
 		if (__gm3d_ed_is_grid(_ed, _node)) {
 			continue;
 		}
+		if (__gm3d_ed_hidden_get(_ed, _node)) {
+			continue;
+		}
 		var _box = __gm3d_ed_node_aabb(_node);
 		if (!_box.valid) {
+			// Boundless tracked nodes (lights, cameras, environment): test
+			// the node center like pick-all tests the overlay icon.
+			if (__gm3d_ed_registry_find(_ed, _node) == undefined) {
+				continue;
+			}
+			var _nc = __gm3d_ed_world_to_screen(_vp, _node.getWorldPosition());
+			if (_nc != undefined && _nc[0] >= _r.x0 && _nc[0] <= _r.x1 && _nc[1] >= _r.y0 && _nc[1] <= _r.y1) {
+				array_push(_out, _node);
+			}
 			continue;
 		}
 		var _mn = _box.min;
