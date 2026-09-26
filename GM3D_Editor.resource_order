@@ -17,7 +17,8 @@
     {"name":"imgui_enums","order":12,"path":"scripts/imgui_enums/imgui_enums.yy",},
     {"name":"scr_demo","order":1,"path":"scripts/scr_demo/scr_demo.yy",},
     {"name":"sAnimated","order":5,"path":"shaders/sAnimated/sAnimated.yy",},
-    {"name":"sGrid","order":13,"path":"shaders/sGrid/sGrid.yy",},
+    {"name":"shGM3DGrid","order":13,"path":"shaders/shGM3DGrid/shGM3DGrid.yy",},
     {"name":"sStatic","order":4,"path":"shaders/sStatic/sStatic.yy",},
+    {"name":"sprGM3DIconEye","order":14,"path":"sprites/sprGM3DIconEye/sprGM3DIconEye.yy",},
   ],
 }

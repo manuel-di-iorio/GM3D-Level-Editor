@@ -52,11 +52,12 @@ While the editor is open it owns the camera and the scene: pause your own simula
 | `gm3d_editor_enable/disable/toggle/is_active()` | Open/close the editor (gateway steps the live world while closed) |
 | `gm3d_editor_asset_add(ed, name, model)` / `gm3d_editor_asset_clear(ed)` | Models library (names should be unique) |
 | `gm3d_editor_track_node(ed, asset, node, label?)` | Adopt a code-spawned instance into Scene/Inspector/save/undo |
+| `gm3d_editor_light_add(ed, node, label?)` / `gm3d_editor_camera_add(ed, node, label?)` / `gm3d_editor_environment_add(ed, node, label?)` | Adopt a code-spawned light, camera or environment node |
 | `gm3d_editor_load(fname)` | Load a .scene file |
 
 ## Scene file format
 
-`{ "version": 1, "nodes": [...] }`, one descriptor per asset placement:
+`{ "version": 1, "nodes": [...] }`, one descriptor per node. Every descriptor has a `kind` (`"asset"`, `"light"`, `"camera"` or `"environment"`; files without `kind` still load as legacy assets):
 
 ```json
 {
@@ -68,6 +69,8 @@ While the editor is open it owns the camera and the scene: pause your own simula
   "scale": [1.0, 1.0, 1.0]
 }
 ```
+
+Lights, cameras and the environment carry a `light` / `camera` / `environment` sub-struct (angles in degrees, colors as `[r, g, b]` 0-255). Create them from the `Create` menu; they move with the Move/Rotate gizmo and draw Unity-style overlay icons (direction arrow, range circle, spot cone, camera frustum) in the viewport.
 
 ## Controls
 
