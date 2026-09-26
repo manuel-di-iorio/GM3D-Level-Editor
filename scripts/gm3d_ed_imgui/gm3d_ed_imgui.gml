@@ -651,7 +651,7 @@ function __gm3d_ed_imgui_axis_row(_ed, _mode, _label) {
 	for (var _a = 0; _a < 3; _a++) {
 		var _av = __gm3d_ed_axis_val(_ed, _mode, _a);
 		if (_a == 0) {
-			__gm3d_ed_imgui_sameline_at(80);
+			ImGui.SameLine(80);
 		} else {
 			ImGui.SameLine();
 		}
@@ -671,13 +671,6 @@ function __gm3d_ed_imgui_axis_row(_ed, _mode, _label) {
 		}
 	}
 	ImGui.PopID();
-}
-
-/// SameLine at a fixed x offset, falling back to plain SameLine.
-function __gm3d_ed_imgui_sameline_at(_x) {
-	ImGui.SameLine(_x);
-	return;
-	ImGui.SameLine();
 }
 
 /// Begins renaming a tracked scene node into a textbox.
