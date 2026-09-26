@@ -813,25 +813,35 @@ function __gm3d_ed_imgui_has_widget(_ed, _name) {
 	return _ok;
 }
 
-/// RGB row with commit-on-defocus; writes into _col when a channel commits.
-/// @return True when a commit happened.
-function __gm3d_ed_imgui_rgb_row(_ed, _key, _label, _col) {
-	ImGui.Text(_label);
-	var _names = ["R", "G", "B"];
-	var _chg = false;
-	for (var _a = 0; _a < 3; _a++) {
-		if (_a == 0) {
-			ImGui.SameLine(80);
-		} else {
-			ImGui.SameLine();
-		}
-		var _cv = __gm3d_ed_imgui_prop_float(_ed, _key + _names[_a], "##" + _key + _names[_a], _col[_a], 46);
-		if (_cv != undefined) {
-			_col[_a] = clamp(_cv, 0, 255);
-			_chg = true;
+/// Color picker bound to a packed GM color, with one undo entry per gesture.
+/// Applies live while dragging; commits history once on release.
+/// @return New packed color, or undefined when untouched this frame.
+function __gm3d_ed_imgui_color_edit(_ed, _key, _label, _packed) {
+	if (_ed.imgui == undefined) {
+		__gm3d_ed_imgui_ensure(_ed);
+	}
+	if (!variable_struct_exists(_ed.imgui, "col_gest")) {
+		_ed.imgui.col_gest = {};
+	}
+	var _nv = ImGui.ColorEdit3(_label, _packed);
+	var _now = ImGui.IsItemActive();
+	var _rec = _ed.imgui.col_gest[$ _key];
+	var _was = is_struct(_rec) && _rec.active == true;
+	if (_now && !_was) {
+		_ed.imgui.col_gest[$ _key] = { active: true, before: __gm3d_ed_history_snap(_ed) };
+	}
+	if (!_now && _was) {
+		var _hb = _rec.before;
+		_ed.imgui.col_gest[$ _key] = { active: false, before: undefined };
+		__gm3d_ed_rows_follow(_ed, _ed.sel);
+		if (_hb != undefined) {
+			__gm3d_ed_history_commit(_ed, _hb);
 		}
 	}
-	return _chg;
+	if (_nv != _packed) {
+		return _nv;
+	}
+	return undefined;
 }
 
 /// Light section of the inspector (single selection).
@@ -879,12 +889,11 @@ function __gm3d_ed_imgui_light_sec(_ed, _node, _en) {
 		__gm3d_ed_light_apply(_node, _d);
 		__gm3d_ed_props_end(_ed, _hb3);
 	}
-	var _nc = [_d.color[0], _d.color[1], _d.color[2]];
-	if (__gm3d_ed_imgui_rgb_row(_ed, "light_col", "Color", _nc)) {
-		var _hb4 = __gm3d_ed_history_snap(_ed);
-		_d.color = _nc;
+	var _nc = __gm3d_ed_imgui_color_edit(_ed, "light_col", "Color", make_colour_rgb(_d.color[0], _d.color[1], _d.color[2]));
+	if (_nc != undefined) {
+		_d.color = [colour_get_red(_nc), colour_get_green(_nc), colour_get_blue(_nc)];
 		__gm3d_ed_light_apply(_node, _d);
-		__gm3d_ed_props_end(_ed, _hb4);
+		_ed.dirty = true;
 	}
 	if (_d.type != "directional") {
 		var _rg = __gm3d_ed_imgui_prop_float(_ed, "light_range", "Range", _d.range, 120);
@@ -1014,12 +1023,11 @@ function __gm3d_ed_imgui_env_sec(_ed, _node, _en) {
 		__gm3d_ed_env_apply(_node, _d);
 		__gm3d_ed_props_end(_ed, _hb2);
 	}
-	var _na = [_d.ambient[0], _d.ambient[1], _d.ambient[2]];
-	if (__gm3d_ed_imgui_rgb_row(_ed, "env_amb", "Ambient", _na)) {
-		var _hb3 = __gm3d_ed_history_snap(_ed);
-		_d.ambient = _na;
+	var _na = __gm3d_ed_imgui_color_edit(_ed, "env_amb", "Ambient", make_colour_rgb(_d.ambient[0], _d.ambient[1], _d.ambient[2]));
+	if (_na != undefined) {
+		_d.ambient = [colour_get_red(_na), colour_get_green(_na), colour_get_blue(_na)];
 		__gm3d_ed_env_apply(_node, _d);
-		__gm3d_ed_props_end(_ed, _hb3);
+		_ed.dirty = true;
 	}
 	var _nfg = ImGui.Checkbox("Fog", _d.fog == true);
 	if (_nfg != (_d.fog == true)) {
@@ -1029,12 +1037,11 @@ function __gm3d_ed_imgui_env_sec(_ed, _node, _en) {
 		__gm3d_ed_props_end(_ed, _hb4);
 	}
 	if (_d.fog == true) {
-		var _nf = [_d.fogcolor[0], _d.fogcolor[1], _d.fogcolor[2]];
-		if (__gm3d_ed_imgui_rgb_row(_ed, "env_fogc", "Fog color", _nf)) {
-			var _hb5 = __gm3d_ed_history_snap(_ed);
-			_d.fogcolor = _nf;
+		var _nf = __gm3d_ed_imgui_color_edit(_ed, "env_fogc", "Fog color", make_colour_rgb(_d.fogcolor[0], _d.fogcolor[1], _d.fogcolor[2]));
+		if (_nf != undefined) {
+			_d.fogcolor = [colour_get_red(_nf), colour_get_green(_nf), colour_get_blue(_nf)];
 			__gm3d_ed_env_apply(_node, _d);
-			__gm3d_ed_props_end(_ed, _hb5);
+			_ed.dirty = true;
 		}
 		var _fs = __gm3d_ed_imgui_prop_float(_ed, "env_fogs", "Fog start", _d.fogstart, 120);
 		if (_fs != undefined) {
