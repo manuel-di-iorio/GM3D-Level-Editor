@@ -194,6 +194,15 @@ function __gm3d_ed_imgui_draw(_ed) {
 	__gm3d_ed_imgui_ensure(_ed);
 	__gm3d_ed_imgui_style_once(_ed);
 	ImGui.DockSpaceOverViewport(0, 0, ImGuiDockNodeFlags.PassthruCentralNode);
+	// Re-apply the default layout while the window size is changing (same
+	// mechanism as Reset Layout, one Always frame per resize step).
+	if (!variable_struct_exists(_ed.imgui, "_pw")) {
+		_ed.imgui._pw = 0;
+		_ed.imgui._ph = 0;
+	}
+	var _rsz = _ed.imgui._pw != _ed.gw || _ed.imgui._ph != _ed.gh;
+	_ed.imgui._pw = _ed.gw;
+	_ed.imgui._ph = _ed.gh;
 	var _modal_ui = false;
 	_modal_ui = _ed.confirm != undefined;
 	if (_modal_ui) {
@@ -201,7 +210,7 @@ function __gm3d_ed_imgui_draw(_ed) {
 		return;
 	}
 	var _rst = _ed.imgui.reset_layout == true;
-	if (_rst) {
+	if (_rst || _rsz) {
 		_ed.imgui.cond = ImGuiCond.Always;
 	}
 	__gm3d_ed_imgui_menu(_ed);
@@ -210,7 +219,7 @@ function __gm3d_ed_imgui_draw(_ed) {
 	__gm3d_ed_imgui_scene_win(_ed);
 	__gm3d_ed_imgui_inspector(_ed);
 	__gm3d_ed_imgui_confirm(_ed);
-	if (_rst) {
+	if (_rst || _rsz) {
 		_ed.imgui.cond = ImGuiCond.FirstUseEver;
 		_ed.imgui.reset_layout = false;
 	}
@@ -374,20 +383,19 @@ function __gm3d_ed_imgui_pop(_n) {
 }
 
 /// Returns default floating rects for assets, scene and inspector windows.
+/// Unity-like: Scene full-height left, Inspector full-height right, Models
+/// in a bottom strip between them.
 function __gm3d_ed_imgui_place(_ed) {
 	var _gw = max(640, _ed.gw);
 	var _gh = max(400, _ed.gh);
 	var _top = 30;
-	var _gap = 8;
 	var _lw = 250;
-	var _lh = clamp((_gh - _top - 16) * 0.55, 220, 640);
 	var _iw = 295;
-	// Transform + one kind section (light/camera/env); ImGui scrolls the rest.
-	var _ih = clamp((_gh - _top - 16) * 0.4, 220, 360);
+	var _mh = 190;
 	return {
-		assets: { x: 8, y: _top, w: _lw, h: _lh },
-		scn: { x: 8, y: _top + _lh + _gap, w: _lw, h: max(140, _gh - (_top + _lh + _gap) - 8) },
-		insp: { x: _gw - _iw - 8, y: _gh - _ih - 8, w: _iw, h: _ih },
+		assets: { x: _lw + 16, y: _gh - _mh - 8, w: max(220, _gw - (_lw + 16) - (_iw + 16)), h: _mh },
+		scn: { x: 8, y: _top, w: _lw, h: _gh - _top - 8 },
+		insp: { x: _gw - _iw - 8, y: _top, w: _iw, h: _gh - _top - 8 },
 	};
 }
 
@@ -549,7 +557,7 @@ function __gm3d_ed_imgui_menu(_ed) {
 		ImGui.Separator();
 		if (ImGui.MenuItem("Reset Layout")) {
 			_ui.reset_layout = true;
-			_ed.cube_off = [85, 100];
+			_ed.cube_off = [360, 100];
 			_ui.win_cube.open = true;
 			__gm3d_ed_ui_save(_ed);
 		}

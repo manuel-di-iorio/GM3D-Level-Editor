@@ -412,7 +412,7 @@ function __gm3d_ed_create(_inst, _rt) {
 		cube_moved: false,
 		cube_gx: 0,
 		cube_gy: 0,
-		cube_off: [85, 100],
+		cube_off: [360, 100],
 		vp: undefined,
 		cam_anim: undefined,
 		cam_home: undefined,

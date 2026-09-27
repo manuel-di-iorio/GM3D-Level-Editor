@@ -21,8 +21,8 @@
 #define GRID_MINOR_COL vec3(0.30, 0.30, 0.30)
 #define GRID_MAJOR_COL vec3(0.36, 0.36, 0.36)
 
-// Line half-width in pixels (1.0 = standard, lower = thinner).
-#define GRID_WIDTH 0.65
+// Line half-width in pixels (1.0 = full-pixel lines, thinner shimmers).
+#define GRID_WIDTH 1.0
 
 // AA only where needed (Unity-like): below GRID_AA_W0 cells-per-pixel the
 // edges are binary razor-sharp; past GRID_AA_W1 they are fully smooth.
@@ -55,7 +55,9 @@ float gridLine(vec2 _p, float _step) {
 	float _hard = 1.0 - step(1.0, _d);
 	float _soft = 1.0 - smoothstep(0.5, 1.0, _d);
 	float _aa = clamp((max(_w.x, _w.y) - GRID_AA_W0) / max(GRID_AA_W1 - GRID_AA_W0, 0.001), 0.0, 1.0);
-	return mix(_hard, _soft, _aa);
+	// Floor: even near-field lines keep soft edges, otherwise diagonals
+	// staircase (binary coverage, no MSAA). Slight blur, zero shimmer.
+	return mix(_hard, _soft, max(_aa, 0.5));
 }
 
 // Extra early fade for minors only (Unity-like): fine lines melt away

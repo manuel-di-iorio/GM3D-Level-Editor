@@ -373,11 +373,10 @@ function __gm3d_ed_gizmo_drag(_ed, _vp, _mx, _my) {
 	} else if (_g.tool == Gm3dEdTool.Scale) {
 		var _f = 1.0;
 		if (_g.center) {
-			var _dx0 = _g.mx0 - _g.piv_sx;
-			var _dy0 = _g.my0 - _g.piv_sy;
-			var _dx1 = _mx - _g.piv_sx;
-			var _dy1 = _my - _g.piv_sy;
-			_f = 1.0 + (sqrt(_dx1 * _dx1 + _dy1 * _dy1) - sqrt(_dx0 * _dx0 + _dy0 * _dy0)) / _g.size;
+			// Uniform scale from vertical mouse travel (Blender-style): the
+			// grab starts at the pivot, so a radial reference is degenerate
+			// (radius ~0 can only grow). Drag up grows, down shrinks freely.
+			_f = 1.0 + (_g.my0 - _my) / _g.size;
 		} else {
 			var _h2 = __gm3d_ed_ray_plane(_ray.origin, _ray.dir, _g.pivot, _g.plane_n);
 			if (_h2 == undefined) {
