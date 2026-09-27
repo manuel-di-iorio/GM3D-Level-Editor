@@ -31,22 +31,46 @@ function __gm3d_ed_sel_clear(_ed) {
 	_ed.giz.hover = -1;
 }
 
-/// True when _node is in the current selection.
+/// True when _node refers to a selected node. Compares wrapper references
+/// first, then tracked registry entries: getNodes() wrappers are not stable
+/// across calls, but entries are (same struct from ed.tracked).
 function __gm3d_ed_sel_has(_ed, _node) {
+	if (_node == undefined) {
+		return false;
+	}
+	var _en = __gm3d_ed_registry_find(_ed, _node);
 	for (var _i = 0; _i < array_length(_ed.sel); _i++) {
 		if (_ed.sel[_i] == _node) {
 			return true;
+		}
+		if (_en != undefined) {
+			var _es = __gm3d_ed_registry_find(_ed, _ed.sel[_i]);
+			if (_es == _en) {
+				return true;
+			}
 		}
 	}
 	return false;
 }
 
 /// Adds _node to the selection, or removes it when already selected.
+/// Same entry-aware comparison as sel_has.
 function __gm3d_ed_sel_toggle(_ed, _node) {
+	if (_node == undefined) {
+		return;
+	}
+	var _en = __gm3d_ed_registry_find(_ed, _node);
 	for (var _i = 0; _i < array_length(_ed.sel); _i++) {
 		if (_ed.sel[_i] == _node) {
 			array_delete(_ed.sel, _i, 1);
 			return;
+		}
+		if (_en != undefined) {
+			var _es = __gm3d_ed_registry_find(_ed, _ed.sel[_i]);
+			if (_es == _en) {
+				array_delete(_ed.sel, _i, 1);
+				return;
+			}
 		}
 	}
 	array_push(_ed.sel, _node);
@@ -761,6 +785,7 @@ function gm3d_editor_environment_add(_ed, _node, _label = undefined) {
 		_label = __gm3d_ed_fresh_label(_ed, _node.name);
 	}
 	__gm3d_ed_kind_register(_ed, _node, "environment", "", [_pp.x, _pp.y, _pp.z], _label, _d);
+	__gm3d_ed_hidden_set(_ed, _node, true);
 	return _node;
 }
 
@@ -797,6 +822,7 @@ function __gm3d_ed_create_light(_ed, _type) {
 	__gm3d_ed_kind_register(_ed, _node, "light", "", [_pp.x, _pp.y, _pp.z], _lbl, _d);
 	_ed.sel = [_node];
 	_ed.giz.drag = -1;
+	__gm3d_ed_sel_apply_tool(_ed);
 	__gm3d_ed_history_commit(_ed, _hb);
 	return _node;
 }
@@ -854,6 +880,7 @@ function __gm3d_ed_create_env(_ed) {
 	__gm3d_ed_env_apply(_node, _d);
 	_ed.rt.scene.update(0);
 	__gm3d_ed_kind_register(_ed, _node, "environment", "", [0, 0, 0], _lbl, _d);
+	__gm3d_ed_hidden_set(_ed, _node, true);
 	_ed.sel = [_node];
 	_ed.giz.drag = -1;
 	__gm3d_ed_history_commit(_ed, _hb);
@@ -969,6 +996,29 @@ function __gm3d_ed_gizmo_allowed(_ed) {
 		}
 	}
 	return false;
+}
+
+/// Preselects the meaningful gizmo tool when a single light is selected:
+/// directional aims with rotate, point places with move. Anything else
+/// (spots, cameras, models, multi-selections) keeps the current tool.
+function __gm3d_ed_sel_apply_tool(_ed) {
+	if (_ed == undefined || !is_array(_ed.sel) || array_length(_ed.sel) != 1) {
+		return;
+	}
+	var _node = _ed.sel[0];
+	if (__gm3d_ed_kind_of(_ed, _node) != "light") {
+		return;
+	}
+	var _type = "directional";
+	var _en = __gm3d_ed_registry_find(_ed, _node);
+	if (_en != undefined && is_struct(_en.data) && is_string(_en.data.type)) {
+		_type = _en.data.type;
+	}
+	if (_type == "directional") {
+		_ed.giz.tool = Gm3dEdTool.Rotate;
+	} else if (_type == "point") {
+		_ed.giz.tool = Gm3dEdTool.Translate;
+	}
 }
 
 /// True when a tracked node is hidden from viewport, picking and gizmo.

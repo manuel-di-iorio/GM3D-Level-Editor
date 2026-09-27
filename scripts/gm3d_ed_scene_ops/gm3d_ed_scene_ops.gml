@@ -101,15 +101,10 @@ function __gm3d_ed_grid_remove(_ed) {
 }
 
 /// Ground-plane drop point for the mouse (exact raycast, never 2D approx).
+/// @return Hit point, or undefined when the ray misses the plane (e.g. sky).
 function __gm3d_ed_drop_point(_ed, _vp, _mx, _my) {
 	var _ray = __gm3d_ed_screen_ray(_vp, _mx, _my);
-	var _hit = __gm3d_ed_ray_plane(_ray.origin, _ray.dir, new GM3D_Vec3(0, 0, 0), new GM3D_Vec3(0, 1, 0));
-	if (_hit != undefined) {
-		return _hit;
-	}
-	var _pp = _ed.rt.cam.getLocalPosition();
-	var _f = __gm3d_ed_view_forward(_ed);
-	return new GM3D_Vec3(_pp.x - _f.x * 6, 0, _pp.z - _f.z * 6);
+	return __gm3d_ed_ray_plane(_ray.origin, _ray.dir, new GM3D_Vec3(0, 0, 0), new GM3D_Vec3(0, 1, 0));
 }
 
 /// Normalizes a drag rectangle to { x0, y0, x1, y1 } (top-left to bottom-right).
@@ -136,6 +131,7 @@ function __gm3d_ed_destroy_subtree(_node) {
 
 /// Clears all tracked placements to start a new empty scene.
 function __gm3d_ed_new_scene(_ed) {
+	__gm3d_ed_drop_preview_clear(_ed);
 	var _tracked = __gm3d_ed_root_tracked(_ed);
 	for (var _i = 0; _i < array_length(_tracked); _i++) {
 		__gm3d_ed_destroy_subtree(_tracked[_i]);
@@ -308,6 +304,9 @@ function __gm3d_ed_duplicate_prop(_ed, _src, _kind, _off) {
 	_ed.rt.scene.update(0);
 	var _pp = _node.getLocalPosition();
 	__gm3d_ed_kind_register(_ed, _node, _kind, "", [_pp.x, _pp.y, _pp.z], _lbl, _data);
+	if (__gm3d_ed_hidden_get(_ed, _src)) {
+		__gm3d_ed_hidden_set(_ed, _node, true);
+	}
 	__gm3d_ed_cameras_mute(_ed);
 	return _node;
 }
@@ -424,6 +423,7 @@ function __gm3d_ed_focus_node(_ed, _node) {
 	}
 	_ed.sel = [_node];
 	_ed.giz.drag = -1;
+	__gm3d_ed_sel_apply_tool(_ed);
 	return __gm3d_ed_focus_selection(_ed);
 }
 
@@ -431,6 +431,7 @@ function __gm3d_ed_focus_node(_ed, _node) {
 function __gm3d_ed_scene_select(_ed, _node) {
 	_ed.sel = [_node];
 	_ed.giz.drag = -1;
+	__gm3d_ed_sel_apply_tool(_ed);
 }
 
 /// Handles outliner row clicks: select on single click, focus on double click.

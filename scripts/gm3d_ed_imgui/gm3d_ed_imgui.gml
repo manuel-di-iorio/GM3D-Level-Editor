@@ -381,7 +381,7 @@ function __gm3d_ed_imgui_place(_ed) {
 	var _gap = 8;
 	var _lw = 250;
 	var _lh = clamp((_gh - _top - 16) * 0.55, 220, 640);
-	var _iw = 280;
+	var _iw = 295;
 	// Transform + one kind section (light/camera/env); ImGui scrolls the rest.
 	var _ih = clamp((_gh - _top - 16) * 0.4, 220, 360);
 	return {
@@ -854,6 +854,7 @@ function __gm3d_ed_imgui_light_sec(_ed, _node, _en) {
 		_d.type = "directional";
 		__gm3d_ed_light_apply(_node, _d);
 		__gm3d_ed_props_end(_ed, _hb);
+		__gm3d_ed_sel_apply_tool(_ed);
 	}
 	if (ImGui.RadioButton("Point", _d.type == "point")) {
 		var _hb9 = __gm3d_ed_history_snap(_ed);
@@ -863,6 +864,7 @@ function __gm3d_ed_imgui_light_sec(_ed, _node, _en) {
 		}
 		__gm3d_ed_light_apply(_node, _d);
 		__gm3d_ed_props_end(_ed, _hb9);
+		__gm3d_ed_sel_apply_tool(_ed);
 	}
 	// SPOT DISABLED: same reason as the Create menu (no cone uniforms in the
 	// pipeline). Loaded spot entries still show below with their cone fields.
@@ -962,7 +964,7 @@ function __gm3d_ed_imgui_camera_sec(_ed, _node, _en) {
 			__gm3d_ed_props_end(_ed, _hb4);
 		}
 	} else {
-		var _fv = __gm3d_ed_imgui_prop_float(_ed, "cam_fov", "FovY deg", _d.fov, 120);
+		var _fv = __gm3d_ed_imgui_prop_float(_ed, "cam_fov", "Fov", _d.fov, 120);
 		if (_fv != undefined) {
 			var _hb5 = __gm3d_ed_history_snap(_ed);
 			_d.fov = clamp(_fv, 1, 179);
@@ -1141,6 +1143,76 @@ function __gm3d_ed_rename_at(_ed, _node) {
 	return _pp.x == _rp[0] && _pp.y == _rp[1] && _pp.z == _rp[2];
 }
 
+/// Draws a sprite reserving its layout box but rendering the pixels shifted
+/// down by _dy (CSS-absolute style: layout untouched, overlap allowed).
+/// @return True when drawn (false = caller falls back to Image).
+function __gm3d_ed_imgui_icon_shifted(_spr, _tint, _iw, _ih, _dy) {
+	var _sx = undefined;
+	var _sy = undefined;
+	var _dl = undefined;
+	try {
+		_sx = ImGui.GetCursorScreenPosX();
+		_sy = ImGui.GetCursorScreenPosY();
+		_dl = ImGui.GetWindowDrawList();
+	} catch (_e) {
+	}
+	ImGui.Dummy(_iw, _ih);
+	if (_sx == undefined || _sy == undefined || _dl == undefined) {
+		return false;
+	}
+	try {
+		ImGui.DrawListAddImage(_dl, _spr, 0, _sx, _sy + _dy, _sx + _iw, _sy + _dy + _ih, _tint);
+	} catch (_e2) {
+		return false;
+	}
+	return true;
+}
+
+/// Kind filter cell: sprite icon (dimmed when off) plus a small checkbox.
+/// @return New flag value.
+function __gm3d_ed_imgui_kind_filter(_ed, _sprname, _id, _tip, _val) {
+	static _ok = {};
+	var _spr = -1;
+	try {
+		_spr = asset_get_index(_sprname);
+	} catch (_e) {
+		_spr = -1;
+	}
+	var _usable = _spr != -1 && _ok[$ _sprname] != false;
+	if (_usable) {
+		var _tint = _val ? c_white : make_colour_rgb(110, 120, 140);
+		var _iw = 0;
+		var _ih = 0;
+		try {
+			_iw = sprite_get_width(_spr);
+			_ih = sprite_get_height(_spr);
+		} catch (_e0) {
+		}
+		var _dy = 3;
+		if (_sprname == "sprGM3DIconCamera") {
+			_dy = 5;
+		} else if (_sprname == "sprGM3DIconDirectionalLight") {
+			_dy = 2;
+		}
+		if (!__gm3d_ed_imgui_icon_shifted(_spr, _tint, _iw, _ih, _dy)) {
+			try {
+				ImGui.Image(_spr, 0, _tint, 1, _iw, _ih);
+			} catch (_e2) {
+				_ok[$ _sprname] = false;
+				_usable = false;
+			}
+		}
+	}
+	if (!_usable) {
+		ImGui.Text(_id);
+	}
+	if (ImGui.IsItemHovered()) {
+		ImGui.SetTooltip(_tip);
+	}
+	ImGui.SameLine(0, 7);
+	return ImGui.Checkbox("##kf" + _id, _val);
+}
+
 /// Draws the filterable scene root list with selection, focus and rename.
 function __gm3d_ed_imgui_scene_list(_ed) {
 	var _ui = _ed.imgui;
@@ -1150,25 +1222,13 @@ function __gm3d_ed_imgui_scene_list(_ed) {
 		_ui.show_kind = { m: true, l: true, c: true, e: true };
 	}
 	var _sk = _ui.show_kind;
-	_sk.m = ImGui.Checkbox("M", _sk.m);
-	if (ImGui.IsItemHovered()) {
-		ImGui.SetTooltip("Show models");
-	}
-	ImGui.SameLine();
-	_sk.l = ImGui.Checkbox("L", _sk.l);
-	if (ImGui.IsItemHovered()) {
-		ImGui.SetTooltip("Show lights");
-	}
-	ImGui.SameLine();
-	_sk.c = ImGui.Checkbox("C", _sk.c);
-	if (ImGui.IsItemHovered()) {
-		ImGui.SetTooltip("Show cameras");
-	}
-	ImGui.SameLine();
-	_sk.e = ImGui.Checkbox("E", _sk.e);
-	if (ImGui.IsItemHovered()) {
-		ImGui.SetTooltip("Show environment");
-	}
+	_sk.m = __gm3d_ed_imgui_kind_filter(_ed, "sprGM3DIconObject", "M", "Show models", _sk.m);
+	ImGui.SameLine(0, 14);
+	_sk.l = __gm3d_ed_imgui_kind_filter(_ed, "sprGM3DIconDirectionalLight", "L", "Show lights", _sk.l);
+	ImGui.SameLine(0, 14);
+	_sk.c = __gm3d_ed_imgui_kind_filter(_ed, "sprGM3DIconCamera", "C", "Show cameras", _sk.c);
+	ImGui.SameLine(0, 14);
+	_sk.e = __gm3d_ed_imgui_kind_filter(_ed, "sprGM3DIconPointLight", "E", "Show environment", _sk.e);
 	ImGui.Separator();
 	if (_ed.rt == undefined) {
 		ImGui.TextDisabled("No scene");
@@ -1212,9 +1272,6 @@ function __gm3d_ed_imgui_scene_list(_ed) {
 			_row = "[C] " + _dl;
 		} else if (_nk == "environment") {
 			_row = "[E] " + _dl;
-		}
-		if (__gm3d_ed_hidden_get(_ed, _nd)) {
-			_row += " [hidden]";
 		}
 		ImGui.PushID(_i);
 		var _renaming = false;

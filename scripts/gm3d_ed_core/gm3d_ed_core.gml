@@ -66,20 +66,8 @@ function gm3d_editor_draw(_ed) {
 		if (_ed.drag_lib != undefined && _ed.drag_moved) {
 			var _mx = device_mouse_x_to_gui(0);
 			var _my = device_mouse_y_to_gui(0);
-			if (__gm3d_ed_in_viewport(_ed, _mx, _my)) {
-				draw_set_color(c_white);
-				draw_set_halign(fa_center);
-				draw_text(_mx, _my - 14, _ed.drag_lib.asset.name);
-				draw_set_halign(fa_left);
-				var _dp = __gm3d_ed_drop_point(_ed, _vp, _mx, _my);
-				var _sp = __gm3d_ed_world_to_screen(_vp, _dp);
-				if (_sp != undefined) {
-					draw_set_color(make_colour_rgb(90, 140, 250));
-					draw_circle(_sp[0], _sp[1], 10, true);
-					draw_circle(_sp[0], _sp[1], 3, false);
-					draw_set_color(c_white);
-				}
-			} else {
+			// Over the scene the live preview is the feedback (no text/circle).
+			if (!__gm3d_ed_drag_in_viewport(_ed, _mx, _my)) {
 				draw_set_color(make_colour_rgb(90, 140, 250));
 				draw_rectangle(_mx + 14, _my + 10, _mx + 150, _my + 32, false);
 				draw_set_color(c_white);
@@ -107,6 +95,7 @@ function gm3d_editor_draw(_ed) {
 /// Unregisters the editor instance; call from CleanUp event.
 function gm3d_editor_cleanup(_ed) {
 	__gm3d_ed_ui_save(_ed);
+	__gm3d_ed_drop_preview_clear(_ed);
 	__gm3d_ed_bg_restore(_ed);
 	__gm3d_ed_cameras_restore(_ed);
 	__gm3d_ed_grid_remove(_ed);
@@ -188,6 +177,7 @@ function __gm3d_ed_set_active(_ed, _on) {
 	_ed.active = _on;
 	global.gm3d_editor_active = _on;
 	if (_was && !_on) {
+		__gm3d_ed_drop_preview_clear(_ed);
 		__gm3d_ed_bg_restore(_ed);
 		__gm3d_ed_grid_remove(_ed);
 		__gm3d_ed_cameras_restore(_ed);
@@ -411,6 +401,7 @@ function __gm3d_ed_create(_inst, _rt) {
 		imgui_ok: undefined,
 		drag_lib: undefined,
 		drag_moved: false,
+		drag_preview: undefined,
 		rect: undefined,
 		press_vp: false,
 		press_x: 0,
@@ -577,7 +568,9 @@ function __gm3d_ed_step_cancel(_ed, _keys, _typing) {
 		} else if (_ed.rename_name != undefined) {
 			__gm3d_ed_rename_cancel(_ed);
 		} else if (_ed.drag_lib != undefined) {
+			__gm3d_ed_drop_preview_clear(_ed);
 			_ed.drag_lib = undefined;
+			_ed.drag_moved = false;
 		} else if (_ed.rect != undefined) {
 			_ed.rect = undefined;
 		} else if (_ed.giz.drag != -1) {
@@ -621,15 +614,82 @@ function __gm3d_ed_step_gizmo(_ed, _vp, _mx, _my) {
 	return false;
 }
 
+/// Spawns (once) and moves the live drop preview for the library drag.
+/// The preview is an untracked scene node, so save/load/undo/picking ignore
+/// it by construction; it is either adopted on drop or destroyed.
+function __gm3d_ed_drop_preview_update(_ed, _drop) {
+	if (_ed == undefined || _ed.drag_lib == undefined || _drop == undefined) {
+		return;
+	}
+	var _pv = _ed.drag_preview;
+	if (_pv == undefined) {
+		var _asset = _ed.drag_lib.asset;
+		if (_asset == undefined || _asset.model == undefined) {
+			return;
+		}
+		_pv = _asset.model.spawnInto(_ed.rt.scene, undefined);
+		if (_pv == undefined) {
+			return;
+		}
+		_pv.setLocalScale(new GM3D_Vec3(1, 1, 1));
+		_ed.drag_preview = _pv;
+	}
+	_pv.setLocalPosition(new GM3D_Vec3(_drop.x, _drop.y, _drop.z));
+	// Fresh matrices now: the node must never render one frame at origin.
+	_ed.rt.scene.update(0);
+}
+
+/// Destroys the live drop preview without tracking it.
+function __gm3d_ed_drop_preview_clear(_ed) {
+	if (_ed == undefined) {
+		return;
+	}
+	if (_ed.drag_preview != undefined) {
+		__gm3d_ed_destroy_subtree(_ed.drag_preview);
+		_ed.drag_preview = undefined;
+		if (_ed.rt != undefined && _ed.rt.scene != undefined) {
+			_ed.rt.scene.update(0);
+		}
+	}
+}
+
+/// Viewport test for the library drag. ImGui keeps mouse capture while a
+/// drag-drop payload is active, so WantMouseCapture stays true even over the
+/// scene: hit-test real windows instead (the passthrough central dockspace
+/// does not count as hovered).
+function __gm3d_ed_drag_in_viewport(_ed, _mx, _my) {
+	if (_mx < 0 || _mx > _ed.gw || _my < 0 || _my > _ed.gh) {
+		return false;
+	}
+	try {
+		if (ImGui.IsWindowHovered(ImGuiHoveredFlags.AnyWindow)) {
+			return false;
+		}
+	} catch (_e) {
+	}
+	return true;
+}
+
 /// Continues library drag and drop; returns true when handled.
 function __gm3d_ed_step_libdrop(_ed, _vp, _mx, _my, _in_vp) {
 	if (_ed.drag_lib != undefined) {
+		var _drop_vp = __gm3d_ed_drag_in_viewport(_ed, _mx, _my);
 		if (point_distance(_mx, _my, _ed.press_x, _ed.press_y) > 4) {
 			_ed.drag_moved = true;
 		}
+		if (_ed.drag_moved && _drop_vp) {
+			var _dpv = __gm3d_ed_drop_point(_ed, _vp, _mx, _my);
+			if (_dpv == undefined) {
+				// Ray misses the ground (e.g. sky): no positionable point,
+				// so the preview hides instead of sitting somewhere stale.
+				__gm3d_ed_drop_preview_clear(_ed);
+			} else {
+				__gm3d_ed_drop_preview_update(_ed, _dpv);
+			}
+		}
 		if (!mouse_check_button(mb_left)) {
 			var _drop = undefined;
-			if (_ed.drag_moved && _in_vp) {
+			if (_ed.drag_moved && _drop_vp) {
 				_drop = __gm3d_ed_drop_point(_ed, _vp, _mx, _my);
 			} else if (!_ed.drag_moved) {
 				var _pp = _ed.rt.cam.getLocalPosition();
@@ -641,22 +701,38 @@ function __gm3d_ed_step_libdrop(_ed, _vp, _mx, _my, _in_vp) {
 				var _hb = undefined;
 				_hb = __gm3d_ed_history_snap(_ed);
 				var _asset = _ed.drag_lib.asset;
-				var _n = __gm3d_ed_place(
-					_ed,
-					_asset.name,
-					_asset.model,
-					[_drop.x, _drop.y, _drop.z],
-					undefined,
-					[1, 1, 1],
-					__gm3d_ed_fresh_label(_ed, _asset.name),
-				);
-				if (_n != undefined) {
-					_ed.sel = [_n];
+				if (_ed.drag_preview != undefined) {
+					// Adopt the preview: final TRS plus registry entry, no
+					// second spawn, so the preview never flickers.
+					_ed.drag_preview.setLocalPosition(new GM3D_Vec3(_drop.x, _drop.y, _drop.z));
+					if (variable_struct_exists(_ed.rt, "on_spawn")) {
+						_ed.rt.on_spawn(_ed.inst, _ed.drag_preview, _asset.name, _asset.model);
+					}
+					var _ap = _ed.drag_preview.getLocalPosition();
+					__gm3d_ed_spawn_register(_ed, _ed.drag_preview, _asset.name, [_ap.x, _ap.y, _ap.z], __gm3d_ed_fresh_label(_ed, _asset.name));
+					_ed.sel = [_ed.drag_preview];
 					_ed.giz.drag = -1;
+					_ed.drag_preview = undefined;
+				} else {
+					var _n = __gm3d_ed_place(
+						_ed,
+						_asset.name,
+						_asset.model,
+						[_drop.x, _drop.y, _drop.z],
+						undefined,
+						[1, 1, 1],
+						__gm3d_ed_fresh_label(_ed, _asset.name),
+					);
+					if (_n != undefined) {
+						_ed.sel = [_n];
+						_ed.giz.drag = -1;
+					}
 				}
 				if (_hb != undefined) {
 					__gm3d_ed_history_commit(_ed, _hb);
 				}
+			} else {
+				__gm3d_ed_drop_preview_clear(_ed);
 			}
 			_ed.drag_lib = undefined;
 			_ed.drag_moved = false;
@@ -684,6 +760,7 @@ function __gm3d_ed_step_rect(_ed, _vp, _mx, _my) {
 				} else {
 					_ed.sel = _hits;
 				}
+				__gm3d_ed_sel_apply_tool(_ed);
 			}
 			_ed.rect = undefined;
 			_ed.press_vp = false;
@@ -772,10 +849,12 @@ function __gm3d_ed_step_hover(_ed, _vp, _mx, _my, _in_vp, _typing) {
 			if (keyboard_check(vk_shift)) {
 				if (_hit != undefined) {
 					__gm3d_ed_sel_toggle(_ed, _hit);
+					__gm3d_ed_sel_apply_tool(_ed);
 				}
 			} else if (_hit != undefined) {
 				_ed.sel = [_hit];
 				_ed.giz.drag = -1;
+				__gm3d_ed_sel_apply_tool(_ed);
 			} else {
 				__gm3d_ed_sel_clear(_ed);
 			}

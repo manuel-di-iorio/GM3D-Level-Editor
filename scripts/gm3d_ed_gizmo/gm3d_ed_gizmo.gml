@@ -935,28 +935,70 @@ function __gm3d_ed_clip_seg(_x0, _y0, _x1, _y1, _w, _h) {
 	return [_x0, _y0, _x1, _y1];
 }
 
-/// Draws a diamond icon plus label for a prop node.
-function __gm3d_ed_overlay_icon(_ed, _sp, _label, _col, _sel) {
+/// Draws a sprite billboard centered on _sp, tinted. Falls back gracefully.
+/// @return True when drawn.
+function __gm3d_ed_overlay_sprite(_sp, _sprname, _tint) {
+	static _smap = {};
+	if (!variable_struct_exists(_smap, _sprname)) {
+		var _idx = -1;
+		try {
+			_idx = asset_get_index(_sprname);
+		} catch (_e) {
+			_idx = -1;
+		}
+		_smap[$ _sprname] = _idx;
+	}
+	var _spr = _smap[$ _sprname];
+	if (_spr == -1) {
+		return false;
+	}
+	// Center the sprite image on _sp for any origin at 1.5x scale: the drawn
+	// rect spans [x-ox*s, x-ox*s+w*s], so x = _sp[0] + s*(ox-w/2).
+	var _sc = 2.0;
+	var _w = 0;
+	var _h = 0;
+	var _ox = 0;
+	var _oy = 0;
+	try {
+		_w = sprite_get_width(_spr);
+		_h = sprite_get_height(_spr);
+		_ox = sprite_get_xoffset(_spr);
+		_oy = sprite_get_yoffset(_spr);
+	} catch (_e2) {
+		return false;
+	}
+	try {
+		draw_sprite_ext(_spr, 0, _sp[0] + _sc * (_ox - _w * 0.5), _sp[1] + _sc * (_oy - _h * 0.5), _sc, _sc, 0, _tint, 1);
+	} catch (_e3) {
+		return false;
+	}
+	return true;
+}
+
+/// Draws a sprite icon (or fallback diamond) for a prop node. No label: names
+/// live in the Scene list.
+/// @param _sprname sprite for the billboard, "" for the diamond.
+function __gm3d_ed_overlay_icon(_ed, _sp, _label, _col, _sel, _sprname) {
 	var _c = _sel ? make_colour_rgb(255, 220, 80) : _col;
 	var _r = 9;
-	if (_sel) {
-		draw_primitive_begin(pr_trianglefan);
-		draw_vertex_colour(_sp[0], _sp[1] - _r, _c, 0.85);
-		draw_vertex_colour(_sp[0] + _r, _sp[1], _c, 0.85);
-		draw_vertex_colour(_sp[0], _sp[1] + _r, _c, 0.85);
-		draw_vertex_colour(_sp[0] - _r, _sp[1], _c, 0.85);
-		draw_primitive_end();
+	var _drawn = false;
+	if (_sprname != "") {
+		_drawn = __gm3d_ed_overlay_sprite(_sp, _sprname, _c);
 	}
-	draw_line_width_color(_sp[0], _sp[1] - _r, _sp[0] + _r, _sp[1], 2, _c, _c);
-	draw_line_width_color(_sp[0] + _r, _sp[1], _sp[0], _sp[1] + _r, 2, _c, _c);
-	draw_line_width_color(_sp[0], _sp[1] + _r, _sp[0] - _r, _sp[1], 2, _c, _c);
-	draw_line_width_color(_sp[0] - _r, _sp[1], _sp[0], _sp[1] - _r, 2, _c, _c);
-	draw_set_halign(fa_left);
-	draw_set_valign(fa_top);
-	draw_set_color(c_black);
-	draw_text(_sp[0] + 13, _sp[1] - 7, _label);
-	draw_set_color(c_white);
-	draw_text(_sp[0] + 12, _sp[1] - 8, _label);
+	if (!_drawn) {
+		if (_sel) {
+			draw_primitive_begin(pr_trianglefan);
+			draw_vertex_colour(_sp[0], _sp[1] - _r, _c, 0.85);
+			draw_vertex_colour(_sp[0] + _r, _sp[1], _c, 0.85);
+			draw_vertex_colour(_sp[0], _sp[1] + _r, _c, 0.85);
+			draw_vertex_colour(_sp[0] - _r, _sp[1], _c, 0.85);
+			draw_primitive_end();
+		}
+		draw_line_width_color(_sp[0], _sp[1] - _r, _sp[0] + _r, _sp[1], 2, _c, _c);
+		draw_line_width_color(_sp[0] + _r, _sp[1], _sp[0], _sp[1] + _r, 2, _c, _c);
+		draw_line_width_color(_sp[0], _sp[1] + _r, _sp[0] - _r, _sp[1], 2, _c, _c);
+		draw_line_width_color(_sp[0] - _r, _sp[1], _sp[0], _sp[1] - _r, 2, _c, _c);
+	}
 }
 
 /// Draws an arrowhead at screen tip _e along screen dir (_dx, _dy) normalized.
@@ -1023,26 +1065,28 @@ function __gm3d_ed_overlay_light(_ed, _vp, _nd, _en, _wp, _sp, _lb, _sel) {
 		_fw = new GM3D_Vec3(0, 0, -1);
 	}
 	if (_d.type == "directional") {
-		var _tip = new GM3D_Vec3(_wp.x + _fw.x * 1.5, _wp.y + _fw.y * 1.5, _wp.z + _fw.z * 1.5);
-		__gm3d_ed_overlay_seg(_ed, _vp, _wp, _tip, 2, _col);
-		var _se = __gm3d_ed_overlay_project(_vp, _tip);
-		if (_se != undefined && _sp != undefined) {
-			var _dx = _se[0] - _sp[0];
-			var _dy = _se[1] - _sp[1];
-			var _l = sqrt(_dx * _dx + _dy * _dy);
-			if (_l > 4) {
-				__gm3d_ed_overlay_head(_se, _dx / _l, _dy / _l, _col);
+		if (_sel) {
+			var _tip = new GM3D_Vec3(_wp.x + _fw.x * 1.5, _wp.y + _fw.y * 1.5, _wp.z + _fw.z * 1.5);
+			__gm3d_ed_overlay_seg(_ed, _vp, _wp, _tip, 2, _col);
+			var _se = __gm3d_ed_overlay_project(_vp, _tip);
+			if (_se != undefined && _sp != undefined) {
+				var _dx = _se[0] - _sp[0];
+				var _dy = _se[1] - _sp[1];
+				var _l = sqrt(_dx * _dx + _dy * _dy);
+				if (_l > 4) {
+					__gm3d_ed_overlay_head(_se, _dx / _l, _dy / _l, _col);
+				}
 			}
 		}
 	} else {
 		var _ws = __gm3d_ed_gizmo_world_size(_vp, _wp, 120);
 		var _px = (_ws > 0.0001 ? _d.range / _ws : 0) * 120;
-		if (_sp != undefined && _d.range > 0 && _px >= 4) {
+		if (_sel && _sp != undefined && _d.range > 0 && _px >= 4) {
 			draw_set_alpha(0.7);
 			draw_circle(_sp[0], _sp[1], min(_px, 600), true);
 			draw_set_alpha(1);
 		}
-		if (_d.type == "spot") {
+		if (_sel && _d.type == "spot") {
 			var _len = max(_d.range, 0.5);
 			var _ctr = new GM3D_Vec3(_wp.x + _fw.x * _len, _wp.y + _fw.y * _len, _wp.z + _fw.z * _len);
 			var _rr = tan(degtorad(clamp(_d.outer, 1, 89))) * _len;
@@ -1083,7 +1127,8 @@ function __gm3d_ed_overlay_light(_ed, _vp, _nd, _en, _wp, _sp, _lb, _sel) {
 		}
 	}
 	if (_sp != undefined) {
-		__gm3d_ed_overlay_icon(_ed, _sp, _lb, _col, _sel);
+		var _lspr = _d.type == "directional" ? "sprGM3DIconDirectionalLight" : "sprGM3DIconPointLight";
+		__gm3d_ed_overlay_icon(_ed, _sp, _lb, _col, _sel, _lspr);
 	}
 }
 
@@ -1096,6 +1141,14 @@ function __gm3d_ed_overlay_camera(_ed, _vp, _nd, _en, _wp, _sp, _lb, _sel) {
 		_col = make_colour_rgb(255, 220, 80);
 	}
 	var _d = (_en != undefined && is_struct(_en.data)) ? _en.data : __gm3d_ed_camera_defaults();
+	// Frustum and glyphs only for the selected camera; unselected nodes show
+	// just the icon (click target).
+	if (!_sel) {
+		if (_sp != undefined) {
+			__gm3d_ed_overlay_icon(_ed, _sp, _lb, _col, _sel, "sprGM3DIconCamera");
+		}
+		return;
+	}
 	var _fw0 = _nd.getWorldForward();
 	var _fl0 = sqrt(_fw0.x * _fw0.x + _fw0.y * _fw0.y + _fw0.z * _fw0.z);
 	var _fw = new GM3D_Vec3(0, 0, -1);
@@ -1150,7 +1203,7 @@ function __gm3d_ed_overlay_camera(_ed, _vp, _nd, _en, _wp, _sp, _lb, _sel) {
 	}
 	__gm3d_ed_overlay_seg(_ed, _vp, _wp, _cn, 1.5, _col);
 	if (_sp != undefined) {
-		__gm3d_ed_overlay_icon(_ed, _sp, _lb, _col, _sel);
+		__gm3d_ed_overlay_icon(_ed, _sp, _lb, _col, _sel, "sprGM3DIconCamera");
 	}
 }
 
@@ -1183,6 +1236,6 @@ function __gm3d_ed_overlay_env(_ed, _vp, _nd, _en, _wp, _sp, _lb, _sel) {
 		draw_set_alpha(1);
 	}
 	if (_sp != undefined) {
-		__gm3d_ed_overlay_icon(_ed, _sp, _lb, _col, _sel);
+		__gm3d_ed_overlay_icon(_ed, _sp, _lb, _col, _sel, "");
 	}
 }

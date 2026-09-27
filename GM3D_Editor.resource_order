@@ -1,5 +1,7 @@
 {
-  "FolderOrderSettings":[],
+  "FolderOrderSettings":[
+    {"name":"Icons","order":14,"path":"folders/GM3D Level Editor/Icons.yy",},
+  ],
   "ResourceOrderSettings":[
     {"name":"oEditor","order":2,"path":"objects/oEditor/oEditor.yy",},
     {"name":"rTest","order":3,"path":"rooms/rTest/rTest.yy",},
@@ -19,6 +21,10 @@
     {"name":"sAnimated","order":5,"path":"shaders/sAnimated/sAnimated.yy",},
     {"name":"shGM3DGrid","order":13,"path":"shaders/shGM3DGrid/shGM3DGrid.yy",},
     {"name":"sStatic","order":4,"path":"shaders/sStatic/sStatic.yy",},
-    {"name":"sprGM3DIconEye","order":14,"path":"sprites/sprGM3DIconEye/sprGM3DIconEye.yy",},
+    {"name":"sprGM3DIconCamera","order":4,"path":"sprites/sprGM3DIconCamera/sprGM3DIconCamera.yy",},
+    {"name":"sprGM3DIconCenter","order":5,"path":"sprites/sprGM3DIconCenter/sprGM3DIconCenter.yy",},
+    {"name":"sprGM3DIconDirectionalLight","order":3,"path":"sprites/sprGM3DIconDirectionalLight/sprGM3DIconDirectionalLight.yy",},
+    {"name":"sprGM3DIconObject","order":1,"path":"sprites/sprGM3DIconObject/sprGM3DIconObject.yy",},
+    {"name":"sprGM3DIconPointLight","order":2,"path":"sprites/sprGM3DIconPointLight/sprGM3DIconPointLight.yy",},
   ],
 }

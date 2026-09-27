@@ -315,6 +315,7 @@ function __gm3d_ed_rebuild(_ed, _nodes) {
 		throw "invalid descriptors";
 	}
 
+	__gm3d_ed_drop_preview_clear(_ed);
 	var _tracked = __gm3d_ed_root_tracked(_ed);
 	// Editor-only hidden flags are never serialized: carry them over by label
 	// so load/undo keep the viewport state of same-named nodes.
@@ -449,6 +450,9 @@ function __gm3d_ed_rebuild_prop(_ed, _p, _kind) {
 	_ed.rt.scene.update(0);
 	var _pp = _node.getLocalPosition();
 	__gm3d_ed_kind_register(_ed, _node, _kind, "", [_pp.x, _pp.y, _pp.z], _p.name, _data);
+	if (_kind == "environment") {
+		__gm3d_ed_hidden_set(_ed, _node, true);
+	}
 	return _node;
 }
 

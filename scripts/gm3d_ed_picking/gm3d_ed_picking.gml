@@ -30,7 +30,7 @@ function __gm3d_ed_pick_all(_ed, _nodes, _vp, _mx, _my) {
 			if (_c == undefined) {
 				continue;
 			}
-			if (point_distance(_c[0], _c[1], _mx, _my) > 14) {
+			if (point_distance(_c[0], _c[1], _mx, _my) > 16) {
 				continue;
 			}
 			var _cp = _vp.camNode.getWorldPosition();
