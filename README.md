@@ -70,7 +70,7 @@ While the editor is open it owns the camera and the scene: pause your own simula
 }
 ```
 
-Lights, cameras and the environment carry a `light` / `camera` / `environment` sub-struct (angles in degrees, colors as `[r, g, b]` 0-255). Create them from the `Create` menu; they move with the Move/Rotate gizmo and draw Unity-style overlay icons (direction arrow, range circle, spot cone, camera frustum) in the viewport.
+Lights, cameras and the environment carry a `light` / `camera` / `environment` sub-struct (angles in degrees, colors as `[r, g, b]` 0-255).
 
 ## Controls
 

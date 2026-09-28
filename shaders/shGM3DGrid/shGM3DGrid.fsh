@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Fragment shader for the editor grid (Unity-style procedural grid).
+// Fragment shader for the editor grid (Fprocedural grid).
 //
 // The model is a single large quad at Y=0; lines are computed per-pixel
 // from the world position. fwidth() gives each line exact pixel coverage
@@ -24,7 +24,7 @@
 // Line half-width in pixels (1.0 = full-pixel lines, thinner shimmers).
 #define GRID_WIDTH 1.0
 
-// AA only where needed (Unity-like): below GRID_AA_W0 cells-per-pixel the
+// AA only where needed: below GRID_AA_W0 cells-per-pixel the
 // edges are binary razor-sharp; past GRID_AA_W1 they are fully smooth.
 // Driven by fwidth, so it kicks in far away AND at grazing angles nearby,
 // staying crisp everywhere else.
@@ -60,7 +60,7 @@ float gridLine(vec2 _p, float _step) {
 	return mix(_hard, _soft, max(_aa, 0.5));
 }
 
-// Extra early fade for minors only (Unity-like): fine lines melt away
+// Extra early fade for minors only: fine lines melt away
 // with distance even where still resolvable, majors carry the far field.
 // Smoothstep over a long range: no visible band edge, ever.
 #define GRID_MINOR_DIST_A 15.0
@@ -69,7 +69,7 @@ float distBand(float _d, float _a, float _b) {
 	return 1.0 - smoothstep(_a, _b, _d);
 }
 
-// LOD fade for one scale (Unity-style): fully visible while its cells are
+// LOD fade for one scale: fully visible while its cells are
 // comfortably resolved, dissolving across the Nyquist zone so nothing is
 // left to shimmer: gone by ~1 cell-per-pixel, where lines would break into
 // dashes. Each scale hands over to the next before that point.

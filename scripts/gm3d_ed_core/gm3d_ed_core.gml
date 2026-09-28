@@ -14,6 +14,8 @@ function gm3d_editor_init(_self, _rt) {
 	var _ed = __gm3d_ed_create(_self, _rt);
 	__gm3d_ed_cam_remember(_ed);
 	__gm3d_ed_ui_load(_ed);
+	__gm3d_ed_view_save(_ed);
+	__gm3d_ed_view_sync(_ed);
 	__gm3d_ed_bg_apply(_ed);
 	__gm3d_ed_grid_ensure(_ed);
 	__gm3d_ed_cameras_mute(_ed);
@@ -96,6 +98,7 @@ function gm3d_editor_draw(_ed) {
 function gm3d_editor_cleanup(_ed) {
 	__gm3d_ed_ui_save(_ed);
 	__gm3d_ed_drop_preview_clear(_ed);
+	__gm3d_ed_view_restore(_ed);
 	__gm3d_ed_bg_restore(_ed);
 	__gm3d_ed_cameras_restore(_ed);
 	__gm3d_ed_grid_remove(_ed);
@@ -167,6 +170,80 @@ function __gm3d_ed_bg_restore(_ed) {
 	_ed.bg_layer = undefined;
 }
 
+/// Ensures native render resolution and GUI match the window (no letterbox
+/// bars, no stretch): application_surface and GUI follow window size, like
+/// Unique Engine's resize path. Acts only on change; call per step.
+function __gm3d_ed_view_sync(_ed) {
+	var _ww = 0;
+	var _wh = 0;
+	try {
+		_ww = window_get_width();
+		_wh = window_get_height();
+	} catch (_e) {
+		return;
+	}
+	if (_ww <= 0 || _wh <= 0) {
+		return;
+	}
+	if (!variable_struct_exists(_ed, "view_sync")) {
+		_ed.view_sync = { w: -1, h: -1 };
+	}
+	if (_ed.view_sync.w == _ww && _ed.view_sync.h == _wh) {
+		return;
+	}
+	_ed.view_sync.w = _ww;
+	_ed.view_sync.h = _wh;
+	try {
+		if (surface_exists(application_surface)) {
+			surface_resize(application_surface, _ww, _wh);
+		}
+	} catch (_e2) {
+	}
+	try {
+		display_set_gui_size(_ww, _wh);
+	} catch (_e3) {
+	}
+}
+
+/// Saves game viewport state before the editor takes it over.
+function __gm3d_ed_view_save(_ed) {
+	var _v = { sw: -1, sh: -1, gw: -1, gh: -1 };
+	try {
+		if (surface_exists(application_surface)) {
+			_v.sw = surface_get_width(application_surface);
+			_v.sh = surface_get_height(application_surface);
+		}
+	} catch (_e) {
+	}
+	try {
+		_v.gw = display_get_gui_width();
+		_v.gh = display_get_gui_height();
+	} catch (_e2) {
+	}
+	_ed.view_prev = _v;
+}
+
+/// Restores game viewport state saved by view_save.
+function __gm3d_ed_view_restore(_ed) {
+	if (_ed == undefined || !is_struct(_ed.view_prev)) {
+		return;
+	}
+	var _v = _ed.view_prev;
+	_ed.view_prev = undefined;
+	try {
+		if (_v.sw > 0 && _v.sh > 0 && surface_exists(application_surface)) {
+			surface_resize(application_surface, _v.sw, _v.sh);
+		}
+	} catch (_e) {
+	}
+	try {
+		if (_v.gw > 0 && _v.gh > 0) {
+			display_set_gui_size(_v.gw, _v.gh);
+		}
+	} catch (_e2) {
+	}
+}
+
 /// Sets the editor open state.
 /// @param {Bool} _on true to open, false to close
 function __gm3d_ed_set_active(_ed, _on) {
@@ -178,6 +255,7 @@ function __gm3d_ed_set_active(_ed, _on) {
 	global.gm3d_editor_active = _on;
 	if (_was && !_on) {
 		__gm3d_ed_drop_preview_clear(_ed);
+		__gm3d_ed_view_restore(_ed);
 		__gm3d_ed_bg_restore(_ed);
 		__gm3d_ed_grid_remove(_ed);
 		__gm3d_ed_cameras_restore(_ed);
@@ -186,6 +264,8 @@ function __gm3d_ed_set_active(_ed, _on) {
 			_ed.rt.on_close(_ed.inst);
 		}
 	} else if (!_was && _on) {
+		__gm3d_ed_view_save(_ed);
+		__gm3d_ed_view_sync(_ed);
 		__gm3d_ed_bg_apply(_ed);
 		__gm3d_ed_grid_ensure(_ed);
 		__gm3d_ed_cameras_mute(_ed);
@@ -379,12 +459,16 @@ function __gm3d_ed_create(_inst, _rt) {
 			my0: 0,
 			piv_sx: 0,
 			piv_sy: 0,
-			last_ang: 0,
+			rot_mx: 0,
+			rot_my: 0,
+			rot_tx: 1,
+			rot_ty: 0,
 			total_ang: 0,
+			display_ang: 0,
 			len: 1,
 			len_key: undefined,
 			orient: 0,
-			sector_a0: 0,
+			sector_t0: 0,
 		},
 		pick_cycle_x: -10000,
 		pick_cycle_y: -10000,
@@ -412,11 +496,12 @@ function __gm3d_ed_create(_inst, _rt) {
 		cube_moved: false,
 		cube_gx: 0,
 		cube_gy: 0,
-		cube_off: [360, 100],
+		cube_off: [85, 100],
 		vp: undefined,
 		cam_anim: undefined,
 		cam_home: undefined,
 		hist_before: undefined,
+		wrap: undefined,
 		cube_geom: undefined,
 		scene_file: "",
 		snap_on: false,
@@ -452,6 +537,7 @@ function __gm3d_ed_step(_ed, _dt) {
 		return;
 	}
 
+	__gm3d_ed_view_sync(_ed);
 	var _mx = device_mouse_x_to_gui(0);
 	var _my = device_mouse_y_to_gui(0);
 	var _typing = __gm3d_ed_ui_typing(_ed);
@@ -584,9 +670,121 @@ function __gm3d_ed_step_cancel(_ed, _keys, _typing) {
 				_ed.rt.scene.update(0);
 			}
 			_ed.giz.drag = -1;
+			__gm3d_ed_wrap_end(_ed);
 			_ed.hist_before = undefined;
 		} else {
 			__gm3d_ed_sel_clear(_ed);
+		}
+	}
+}
+
+/// Centralized infinite-drag mouse wrap. While a gizmo
+/// transform or a camera gesture is active the OS cursor teleports from one
+/// screen edge to the opposite one, so motion never stalls at the border:
+/// - gizmo drags use absolute coordinates, so they consume VIRTUAL coords
+///   (begin/step/end) that keep growing past the edges;
+/// - camera gestures (RMB orbit, MMB pan) are delta-driven, so they only
+///   need the edge teleport AFTER their deltas were consumed (wrap_camera).
+/// State lives on _ed.wrap: { on, vx, vy, lx, ly }.
+
+/// Starts virtual tracking at the current mouse position.
+function __gm3d_ed_wrap_begin(_ed, _mx, _my) {
+	_ed.wrap = { on: true, vx: _mx, vy: _my, lx: _mx, ly: _my };
+}
+
+/// Stops virtual tracking.
+function __gm3d_ed_wrap_end(_ed) {
+	if (_ed != undefined) {
+		_ed.wrap = undefined;
+	}
+}
+
+/// Folds the real mouse delta into the virtual position and teleports the OS
+/// cursor at the window edges. Returns [vx, vy] for the drag math.
+function __gm3d_ed_wrap_step(_ed, _mx, _my) {
+	var _w = _ed.wrap;
+	if (_w == undefined || !_w.on) {
+		return [_mx, _my];
+	}
+	_w.vx += _mx - _w.lx;
+	_w.vy += _my - _w.ly;
+	_w.lx = _mx;
+	_w.ly = _my;
+	var _ww = 0;
+	var _wh = 0;
+	try {
+		_ww = window_get_width();
+		_wh = window_get_height();
+	} catch (_eW) {
+	}
+	if (_ww > 16 && _wh > 16) {
+		var _nx = _mx;
+		var _ny = _my;
+		if (_mx < 8) {
+			_nx = _ww - 9;
+		} else if (_mx > _ww - 9) {
+			_nx = 8;
+		}
+		if (_my < 8) {
+			_ny = _wh - 9;
+		} else if (_my > _wh - 9) {
+			_ny = 8;
+		}
+		if (_nx != _mx || _ny != _my) {
+			try {
+				window_mouse_set(round(_nx), round(_ny));
+			} catch (_eW2) {
+			}
+			// Rebase BEFORE the next frame: the teleport jump must never
+			// leak into the virtual position.
+			_w.lx = _nx;
+			_w.ly = _ny;
+		}
+	}
+	return [_w.vx, _w.vy];
+}
+
+/// Edge teleport for delta-driven camera gestures (orbit/pan): call AFTER the
+/// frame deltas were consumed, so the jump stays out of the motion.
+function __gm3d_ed_wrap_camera(_ed) {
+	if (_ed == undefined) {
+		return;
+	}
+	var _mx = 0;
+	var _my = 0;
+	try {
+		_mx = device_mouse_x_to_gui(0);
+		_my = device_mouse_y_to_gui(0);
+	} catch (_eG) {
+		return;
+	}
+	var _ww = 0;
+	var _wh = 0;
+	try {
+		_ww = window_get_width();
+		_wh = window_get_height();
+	} catch (_eW) {
+		return;
+	}
+	if (_ww <= 16 || _wh <= 16) {
+		return;
+	}
+	var _nx = _mx;
+	var _ny = _my;
+	if (_mx < 8) {
+		_nx = _ww - 9;
+	} else if (_mx > _ww - 9) {
+		_nx = 8;
+	}
+	if (_my < 8) {
+		_ny = _wh - 9;
+	} else if (_my > _wh - 9) {
+		_ny = 8;
+	}
+	if (_nx != _mx || _ny != _my) {
+		try {
+			window_mouse_set(round(_nx), round(_ny));
+		} catch (_eW2) {
 		}
 	}
 }
@@ -600,11 +798,16 @@ function __gm3d_ed_step_gizmo(_ed, _vp, _mx, _my) {
 			if (_ed.hist_before != undefined) {
 				__gm3d_ed_history_commit(_ed, _ed.hist_before);
 			}
+			__gm3d_ed_wrap_end(_ed);
 			__gm3d_ed_rows_follow(_ed, _ed.sel);
 
 			_ed.hist_before = undefined;
 		} else {
-			__gm3d_ed_gizmo_drag(_ed, _vp, _mx, _my);
+			if (_ed.wrap == undefined) {
+				__gm3d_ed_wrap_begin(_ed, _mx, _my);
+			}
+			var _wv = __gm3d_ed_wrap_step(_ed, _mx, _my);
+			__gm3d_ed_gizmo_drag(_ed, _vp, _wv[0], _wv[1]);
 		}
 		_ed.giz.hover = _ed.giz.drag;
 		_ed.rect = undefined;

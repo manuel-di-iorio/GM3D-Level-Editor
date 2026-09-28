@@ -1,6 +1,11 @@
 /// @module gm3d_ed_viewcube
 /// Orientation cube: picking and drawing.
 
+/// Restores the default viewcube offset (top-right corner).
+function __gm3d_ed_cube_home(_ed) {
+	_ed.cube_off = [85, 100];
+}
+
 /// Builds orientation cube geometry in screen space.
 function __gm3d_ed_viewcube(_ed) {
 	if (_ed.rt == undefined || _ed.rt.cam == undefined) {
@@ -81,6 +86,7 @@ function __gm3d_ed_viewcube(_ed) {
 			var _cc = {
 				a: _g,
 				s: _q,
+				muted: _q < 0,
 				facing: _gx[0] * _q * _f.x + _gx[1] * _q * _f.y + _gx[2] * _q * _f.z,
 				front: false,
 				disk: false,
@@ -216,7 +222,7 @@ function __gm3d_ed_viewcube_box_at(_vc, _mx, _my) {
 
 /// Draws one axis cone.
 function __gm3d_ed_viewcube_cone(_ed, _c, _hov) {
-	var _al = _c.front ? 1 : _hov ? 0.75 : 0.35;
+	var _al = _c.muted ? (_hov ? 0.75 : 0.35) : 1;
 	var _lc = _hov ? merge_colour(_c.lcol, c_white, 0.45) : _c.lcol;
 	var _dk = _hov ? _c.lcol : _c.dcol;
 	if (_c.disk == true) {

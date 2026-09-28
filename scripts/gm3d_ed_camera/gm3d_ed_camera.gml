@@ -162,6 +162,11 @@ function __gm3d_ed_cam_fly(_ed, _vp, _dt, _allowKeys, _allowZoom) {
 	// World up only; pitch clamp keeps inputs non-parallel.
 	var _upv = GM3D_Vec3.up();
 	_node.setLocalRotation(GM3D_Quaternion.fromLookRotation(_f, _upv).normalizeSafe(0.000001));
+	// Deltas already consumed above: safe to teleport at the edges, the jump
+	// never leaks into orbit/pan. Infinite RMB/MMB gestures.
+	if (_orbit || _pan) {
+		__gm3d_ed_wrap_camera(_ed);
+	}
 }
 
 /// Snaps the camera to face a cube normal, keeping distance.

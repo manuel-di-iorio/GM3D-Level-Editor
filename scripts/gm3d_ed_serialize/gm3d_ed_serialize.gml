@@ -453,6 +453,9 @@ function __gm3d_ed_rebuild_prop(_ed, _p, _kind) {
 	if (_kind == "environment") {
 		__gm3d_ed_hidden_set(_ed, _node, true);
 	}
+	if (_kind == "light" && is_struct(_data) && variable_struct_exists(_data, "type") && _data.type == "directional") {
+		__gm3d_ed_hidden_set(_ed, _node, true);
+	}
 	return _node;
 }
 

@@ -155,10 +155,31 @@ function __gm3d_ed_snap(_v, _step) {
 }
 
 /// Converts a quaternion to euler angles in radians, ZYX order.
+/// Normalizes first (drift-proof) and never throws on bad input.
 function __gm3d_ed_quat_to_euler(_q) {
-	var _ex = arctan2(2 * (_q.w * _q.x + _q.y * _q.z), 1 - 2 * (_q.x * _q.x + _q.y * _q.y));
-	var _ey = arcsin(clamp(2 * (_q.w * _q.y - _q.z * _q.x), -1, 1));
-	var _ez = arctan2(2 * (_q.w * _q.z + _q.x * _q.y), 1 - 2 * (_q.y * _q.y + _q.z * _q.z));
+	var _qx = _q.x;
+	var _qy = _q.y;
+	var _qz = _q.z;
+	var _qw = _q.w;
+	var _bad = false;
+	try {
+		_bad = is_nan(_qx) || is_nan(_qy) || is_nan(_qz) || is_nan(_qw);
+	} catch (_e) {
+		_bad = true;
+	}
+	if (_bad) {
+		return [0, 0, 0];
+	}
+	var _l = sqrt(_qx * _qx + _qy * _qy + _qz * _qz + _qw * _qw);
+	if (_l > 0.000001) {
+		_qx /= _l;
+		_qy /= _l;
+		_qz /= _l;
+		_qw /= _l;
+	}
+	var _ex = arctan2(2 * (_qw * _qx + _qy * _qz), 1 - 2 * (_qx * _qx + _qy * _qy));
+	var _ey = arcsin(clamp(2 * (_qw * _qy - _qz * _qx), -1, 1));
+	var _ez = arctan2(2 * (_qw * _qz + _qx * _qy), 1 - 2 * (_qy * _qy + _qz * _qz));
 	return [_ex, _ey, _ez];
 }
 

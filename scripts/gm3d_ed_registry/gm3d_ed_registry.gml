@@ -3,7 +3,8 @@
 
 /// Adds a loaded model handle to the Models library.
 /// @param _model loaded handle spawned by the editor via spawnInto (caller owns loading)
-function gm3d_editor_asset_add(_ed, _name, _model) {
+/// @param _thumb card thumbnail sprite (caller-owned, never deleted), or -1.
+function gm3d_editor_asset_add(_ed, _name, _model, _thumb = -1) {
 	if (_ed == undefined) {
 		return;
 	}
@@ -13,16 +14,25 @@ function gm3d_editor_asset_add(_ed, _name, _model) {
 	if (_name == undefined || _name == "" || _model == undefined) {
 		return;
 	}
-	array_push(_ed.assets, { name: _name, model: _model });
+	var _entry = { name: _name, model: _model };
+	try {
+		if (_thumb != -1 && sprite_exists(_thumb)) {
+			_entry.thumb = _thumb;
+		}
+	} catch (_e) {
+	}
+	array_push(_ed.assets, _entry);
 }
 
-/// Clears the Models library.
+/// Clears the Models library. Thumb sprites stay owned by the caller (like
+/// models) and are never deleted here.
 function gm3d_editor_asset_clear(_ed) {
 	if (_ed == undefined) {
 		return;
 	}
 	_ed.assets = [];
 }
+
 
 /// Clears the selection and any gizmo hover/drag state.
 function __gm3d_ed_sel_clear(_ed) {
@@ -756,6 +766,9 @@ function gm3d_editor_light_add(_ed, _node, _label = undefined) {
 		_label = __gm3d_ed_fresh_label(_ed, _node.name);
 	}
 	__gm3d_ed_kind_register(_ed, _node, "light", "", [_pp.x, _pp.y, _pp.z], _label, _d);
+	if (_d.type == "directional") {
+		__gm3d_ed_hidden_set(_ed, _node, true);
+	}
 	return _node;
 }
 
@@ -820,6 +833,9 @@ function __gm3d_ed_create_light(_ed, _type) {
 	_ed.rt.scene.update(0);
 	var _pp = _node.getLocalPosition();
 	__gm3d_ed_kind_register(_ed, _node, "light", "", [_pp.x, _pp.y, _pp.z], _lbl, _d);
+	if (_d.type == "directional") {
+		__gm3d_ed_hidden_set(_ed, _node, true);
+	}
 	_ed.sel = [_node];
 	_ed.giz.drag = -1;
 	__gm3d_ed_sel_apply_tool(_ed);

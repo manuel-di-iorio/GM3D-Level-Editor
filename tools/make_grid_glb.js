@@ -1,5 +1,5 @@
 // Generates datafiles/grid.glb: a single large quad at Y=0; the grid lines
-// themselves are procedural in the sGrid fragment shader (Unity-style:
+// themselves are procedural in the sGrid fragment shader (
 // per-pixel lines with fwidth anti-aliasing + distance fade, so distant
 // lines can never shimmer). No line geometry, no pillars, no axes.
 // Run: node tools/make_grid_glb.js

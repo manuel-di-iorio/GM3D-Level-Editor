@@ -180,6 +180,8 @@ function __gm3d_ed_imgui_ensure(_ed) {
 		ax_active: {},
 		flt_active: {},
 		show_kind: { m: true, l: true, c: true, e: true },
+		scene_eye_idx: -1,
+		scene_eye_till: 0,
 	};
 }
 
@@ -212,6 +214,7 @@ function __gm3d_ed_imgui_draw(_ed) {
 	var _rst = _ed.imgui.reset_layout == true;
 	if (_rst || _rsz) {
 		_ed.imgui.cond = ImGuiCond.Always;
+		__gm3d_ed_cube_home(_ed);
 	}
 	__gm3d_ed_imgui_menu(_ed);
 	__gm3d_ed_imgui_toolbar(_ed);
@@ -312,6 +315,10 @@ function __gm3d_ed_ui_load(_ed) {
 	if (!is_array(_c) || array_length(_c) < 2 || !is_real(_c[0]) || !is_real(_c[1])) {
 		return;
 	}
+	if (_c[0] == 85 && _c[1] == 100) {
+		__gm3d_ed_cube_home(_ed);
+		return;
+	}
 	_ed.cube_off = [clamp(_c[0], 0, 10000), clamp(_c[1], 0, 10000)];
 }
 
@@ -328,9 +335,9 @@ function __gm3d_ed_imgui_confirm(_ed) {
 	}
 	var _gw = max(640, _ed.gw);
 	var _gh = max(400, _ed.gh);
-	ImGui.SetNextWindowPos(_gw * 0.5 - 170, _gh * 0.5 - 70, ImGuiCond.Always);
-	ImGui.SetNextWindowSize(340, 140, ImGuiCond.Always);
-	__gm3d_ed_imgui_bg_alpha(1);
+	ImGui.SetNextWindowPos(_gw * 0.5 - 170, _gh * 0.5 - 56, ImGuiCond.Always);
+	ImGui.SetNextWindowSize(340, 90, ImGuiCond.Always);
+	__gm3d_ed_imgui_bg_alpha(0.95);
 	var _begun = false;
 	var _pushed = 0;
 
@@ -338,7 +345,7 @@ function __gm3d_ed_imgui_confirm(_ed) {
 	_pushed++;
 	ImGui.PushStyleColor(ImGuiCol.TitleBgActive, make_colour_rgb(33, 36, 47), 1);
 	_pushed++;
-	_begun = ImGui.Begin("Unsaved changes", _c, ImGuiWindowFlags.NoMove);
+	_begun = ImGui.Begin("Unsaved changes", _c, ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoResize);
 	if (!_begun) {
 		__gm3d_ed_imgui_pop(_pushed);
 		ImGui.End();
@@ -382,20 +389,21 @@ function __gm3d_ed_imgui_pop(_n) {
 	}
 }
 
-/// Returns default floating rects for assets, scene and inspector windows.
-/// Unity-like: Scene full-height left, Inspector full-height right, Models
-/// in a bottom strip between them.
+/// Returns default floating rects: Scene top-left, Models under it,
+/// Inspector bottom-right, viewcube top-right.
 function __gm3d_ed_imgui_place(_ed) {
 	var _gw = max(640, _ed.gw);
 	var _gh = max(400, _ed.gh);
 	var _top = 30;
 	var _lw = 250;
+	var _lh = clamp((_gh - _top - 16) * 0.55, 220, 640);
 	var _iw = 295;
-	var _mh = 190;
+	var _ih = clamp((_gh - _top - 16) * 0.4, 220, 360);
+	var _gap = 8;
 	return {
-		assets: { x: _lw + 16, y: _gh - _mh - 8, w: max(220, _gw - (_lw + 16) - (_iw + 16)), h: _mh },
-		scn: { x: 8, y: _top, w: _lw, h: _gh - _top - 8 },
-		insp: { x: _gw - _iw - 8, y: _top, w: _iw, h: _gh - _top - 8 },
+		assets: { x: 8, y: _top + _lh + _gap, w: _lw, h: max(140, _gh - (_top + _lh + _gap) - 8) },
+		scn: { x: 8, y: _top, w: _lw, h: _lh },
+		insp: { x: _gw - _iw - 8, y: _gh - _ih - 8, w: _iw, h: _ih },
 	};
 }
 
@@ -411,16 +419,18 @@ function __gm3d_ed_imgui_style_once(_ed) {
 	var _accent_hi = make_colour_rgb(45, 60, 95);
 	__gm3d_ed_imgui_style_color(ImGuiCol.Text, make_colour_rgb(229, 233, 240), 1);
 	__gm3d_ed_imgui_style_color(ImGuiCol.TextDisabled, make_colour_rgb(120, 130, 150), 1);
-	__gm3d_ed_imgui_style_color(ImGuiCol.WindowBg, _bg, 0.9);
-	__gm3d_ed_imgui_style_color(ImGuiCol.ChildBg, _panel, 0.9);
+	// Window surfaces stay opaque in style (alpha 1): the final 0.95 comes
+	// from SetNextWindowBgAlpha alone, so it lands exactly.
+	__gm3d_ed_imgui_style_color(ImGuiCol.WindowBg, _bg, 1);
+	__gm3d_ed_imgui_style_color(ImGuiCol.ChildBg, _panel, 1);
 	__gm3d_ed_imgui_style_color(ImGuiCol.PopupBg, make_colour_rgb(24, 30, 48), 1);
 	__gm3d_ed_imgui_style_color(ImGuiCol.Border, make_colour_rgb(38, 48, 75), 1);
 	__gm3d_ed_imgui_style_color(ImGuiCol.FrameBg, make_colour_rgb(30, 38, 62), 1);
 	__gm3d_ed_imgui_style_color(ImGuiCol.FrameBgHovered, make_colour_rgb(30, 40, 62), 1);
 	__gm3d_ed_imgui_style_color(ImGuiCol.FrameBgActive, _accent_hi, 1);
-	__gm3d_ed_imgui_style_color(ImGuiCol.TitleBg, _panel, 0.9);
-	__gm3d_ed_imgui_style_color(ImGuiCol.TitleBgActive, make_colour_rgb(28, 38, 60), 0.9);
-	__gm3d_ed_imgui_style_color(ImGuiCol.MenuBarBg, _panel, 0.9);
+	__gm3d_ed_imgui_style_color(ImGuiCol.TitleBg, _panel, 1);
+	__gm3d_ed_imgui_style_color(ImGuiCol.TitleBgActive, make_colour_rgb(28, 38, 60), 1);
+	__gm3d_ed_imgui_style_color(ImGuiCol.MenuBarBg, _panel, 1);
 	__gm3d_ed_imgui_style_color(ImGuiCol.ScrollbarBg, _panel, 1);
 	__gm3d_ed_imgui_style_color(ImGuiCol.ScrollbarGrab, make_colour_rgb(55, 70, 105), 1);
 	__gm3d_ed_imgui_style_color(ImGuiCol.ScrollbarGrabHovered, make_colour_rgb(75, 92, 135), 1);
@@ -460,7 +470,7 @@ function __gm3d_ed_imgui_menu(_ed) {
 		return;
 	}
 	_mbar = true;
-	__gm3d_ed_imgui_bg_alpha(1);
+	__gm3d_ed_imgui_bg_alpha(0.95);
 	if (ImGui.BeginMenu("File")) {
 		ImGui.TextDisabled(_ed.scene_file != "" ? _ed.scene_file : "(unsaved scene)");
 		if (ImGui.MenuItem("New", "Ctrl+N")) {
@@ -557,7 +567,7 @@ function __gm3d_ed_imgui_menu(_ed) {
 		ImGui.Separator();
 		if (ImGui.MenuItem("Reset Layout")) {
 			_ui.reset_layout = true;
-			_ed.cube_off = [360, 100];
+			__gm3d_ed_cube_home(_ed);
 			_ui.win_cube.open = true;
 			__gm3d_ed_ui_save(_ed);
 		}
@@ -578,7 +588,7 @@ function __gm3d_ed_imgui_assets(_ed) {
 	var _pl = __gm3d_ed_imgui_place(_ed).assets;
 	ImGui.SetNextWindowPos(_pl.x, _pl.y, _ui.cond);
 	ImGui.SetNextWindowSize(_pl.w, _pl.h, _ui.cond);
-	__gm3d_ed_imgui_bg_alpha(0.9);
+	__gm3d_ed_imgui_bg_alpha(0.95);
 	var _begun = false;
 
 	if (!ImGui.Begin("Models", _ui.win_assets)) {
@@ -599,7 +609,7 @@ function __gm3d_ed_imgui_scene_win(_ed) {
 	var _ps = __gm3d_ed_imgui_place(_ed).scn;
 	ImGui.SetNextWindowPos(_ps.x, _ps.y, _ui.cond);
 	ImGui.SetNextWindowSize(_ps.w, _ps.h, _ui.cond);
-	__gm3d_ed_imgui_bg_alpha(0.9);
+	__gm3d_ed_imgui_bg_alpha(0.95);
 	var _begun = false;
 
 	if (!ImGui.Begin("Scene", _ui.win_scene)) {
@@ -611,13 +621,21 @@ function __gm3d_ed_imgui_scene_win(_ed) {
 	ImGui.End();
 }
 
-/// Draws the filterable droppable model name list.
+/// Draws the filterable droppable model list (list or cards view).
 function __gm3d_ed_imgui_asset_list(_ed) {
 	var _ui = _ed.imgui;
+	// TODO: cards view disabled until model previews work on GMRT
+	// (texture-target cameras capture nothing, sprite_create_from_surface
+	// throws, so there is no GPU path from render to card sprite).
+	_ui.models_view = "list";
 	ImGui.SetNextItemWidth(-1);
 	_ui.filter = __gm3d_ed_imgui_text_hint("##filter", "Filter models...", _ui.filter);
 	ImGui.Separator();
 	var _flt = string_lower(_ui.filter);
+	if (_ui.models_view == "cards") {
+		__gm3d_ed_imgui_asset_cards(_ed, _flt);
+		return;
+	}
 	for (var _i = 0; _i < array_length(_ed.assets); _i++) {
 		var _a = _ed.assets[_i];
 		if (_flt != "" && string_pos(_flt, string_lower(_a.name)) <= 0) {
@@ -626,7 +644,7 @@ function __gm3d_ed_imgui_asset_list(_ed) {
 		ImGui.PushID(_i);
 		ImGui.Selectable(_a.name, false);
 		if (_ed.drag_lib == undefined && ImGui.IsItemHovered()) {
-			ImGui.SetTooltip(_a.name + "\nDrag into the scene");
+			ImGui.SetTooltip(_a.name);
 		}
 
 		if (ImGui.BeginDragDropSource(ImGuiDragDropFlags.SourceNoPreviewTooltip)) {
@@ -644,6 +662,147 @@ function __gm3d_ed_imgui_asset_list(_ed) {
 	}
 }
 
+/// Toggle button with explicit size for roomier padding, highlighted while active.
+function __gm3d_ed_imgui_small_btn(_ed, _label, _active) {
+	var _pushed = 0;
+	if (_active) {
+		ImGui.PushStyleColor(ImGuiCol.Button, make_colour_rgb(47, 111, 237), 1);
+		_pushed++;
+	}
+	var _hit = ImGui.Button(_label, 56, 24);
+	__gm3d_ed_imgui_pop(_pushed);
+	return _hit;
+}
+
+/// Card grid of models: thumbnail sprite when provided via asset_add, else a
+/// grey square. Runtime GPU baking is impossible on GMRT (renderTexture not
+/// sampleable, sprite_create_from_surface broken): thumbs are static art.
+function __gm3d_ed_imgui_asset_cards(_ed, _flt) {
+	var _cs = 60;
+	var _gap = 12;
+	var _avail = 200;
+	try {
+		_avail = ImGui.GetContentRegionAvailX();
+	} catch (_e) {
+	}
+	var _cols = max(1, floor((_avail + _gap) / (_cs + _gap)));
+	var _shown = 0;
+	for (var _i = 0; _i < array_length(_ed.assets); _i++) {
+		var _a = _ed.assets[_i];
+		if (_flt != "" && string_pos(_flt, string_lower(_a.name)) <= 0) {
+			continue;
+		}
+		if (_shown > 0 && _shown mod _cols != 0) {
+			ImGui.SameLine(0, _gap);
+		}
+		__gm3d_ed_imgui_asset_card(_ed, _a, _i, _cs);
+		_shown++;
+	}
+}
+
+/// Truncates _text with ".." to fit _maxw px (UI font), cached per string.
+/// Falls back to the full text when measuring is unavailable.
+function __gm3d_ed_imgui_trunc_text(_text, _maxw) {
+	static _cache = {};
+	var _ck = _text + "|" + string(_maxw);
+	if (variable_struct_exists(_cache, _ck)) {
+		return _cache[$ _ck];
+	}
+	var _out = _text;
+	if (_maxw > 8 && string_length(_text) > 3) {
+		var _full = -1;
+		try {
+			_full = ImGui.CalcTextWidth(_text);
+		} catch (_e) {
+		}
+		if (_full > _maxw) {
+			_out = "..";
+			var _n = string_length(_text) - 1;
+			while (_n > 1) {
+				var _t = string_copy(_text, 1, _n) + "..";
+				var _w = _maxw + 1;
+				try {
+					_w = ImGui.CalcTextWidth(_t);
+				} catch (_e2) {
+					_out = _text;
+					break;
+				}
+				if (_w <= _maxw) {
+					_out = _t;
+					break;
+				}
+				_n--;
+			}
+		}
+	}
+	_cache[$ _ck] = _out;
+	return _out;
+}
+
+/// One model card: square plus name with 4px padding on every side.
+/// Hit-test button covers the padded cell; hover highlights the square.
+function __gm3d_ed_imgui_asset_card(_ed, _a, _i, _cs) {
+	var _th = 16;
+	var _pad = 4;
+	var _qy = _pad;
+	var _sx = undefined;
+	var _sy = undefined;
+	var _dl = undefined;
+	try {
+		_sx = ImGui.GetCursorScreenPosX();
+		_sy = ImGui.GetCursorScreenPosY();
+		_dl = ImGui.GetWindowDrawList();
+	} catch (_e0) {
+	}
+	ImGui.PushID(_i);
+	var _okbtn = __gm3d_ed_imgui_has_widget(_ed, "InvisibleButton");
+	if (_okbtn) {
+		try {
+			ImGui.InvisibleButton("##card", _cs, _pad + _cs + _th + _pad);
+		} catch (_e1) {
+			_ed.imgui.widget_probe[$ "InvisibleButton"] = false;
+			ImGui.Dummy(_cs, _pad + _cs + _th + _pad);
+		}
+	} else {
+		ImGui.Dummy(_cs, _pad + _cs + _th + _pad);
+	}
+	var _hov = ImGui.IsItemHovered();
+	if (_sx != undefined && _dl != undefined) {
+		try {
+			var _qx = _sx;
+			var _qy0 = _sy + _qy;
+			var _thumb = -1;
+			if (variable_struct_exists(_a, "thumb") && sprite_exists(_a.thumb)) {
+				_thumb = _a.thumb;
+			}
+			if (_thumb != -1) {
+				ImGui.DrawListAddImage(_dl, _thumb, 0, _qx, _qy0, _qx + _cs, _qy0 + _cs, c_white);
+			} else {
+				var _fill = _hov ? make_colour_rgb(84, 96, 120) : make_colour_rgb(70, 80, 100);
+				ImGui.DrawListAddRectFilled(_dl, _qx, _qy0, _qx + _cs, _qy0 + _cs, _fill);
+			}
+			var _edge = _hov ? make_colour_rgb(120, 140, 175) : make_colour_rgb(50, 58, 76);
+			ImGui.DrawListAddRect(_dl, _qx, _qy0, _qx + _cs, _qy0 + _cs, _edge);
+			ImGui.DrawListAddText(_dl, _qx + 4, _qy0 + _cs + 1, __gm3d_ed_imgui_trunc_text(_a.name, _cs - 6), c_white);
+		} catch (_e2) {
+		}
+	}
+	if (_ed.drag_lib == undefined && _hov) {
+		ImGui.SetTooltip(_a.name);
+	}
+	if (ImGui.BeginDragDropSource(ImGuiDragDropFlags.SourceNoPreviewTooltip)) {
+		ImGui.SetDragDropPayload("GM3D_ASSET", _i);
+		ImGui.EndDragDropSource();
+		if (_ed.drag_lib == undefined || _ed.drag_lib.idx != _i) {
+			_ed.drag_lib = { asset: _a, idx: _i };
+			_ed.drag_moved = false;
+			_ed.press_x = device_mouse_x_to_gui(0);
+			_ed.press_y = device_mouse_y_to_gui(0);
+		}
+	}
+	ImGui.PopID();
+}
+
 /// Draws the inspector with selection title and transform fields.
 function __gm3d_ed_imgui_inspector(_ed) {
 	var _ui = _ed.imgui;
@@ -653,7 +812,7 @@ function __gm3d_ed_imgui_inspector(_ed) {
 	var _pi = __gm3d_ed_imgui_place(_ed).insp;
 	ImGui.SetNextWindowPos(_pi.x, _pi.y, _ui.cond);
 	ImGui.SetNextWindowSize(_pi.w, _pi.h, _ui.cond);
-	__gm3d_ed_imgui_bg_alpha(0.9);
+	__gm3d_ed_imgui_bg_alpha(0.95);
 	var _begun = false;
 
 	if (!ImGui.Begin("Inspector", _ui.win_insp)) {
@@ -1070,31 +1229,56 @@ function __gm3d_ed_imgui_env_sec(_ed, _node, _en) {
 	}
 }
 
-/// Eye toggle button for Scene rows. Uses the sprGM3DIconEye sprite when the
-/// project has it (dimmed when hidden), else a text button.
+/// Eye toggle button for Scene rows: open eye when visible, closed eye when
+/// hidden (dimmed open eye if the closed sprite is missing), else text.
+/// Ghost mode renders it transparent for a stable layout (pair with disabled).
 /// @return True when clicked.
-function __gm3d_ed_imgui_eye(_ed, _hidden) {
-	static _eye_spr = -2;
-	if (_eye_spr == -2) {
+function __gm3d_ed_imgui_eye(_ed, _hidden, _ghost) {
+	static _eye_open = -2;
+	static _eye_shut = -2;
+	if (_eye_open == -2) {
 		try {
-			_eye_spr = asset_get_index("sprGM3DIconEye");
+			_eye_open = asset_get_index("sprGM3DIconEye");
 		} catch (_e) {
-			_eye_spr = -1;
+			_eye_open = -1;
 		}
+	}
+	if (_eye_shut == -2) {
+		try {
+			_eye_shut = asset_get_index("sprGM3DIconEyeClosed");
+		} catch (_e0) {
+			_eye_shut = -1;
+		}
+	}
+	var _eye_spr = _hidden ? _eye_shut : _eye_open;
+	var _tint = c_white;
+	if (_eye_spr == -1 && _hidden) {
+		_eye_spr = _eye_open;
+		_tint = make_colour_rgb(105, 115, 135);
 	}
 	var _hit = false;
 	if (_eye_spr != -1) {
-		var _tint = _hidden ? make_colour_rgb(105, 115, 135) : c_white;
-		// Frameless icon: transparent button colors, sprite at native 15x9.
+		// Frameless icon: transparent button colors, sprite at native size.
 		ImGui.PushStyleColor(ImGuiCol.Button, c_black, 0);
 		ImGui.PushStyleColor(ImGuiCol.ButtonHovered, make_colour_rgb(47, 111, 237), 0.35);
 		ImGui.PushStyleColor(ImGuiCol.ButtonActive, make_colour_rgb(47, 111, 237), 0.5);
+		var _ew = 15;
+		var _eh = 11;
+		try {
+			_ew = sprite_get_width(_eye_spr);
+			_eh = sprite_get_height(_eye_spr);
+		} catch (_e1) {
+		}
 		try {
 			// 9 args: uvs omitted entirely (undefined throws in this
 			// binding); omitted uvs default to the full sprite.
-			_hit = ImGui.ImageButton("eye", _eye_spr, 0, _tint, 1, c_black, 0, 15, 9);
+			_hit = ImGui.ImageButton("eye", _eye_spr, 0, _tint, _ghost ? 0 : 1, c_black, 0, _ew, _eh);
 		} catch (_e2) {
-			_eye_spr = -1;
+			if (_hidden) {
+				_eye_shut = -1;
+			} else {
+				_eye_open = -1;
+			}
 			_hit = ImGui.Button(_hidden ? "Show##eye" : "Hide##eye");
 		}
 		__gm3d_ed_imgui_pop(3);
@@ -1221,6 +1405,57 @@ function __gm3d_ed_imgui_kind_filter(_ed, _sprname, _id, _tip, _val) {
 	return ImGui.Checkbox("##kf" + _id, _val);
 }
 
+/// Kind icon for a Scene row (filter icon set, native size, dimmed when
+/// hidden). Point lights and the environment share the PointLight icon.
+/// Flags its row for the eye grace period on hover.
+function __gm3d_ed_imgui_kind_icon(_ed, _nd, _nk, _ishid, _i) {
+	var _sn = "sprGM3DIconObject";
+	var _tip = "Model";
+	if (_nk == "camera") {
+		_sn = "sprGM3DIconCamera";
+		_tip = "Camera";
+	} else if (_nk == "environment") {
+		_sn = "sprGM3DIconPointLight";
+		_tip = "Environment";
+	} else if (_nk == "light") {
+		_sn = "sprGM3DIconPointLight";
+		_tip = "Point light";
+		var _en = __gm3d_ed_registry_find(_ed, _nd);
+		if (_en != undefined && is_struct(_en.data) && variable_struct_exists(_en.data, "type") && _en.data.type == "directional") {
+			_sn = "sprGM3DIconDirectionalLight";
+			_tip = "Directional light";
+		}
+	}
+	var _spr = -1;
+	try {
+		_spr = asset_get_index(_sn);
+	} catch (_e) {
+		return;
+	}
+	if (_spr == -1) {
+		return;
+	}
+	var _iw = 0;
+	var _ih = 0;
+	try {
+		_iw = sprite_get_width(_spr);
+		_ih = sprite_get_height(_spr);
+	} catch (_e0) {
+		return;
+	}
+	var _tint = _ishid ? make_colour_rgb(105, 115, 135) : c_white;
+	try {
+		ImGui.Image(_spr, 0, _tint, 1, _iw, _ih);
+	} catch (_e2) {
+		return;
+	}
+	if (ImGui.IsItemHovered()) {
+		ImGui.SetTooltip(_tip);
+		_ed.imgui.scene_eye_idx = _i;
+		_ed.imgui.scene_eye_till = current_time + 500;
+	}
+}
+
 /// Draws the filterable scene root list with selection, focus and rename.
 function __gm3d_ed_imgui_scene_list(_ed) {
 	var _ui = _ed.imgui;
@@ -1228,6 +1463,10 @@ function __gm3d_ed_imgui_scene_list(_ed) {
 	_ui.scene_filter = __gm3d_ed_imgui_text_hint("##scenefilter", "Filter nodes...", _ui.scene_filter);
 	if (!variable_struct_exists(_ui, "show_kind")) {
 		_ui.show_kind = { m: true, l: true, c: true, e: true };
+	}
+	if (!variable_struct_exists(_ui, "scene_eye_idx")) {
+		_ui.scene_eye_idx = -1;
+		_ui.scene_eye_till = 0;
 	}
 	var _sk = _ui.show_kind;
 	_sk.m = __gm3d_ed_imgui_kind_filter(_ed, "sprGM3DIconObject", "M", "Show models", _sk.m);
@@ -1273,14 +1512,6 @@ function __gm3d_ed_imgui_scene_list(_ed) {
 		if (_flt != "" && string_pos(_flt, string_lower(_dl)) <= 0) {
 			continue;
 		}
-		var _row = _dl;
-		if (_nk == "light") {
-			_row = "[L] " + _dl;
-		} else if (_nk == "camera") {
-			_row = "[C] " + _dl;
-		} else if (_nk == "environment") {
-			_row = "[E] " + _dl;
-		}
 		ImGui.PushID(_i);
 		var _renaming = false;
 
@@ -1298,13 +1529,27 @@ function __gm3d_ed_imgui_scene_list(_ed) {
 			}
 		} else {
 			var _ishid = __gm3d_ed_hidden_get(_ed, _nd);
-			if (__gm3d_ed_imgui_eye(_ed, _ishid)) {
+			// Eye far left, always the same widget (zero shift): transparent
+			// when concealed, clicks ignored unless visible. Hover works on
+			// the whole row including the invisible slot.
+			var _eye_show = _ishid || (_ui.scene_eye_idx == _i && current_time <= _ui.scene_eye_till);
+			if (__gm3d_ed_imgui_eye(_ed, _ishid, !_eye_show)) {
 				__gm3d_ed_hidden_set(_ed, _nd, !_ishid);
 			}
+			if (ImGui.IsItemHovered()) {
+				_ui.scene_eye_idx = _i;
+				_ui.scene_eye_till = current_time + 500;
+			}
+			ImGui.SameLine();
+			__gm3d_ed_imgui_kind_icon(_ed, _nd, _nk, _ishid, _i);
 			ImGui.SameLine();
 			var _sel = __gm3d_ed_sel_has(_ed, _nd);
-			if (ImGui.Selectable(_row, _sel)) {
+			if (ImGui.Selectable(_dl, _sel)) {
 				__gm3d_ed_scene_click(_ed, _nd, _i);
+			}
+			if (ImGui.IsItemHovered()) {
+				_ui.scene_eye_idx = _i;
+				_ui.scene_eye_till = current_time + 500;
 			}
 			var _dbl = false;
 			_dbl = ImGui.IsMouseDoubleClicked(0) && ImGui.IsItemHovered();
@@ -1313,7 +1558,7 @@ function __gm3d_ed_imgui_scene_list(_ed) {
 			}
 		}
 		ImGui.PopID();
-		__gm3d_ed_imgui_bg_alpha(1);
+		__gm3d_ed_imgui_bg_alpha(0.95);
 		if (ImGui.BeginPopupContextItem("ctx##" + string(_i))) {
 			if (!__gm3d_ed_sel_has(_ed, _nd)) {
 				__gm3d_ed_scene_select(_ed, _nd);

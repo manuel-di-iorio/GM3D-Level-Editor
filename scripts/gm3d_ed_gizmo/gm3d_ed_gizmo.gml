@@ -78,8 +78,18 @@ function __gm3d_ed_gizmo_world_delta_to_local(_node, _delta) {
 	return _b;
 }
 
-/// Screen-space polyline of a rotation ring around _pivot on _axis.
-function __gm3d_ed_gizmo_ring_pts(_vp, _pivot, _axis, _ws) {
+/// World-space points of a rotation ring around _pivot on _axis.
+function __gm3d_ed_gizmo_ring_world(_pivot, _axis, _ws) {
+	var _world = [];
+	var _seg = 36;
+	for (var _i = 0; _i <= _seg; _i++) {
+		array_push(_world, __gm3d_ed_gizmo_ring_point(_pivot, _axis, _ws, (_i / _seg) * pi * 2));
+	}
+	return _world;
+}
+
+/// Exact world-space point on a rotation ring at parameter _t.
+function __gm3d_ed_gizmo_ring_point(_pivot, _axis, _ws, _t) {
 	var _ref = GM3D_Vec3.up();
 	if (abs(_axis.dot(_ref)) >= 0.99) {
 		_ref = GM3D_Vec3.forward();
@@ -89,20 +99,16 @@ function __gm3d_ed_gizmo_ring_pts(_vp, _pivot, _axis, _ws) {
 	_u.normalizeSafe(0.000001);
 	var _v = new GM3D_Vec3();
 	_v.crossVectors(_axis, _u);
-	var _world = [];
-	var _seg = 36;
-	for (var _i = 0; _i <= _seg; _i++) {
-		var _t = (_i / _seg) * pi * 2;
-		array_push(
-			_world,
-			new GM3D_Vec3(
-				_pivot.x + (cos(_t) * _u.x + sin(_t) * _v.x) * _ws,
-				_pivot.y + (cos(_t) * _u.y + sin(_t) * _v.y) * _ws,
-				_pivot.z + (cos(_t) * _u.z + sin(_t) * _v.z) * _ws,
-			),
-		);
-	}
-	var _mapped = __gm3d_ed_world_corners_to_screen(_vp, _world);
+	return new GM3D_Vec3(
+		_pivot.x + (cos(_t) * _u.x + sin(_t) * _v.x) * _ws,
+		_pivot.y + (cos(_t) * _u.y + sin(_t) * _v.y) * _ws,
+		_pivot.z + (cos(_t) * _u.z + sin(_t) * _v.z) * _ws,
+	);
+}
+
+/// Screen-space polyline of a rotation ring around _pivot on _axis.
+function __gm3d_ed_gizmo_ring_pts(_vp, _pivot, _axis, _ws) {
+	var _mapped = __gm3d_ed_world_corners_to_screen(_vp, __gm3d_ed_gizmo_ring_world(_pivot, _axis, _ws));
 	var _pts = [];
 	for (var _j = 0; _j < array_length(_mapped); _j++) {
 		if (_mapped[_j] != undefined) {
@@ -110,6 +116,97 @@ function __gm3d_ed_gizmo_ring_pts(_vp, _pivot, _axis, _ws) {
 		}
 	}
 	return _pts;
+}
+
+/// Ring vertices with a front-facing flag each (camera hemisphere only): entries are { s: screen point or undefined, front: bool }.
+function __gm3d_ed_gizmo_ring_front(_vp, _pivot, _axis, _ws) {
+	var _world = __gm3d_ed_gizmo_ring_world(_pivot, _axis, _ws);
+	var _cp = _vp.camNode.getWorldPosition();
+	var _vx = _cp.x - _pivot.x;
+	var _vy = _cp.y - _pivot.y;
+	var _vz = _cp.z - _pivot.z;
+	var _vl = sqrt(_vx * _vx + _vy * _vy + _vz * _vz);
+	var _out = [];
+	for (var _k = 0; _k < array_length(_world); _k++) {
+		var _w = _world[_k];
+		var _front = false;
+		if (_vl > 0.0001) {
+			_front = ((_w.x - _pivot.x) * _vx + (_w.y - _pivot.y) * _vy + (_w.z - _pivot.z) * _vz) > 0;
+		}
+		array_push(_out, { s: __gm3d_ed_world_to_screen(_vp, _w), front: _front });
+	}
+	return _out;
+}
+
+/// Nearest ray-sphere surface hit (front), or undefined on miss/behind.
+/// _dir must be normalized.
+function __gm3d_ed_ray_sphere(_origin, _dir, _cx, _cy, _cz, _r) {
+	var _ox = _origin.x - _cx;
+	var _oy = _origin.y - _cy;
+	var _oz = _origin.z - _cz;
+	var _b = _ox * _dir.x + _oy * _dir.y + _oz * _dir.z;
+	var _c = _ox * _ox + _oy * _oy + _oz * _oz - _r * _r;
+	var _h = _b * _b - _c;
+	if (_h < 0) {
+		return undefined;
+	}
+	var _t = -_b - sqrt(_h);
+	if (_t < 0) {
+		return undefined;
+	}
+	return new GM3D_Vec3(_origin.x + _dir.x * _t, _origin.y + _dir.y * _t, _origin.z + _dir.z * _t);
+}
+
+/// Nearest point on the sphere surface to a ray (closest approach projected
+/// onto the ball). Never misses unless the ray aims through the center:
+/// lets the trackball keep rotating outside the silhouette, continuously.
+function __gm3d_ed_sphere_nearest(_origin, _dir, _cx, _cy, _cz, _r) {
+	var _ox = _origin.x - _cx;
+	var _oy = _origin.y - _cy;
+	var _oz = _origin.z - _cz;
+	var _t = -(_ox * _dir.x + _oy * _dir.y + _oz * _dir.z);
+	if (_t < 0) {
+		_t = 0;
+	}
+	var _px = _ox + _dir.x * _t;
+	var _py = _oy + _dir.y * _t;
+	var _pz = _oz + _dir.z * _t;
+	var _l = sqrt(_px * _px + _py * _py + _pz * _pz);
+	if (_l < 0.000001) {
+		return undefined;
+	}
+	return new GM3D_Vec3(_cx + _px / _l * _r, _cy + _py / _l * _r, _cz + _pz / _l * _r);
+}
+
+/// Rotation taking unit vector a to unit vector b (trackball arc).
+/// @return Quaternion, or undefined when the vectors coincide.
+function __gm3d_ed_trackball_arc(_ax, _ay, _az, _bx, _by, _bz) {
+	var _cx = _ay * _bz - _az * _by;
+	var _cy = _az * _bx - _ax * _bz;
+	var _cz = _ax * _by - _ay * _bx;
+	var _s = sqrt(_cx * _cx + _cy * _cy + _cz * _cz);
+	if (_s < 0.000001) {
+		return undefined;
+	}
+	var _d = clamp(_ax * _bx + _ay * _by + _az * _bz, -1.0, 1.0);
+	return GM3D_Quaternion.fromAxisAngle(new GM3D_Vec3(_cx / _s, _cy / _s, _cz / _s), arccos(_d));
+}
+
+/// Min squared distance from a point to the front-facing ring segments.
+function __gm3d_ed_ring_front_dist2(_mx, _my, _ring) {
+	var _best = 1000000000;
+	for (var _i = 0; _i < array_length(_ring) - 1; _i++) {
+		var _a = _ring[_i];
+		var _b = _ring[_i + 1];
+		if (_a.s == undefined || _b.s == undefined || !_a.front || !_b.front) {
+			continue;
+		}
+		var _d = __gm3d_ed_point_seg_dist2(_mx, _my, _a.s[0], _a.s[1], _b.s[0], _b.s[1]);
+		if (_d < _best) {
+			_best = _d;
+		}
+	}
+	return _best;
 }
 
 /// Normalized pivot-to-camera vector, or undefined when unavailable.
@@ -243,7 +340,7 @@ function __gm3d_ed_gizmo_hover(_ed, _vp, _mx, _my) {
 	for (var _a = 0; _a < 3; _a++) {
 		var _d;
 		if (_ed.giz.tool == Gm3dEdTool.Rotate) {
-			_d = __gm3d_ed_point_polyline_dist2(_mx, _my, __gm3d_ed_gizmo_ring_pts(_vp, _pivot, _dirs[_a], _ws));
+			_d = __gm3d_ed_ring_front_dist2(_mx, _my, __gm3d_ed_gizmo_ring_front(_vp, _pivot, _dirs[_a], _ws));
 		} else {
 			var _e = __gm3d_ed_world_to_screen(
 				_vp,
@@ -261,9 +358,30 @@ function __gm3d_ed_gizmo_hover(_ed, _vp, _mx, _my) {
 		}
 	}
 	if (_ed.giz.tool == Gm3dEdTool.Rotate) {
-		var _rd = __gm3d_ed_point_polyline_dist2(_mx, _my, __gm3d_ed_gizmo_ring_pts(_vp, _pivot, _look, _ws));
+		var _vr2 = __gm3d_ed_gizmo_ring_pts(_vp, _pivot, _look, _ws);
+		var _rd = __gm3d_ed_point_polyline_dist2(_mx, _my, _vr2);
 		if (_rd < _bestD) {
 			_best = 6;
+		}
+		// Sphere disc, id 7: only when axes and the white ring missed, so
+		// they keep hover priority. Trackball drag, distinct from ring drag.
+		if (_best == -1) {
+			var _rr2 = 0;
+			for (var _ri = 0; _ri < array_length(_vr2); _ri++) {
+				var _ddx = _vr2[_ri][0] - _ps[0];
+				var _ddy = _vr2[_ri][1] - _ps[1];
+				var _dl2 = _ddx * _ddx + _ddy * _ddy;
+				if (_dl2 > _rr2) {
+					_rr2 = _dl2;
+				}
+			}
+			if (_rr2 > 1) {
+				var _mcx = _mx - _ps[0];
+				var _mcy = _my - _ps[1];
+				if (_mcx * _mcx + _mcy * _mcy <= _rr2) {
+					_best = 7;
+				}
+			}
 		}
 	}
 	return _best;
@@ -289,6 +407,14 @@ function __gm3d_ed_gizmo_begin(_ed, _vp, _mx, _my) {
 	var _ax = 0;
 	if (_g.drag == 6) {
 		_g.dir = __gm3d_ed_view_forward(_ed);
+	} else if (_g.drag == 7) {
+		// Relative trackball: no grab point on the sphere, only mouse
+		// deltas (virtual, so wrapping allows infinite travel). Dragging in
+		// one direction keeps rotating without orbiting the camera.
+		_g.dir = __gm3d_ed_view_forward(_ed);
+		_g.tblen = __gm3d_ed_gizmo_len(_ed, _vp, _pivot);
+		_g.tb_mx = _mx;
+		_g.tb_my = _my;
 	} else if (_g.planar) {
 		_g.dir = _dirs[_g.drag - 3];
 	} else {
@@ -331,9 +457,76 @@ function __gm3d_ed_gizmo_begin(_ed, _vp, _mx, _my) {
 	}
 	_g.piv_sx = _ps[0];
 	_g.piv_sy = _ps[1];
-	_g.last_ang = arctan2(_my - _ps[1], _mx - _ps[0]);
+	_g.rot_mx = _mx;
+	_g.rot_my = _my;
+	_g.rot_tx = 1;
+	_g.rot_ty = 0;
 	_g.total_ang = 0;
-	_g.sector_a0 = _g.last_ang;
+	_g.display_ang = 0;
+	_g.sector_t0 = 0;
+	if (_g.tool == Gm3dEdTool.Rotate && _g.drag != 7) {
+		var _ring_ws = __gm3d_ed_gizmo_len(_ed, _vp, _pivot);
+		var _best_d2 = 1000000000;
+		var _sample_count = 144;
+		for (var _sample = 0; _sample < _sample_count; _sample++) {
+			var _sample_t = (_sample / _sample_count) * 2 * pi;
+			var _sample_s = __gm3d_ed_world_to_screen(
+				_vp,
+				__gm3d_ed_gizmo_ring_point(_pivot, _g.dir, _ring_ws, _sample_t),
+			);
+			if (_sample_s == undefined) {
+				continue;
+			}
+			var _sample_dx = _sample_s[0] - _mx;
+			var _sample_dy = _sample_s[1] - _my;
+			var _sample_d2 = _sample_dx * _sample_dx + _sample_dy * _sample_dy;
+			if (_sample_d2 < _best_d2) {
+				_best_d2 = _sample_d2;
+				_g.sector_t0 = _sample_t;
+			}
+		}
+		var _refine_step = (2 * pi) / _sample_count;
+		for (var _refine = 0; _refine < 6; _refine++) {
+			var _refined_t = _g.sector_t0;
+			for (var _offset = -1; _offset <= 1; _offset++) {
+				var _candidate_t = _g.sector_t0 + _offset * _refine_step;
+				var _candidate_s = __gm3d_ed_world_to_screen(
+					_vp,
+					__gm3d_ed_gizmo_ring_point(_pivot, _g.dir, _ring_ws, _candidate_t),
+				);
+				if (_candidate_s == undefined) {
+					continue;
+				}
+				var _candidate_dx = _candidate_s[0] - _mx;
+				var _candidate_dy = _candidate_s[1] - _my;
+				var _candidate_d2 = _candidate_dx * _candidate_dx + _candidate_dy * _candidate_dy;
+				if (_candidate_d2 < _best_d2) {
+					_best_d2 = _candidate_d2;
+					_refined_t = _candidate_t;
+				}
+			}
+			_g.sector_t0 = _refined_t;
+			_refine_step /= 3;
+		}
+		var _tangent_step = 0.01;
+		var _tangent_a = __gm3d_ed_world_to_screen(
+			_vp,
+			__gm3d_ed_gizmo_ring_point(_pivot, _g.dir, _ring_ws, _g.sector_t0 - _tangent_step),
+		);
+		var _tangent_b = __gm3d_ed_world_to_screen(
+			_vp,
+			__gm3d_ed_gizmo_ring_point(_pivot, _g.dir, _ring_ws, _g.sector_t0 + _tangent_step),
+		);
+		if (_tangent_a != undefined && _tangent_b != undefined) {
+			var _tangent_x = _tangent_b[0] - _tangent_a[0];
+			var _tangent_y = _tangent_b[1] - _tangent_a[1];
+			var _tangent_len = sqrt(_tangent_x * _tangent_x + _tangent_y * _tangent_y);
+			if (_tangent_len > 0.0001) {
+				_g.rot_tx = _tangent_x / _tangent_len;
+				_g.rot_ty = _tangent_y / _tangent_len;
+			}
+		}
+	}
 }
 
 /// Applies the active gizmo drag (translate / scale / rotate) to the selection.
@@ -409,18 +602,61 @@ function __gm3d_ed_gizmo_drag(_ed, _vp, _mx, _my) {
 			_ed.sel[_j].setLocalScale(_s);
 		}
 	} else if (_g.tool == Gm3dEdTool.Rotate) {
-		var _ang = arctan2(_my - _g.piv_sy, _mx - _g.piv_sx);
-		var _dd = _ang - _g.last_ang;
-		_dd = arctan2(sin(_dd), cos(_dd));
-		_g.total_ang -= _dd;
-		_g.last_ang = _ang;
+		if (_g.drag == 7 && variable_struct_exists(_g, "tb_mx") && variable_struct_exists(_g, "tb_my")) {
+			// Relative trackball: dx -> yaw around camUp, dy (y-down) ->
+			// pitch around camRight. The same direction always gives the same
+			// rotation; there is no need to release the mouse.
+			var _dx7 = _mx - _g.tb_mx;
+			var _dy7 = _my - _g.tb_my;
+			_g.tb_mx = _mx;
+			_g.tb_my = _my;
+			var _mag7 = sqrt(_dx7 * _dx7 + _dy7 * _dy7);
+			if (_mag7 > 0.0001 && _vp.camRight != undefined && _vp.camUp != undefined) {
+				var _k7 = 0.01; // rad per pixel
+				var _rx7 = _vp.camRight;
+				var _ru7 = _vp.camUp;
+				var _axis7 = new GM3D_Vec3(
+					_rx7.x * _dy7 + _ru7.x * _dx7,
+					_rx7.y * _dy7 + _ru7.y * _dx7,
+					_rx7.z * _dy7 + _ru7.z * _dx7,
+				);
+				_axis7.normalizeSafe(0.000001);
+				var _qt7 = GM3D_Quaternion.fromAxisAngle(_axis7, _mag7 * _k7);
+				for (var _k7i = 0; _k7i < array_length(_ed.sel); _k7i++) {
+					if (!__gm3d_ed_tool_allowed(_ed, _ed.sel[_k7i], Gm3dEdTool.Rotate) || __gm3d_ed_hidden_get(_ed, _ed.sel[_k7i])) {
+						continue;
+					}
+					var _qr7 = _qt7.clone();
+					_qr7.multiply(_ed.sel[_k7i].getLocalRotation().clone());
+					// TEMP trackball NaN trap: remove once diagnosed.
+					var _bad7 = false;
+					try {
+						_bad7 = is_nan(_qr7.x) || is_nan(_qr7.y) || is_nan(_qr7.z) || is_nan(_qr7.w);
+					} catch (_eN) {
+						_bad7 = true;
+					}
+					if (_bad7) {
+						show_debug_message("[trackball] NaN quat skipped");
+						continue;
+					}
+					_ed.sel[_k7i].setLocalRotation(_qr7.normalizeSafe(0.000001));
+				}
+			}
+		} else {
+		var _rot_dx = _mx - _g.rot_mx;
+		var _rot_dy = _my - _g.rot_my;
+		_g.rot_mx = _mx;
+		_g.rot_my = _my;
+		var _dd = (_rot_dx * _g.rot_tx + _rot_dy * _g.rot_ty) * 0.01;
+		var _ax2 = _g.center ? 1 : _g.axis_idx;
+		var _axis = _g.drag == 6 ? _g.dir : __gm3d_ed_gizmo_dirs(_ed)[_ax2];
+		_g.total_ang += _dd;
 		var _deg = radtodeg(_g.total_ang);
 		var _sr = _ed.snap_on || keyboard_check(vk_control) ? _ed.snap_rot : 0;
 		if (_sr > 0) {
 			_deg = __gm3d_ed_snap(_deg, _sr);
 		}
-		var _ax2 = _g.center ? 1 : _g.axis_idx;
-		var _axis = _g.drag == 6 ? _g.dir : __gm3d_ed_gizmo_dirs(_ed)[_ax2];
+		_g.display_ang = degtorad(_deg);
 		for (var _k = 0; _k < array_length(_ed.sel); _k++) {
 			if (!__gm3d_ed_tool_allowed(_ed, _ed.sel[_k], Gm3dEdTool.Rotate) || __gm3d_ed_hidden_get(_ed, _ed.sel[_k])) {
 				continue;
@@ -434,6 +670,7 @@ function __gm3d_ed_gizmo_drag(_ed, _vp, _mx, _my) {
 				_q.multiply(_g.starts[_k].rot);
 			}
 			_ed.sel[_k].setLocalRotation(_q.normalizeSafe(0.000001));
+		}
 		}
 	}
 }
@@ -546,11 +783,14 @@ function __gm3d_ed_gizmo_draw_axes(_ed, _vp, _pivot, _ps, _dirs, _ws, _cols, _hl
 			draw_set_color(c_white);
 			draw_set_alpha(1);
 		} else if (_ed.giz.tool == Gm3dEdTool.Rotate) {
-			var _pts = __gm3d_ed_gizmo_ring_pts(_vp, _pivot, _dirs[_a], _ws);
+			var _pts = __gm3d_ed_gizmo_ring_front(_vp, _pivot, _dirs[_a], _ws);
 			var _th = _ed.giz.hover == _a || _ed.giz.drag == _a ? 3 : 2;
 			draw_set_alpha(_al);
 			for (var _p = 0; _p < array_length(_pts) - 1; _p++) {
-				__gm3d_ed_vp_line(_ed, _pts[_p][0], _pts[_p][1], _pts[_p + 1][0], _pts[_p + 1][1], _th, _bcol);
+				if (_pts[_p].s == undefined || _pts[_p + 1].s == undefined || !_pts[_p].front || !_pts[_p + 1].front) {
+					continue;
+				}
+				__gm3d_ed_vp_line(_ed, _pts[_p].s[0], _pts[_p].s[1], _pts[_p + 1].s[0], _pts[_p + 1].s[1], _th, _bcol);
 			}
 			draw_set_alpha(1);
 		}
@@ -561,6 +801,27 @@ function __gm3d_ed_gizmo_draw_axes(_ed, _vp, _pivot, _ps, _dirs, _ws, _cols, _hl
 function __gm3d_ed_gizmo_draw_viewring(_ed, _vp, _pivot, _look, _ws) {
 	if (_ed.giz.tool == Gm3dEdTool.Rotate) {
 		var _vpts = __gm3d_ed_gizmo_ring_pts(_vp, _pivot, _look, _ws);
+		// Sphere disc under the rings: transparent at rest, greyish on hover.
+		var _pc = __gm3d_ed_world_to_screen(_vp, _pivot);
+		if (_pc != undefined && array_length(_vpts) > 0) {
+			var _rr = 0;
+			for (var _ri2 = 0; _ri2 < array_length(_vpts); _ri2++) {
+				var _qx = _vpts[_ri2][0] - _pc[0];
+				var _qy = _vpts[_ri2][1] - _pc[1];
+				var _ql = _qx * _qx + _qy * _qy;
+				if (_ql > _rr) {
+					_rr = _ql;
+				}
+			}
+			_rr = sqrt(_rr);
+			if (_rr > 1) {
+				var _dh = _ed.giz.hover == 7 || _ed.giz.drag == 7;
+				var _dcol = _dh ? c_gray : c_white;
+				draw_set_alpha(_dh ? 0.22 : 0.05);
+				draw_circle_colour(_pc[0], _pc[1], _rr, _dcol, _dcol, false);
+				draw_set_alpha(1);
+			}
+		}
 		var _vh = _ed.giz.hover == 6 || _ed.giz.drag == 6;
 		var _vth = _vh ? 3 : 2;
 		var _vcol = _vh ? c_yellow : c_white;
@@ -616,78 +877,46 @@ function __gm3d_ed_gizmo_draw_center(_ed, _ps) {
 
 /// Draws the rotate-drag sweep sector.
 function __gm3d_ed_gizmo_draw_rotate_sweep(_ed, _vp, _pivot, _ps, _ws, _hls) {
-	// Screen atan2 is y-down, so the mouse sweeps a0 -> a0 - total while
-	// the model takes +total: negate to follow the visible drag.
-	var _sweep = -_ed.giz.total_ang;
-	if (abs(_sweep) > 0.01) {
-		var _spts = __gm3d_ed_gizmo_ring_pts(_vp, _pivot, _ed.giz.dir, _ws);
-		var _a0 = _ed.giz.sector_a0;
-		var _full = abs(_sweep) >= 2 * pi;
-		var _in = [];
-		for (var _si = 0; _si < array_length(_spts); _si++) {
-			var _ang = arctan2(_spts[_si][1] - _ps[1], _spts[_si][0] - _ps[0]) - _a0;
-			var _rel = arctan2(sin(_ang), cos(_ang));
-			var _hit = _full;
-			if (!_hit) {
-				if (_sweep > 0) {
-					_hit = (_rel >= 0 && _rel <= _sweep) || (_sweep > pi && _sweep < 2 * pi && _rel <= _sweep - 2 * pi);
-				} else {
-					_hit = (_rel <= 0 && _rel >= _sweep) || (_sweep < -pi && _sweep > -2 * pi && _rel >= _sweep + 2 * pi);
-				}
-			}
-			if (_hit) {
-				var _ord = _rel;
-				if (_sweep > 0 && _rel < 0) {
-					_ord = _rel + 2 * pi;
-				} else if (_sweep < 0 && _rel > 0) {
-					_ord = _rel - 2 * pi;
-				}
-				array_push(_in, { r: _ord, p: _spts[_si] });
-			}
+	var _sweep = _ed.giz.display_ang;
+	if (abs(_sweep) <= 0.01) {
+		return;
+	}
+	var _t0 = _ed.giz.sector_t0;
+	var _draw_sweep = clamp(_sweep, -2 * pi, 2 * pi);
+	var _steps = max(2, ceil(abs(_draw_sweep) / (2 * pi) * 72));
+	var _arc = [];
+	for (var _i = 0; _i <= _steps; _i++) {
+		var _t = _t0 + _draw_sweep * (_i / _steps);
+		var _sp = __gm3d_ed_world_to_screen(_vp, __gm3d_ed_gizmo_ring_point(_pivot, _ed.giz.dir, _ws, _t));
+		if (_sp != undefined) {
+			array_push(_arc, _sp);
 		}
-		__gm3d_ed_sort_by_field(_in, "r", _sweep > 0);
-		if (array_length(_in) >= 2) {
-			var _scol = _ed.giz.drag == 6 ? c_yellow : _hls[_ed.giz.drag];
-			draw_primitive_begin(pr_trianglefan);
-			draw_vertex_colour(_ps[0], _ps[1], _scol, 0.3);
-			for (var _f2 = 0; _f2 < array_length(_in); _f2++) {
-				draw_vertex_colour(_in[_f2].p[0], _in[_f2].p[1], _scol, 0.3);
-			}
-			draw_primitive_end();
-			draw_set_alpha(0.8);
-			for (var _e2 = 0; _e2 < array_length(_in) - 1; _e2++) {
-				__gm3d_ed_vp_line(_ed, _in[_e2].p[0], _in[_e2].p[1], _in[_e2 + 1].p[0], _in[_e2 + 1].p[1], 2, _scol);
-			}
-			draw_set_alpha(1);
-			var _ph = floor(_ed.giz.total_ang / (pi / 12));
-			for (var _e3 = 0; _e3 < array_length(_in) - 1; _e3++) {
-				if ((((_e3 + _ph) mod 12) + 12) mod 12 < 6) {
-					continue;
-				}
-				__gm3d_ed_vp_line(_ed, _in[_e3].p[0], _in[_e3].p[1], _in[_e3 + 1].p[0], _in[_e3 + 1].p[1], 2, c_white);
-			}
-			var _turns = floor(abs(_ed.giz.total_ang) / (2 * pi));
-			if (_turns > 0) {
-				var _dx0 = _in[0].p[0] - _ps[0];
-				var _dy0 = _in[0].p[1] - _ps[1];
-				var _dl = sqrt(_dx0 * _dx0 + _dy0 * _dy0);
-				if (_dl > 1) {
-					_dx0 /= _dl;
-					_dy0 /= _dl;
-					var _tn = min(_turns, 5);
-					for (var _td = 1; _td <= _tn; _td++) {
-						draw_circle_color(
-							_ps[0] + _dx0 * (_dl + _td * 9),
-							_ps[1] + _dy0 * (_dl + _td * 9),
-							3,
-							c_yellow,
-							c_yellow,
-							false,
-						);
-					}
-				}
-			}
+	}
+	if (array_length(_arc) >= 2) {
+		var _scol = _ed.giz.drag == 6 ? c_yellow : _hls[_ed.giz.drag];
+		var _srim = merge_colour(_scol, c_white, 0.4);
+		var _sfill = merge_colour(c_yellow, c_black, 0.25);
+		var _laps = floor(abs(_sweep) / (2 * pi));
+		var _boost = min(_laps, 4) * 0.12;
+		draw_primitive_begin(pr_trianglefan);
+		draw_vertex_colour(_ps[0], _ps[1], _sfill, min(0.3 + _boost, 0.85));
+		for (var _f = 0; _f < array_length(_arc); _f++) {
+			draw_vertex_colour(_arc[_f][0], _arc[_f][1], _sfill, min(0.3 + _boost, 0.85));
 		}
+		draw_primitive_end();
+		draw_set_alpha(min(0.8 + _boost, 1.0));
+		for (var _e = 0; _e < array_length(_arc) - 1; _e++) {
+			__gm3d_ed_vp_line(_ed, _arc[_e][0], _arc[_e][1], _arc[_e + 1][0], _arc[_e + 1][1], 2, _scol);
+		}
+		var _start = __gm3d_ed_world_to_screen(_vp, __gm3d_ed_gizmo_ring_point(_pivot, _ed.giz.dir, _ws, _t0));
+		var _current = __gm3d_ed_world_to_screen(_vp, __gm3d_ed_gizmo_ring_point(_pivot, _ed.giz.dir, _ws, _t0 + _sweep));
+		if (_start != undefined) {
+			__gm3d_ed_vp_line(_ed, _ps[0], _ps[1], _start[0], _start[1], 1, _srim);
+		}
+		if (_current != undefined) {
+			__gm3d_ed_vp_line(_ed, _ps[0], _ps[1], _current[0], _current[1], 1, _srim);
+		}
+		draw_set_alpha(1);
 	}
 }
 
@@ -808,10 +1037,7 @@ function __gm3d_ed_draw_selbox(_node, _vp, _ed) {
 	draw_set_alpha(1);
 }
 
-/// ---- Unity-style 2D overlay for lights / cameras / environment ----
-/// Icons, direction arrows, range circles, spot cones and camera frustums are
-/// projected with world_to_screen and drawn in Draw GUI over the scene, like
-/// Unity does. Overdraw through models is accepted (editor convention).
+/// ---- 2D overlay for lights / cameras / environment ----
 
 /// Draws one world segment, clipped to the near plane and the screen rect so
 /// its screen direction stays exact even when the ends leave the view.
@@ -953,7 +1179,7 @@ function __gm3d_ed_overlay_sprite(_sp, _sprname, _tint) {
 	}
 	// Center the sprite image on _sp for any origin at 1.5x scale: the drawn
 	// rect spans [x-ox*s, x-ox*s+w*s], so x = _sp[0] + s*(ox-w/2).
-	var _sc = 2.0;
+	var _sc = 2.5;
 	var _w = 0;
 	var _h = 0;
 	var _ox = 0;
@@ -1051,7 +1277,7 @@ function __gm3d_ed_overlay_draw(_ed, _vp) {
 /// GM3D lights emit along -Z of the node (opposite getWorldForward), so every
 /// direction glyph extends along minus forward.
 function __gm3d_ed_overlay_light(_ed, _vp, _nd, _en, _wp, _sp, _lb, _sel) {
-	var _col = make_colour_rgb(255, 190, 80);
+	var _col = c_white;
 	if (_sel) {
 		_col = make_colour_rgb(255, 220, 80);
 	}
@@ -1135,7 +1361,7 @@ function __gm3d_ed_overlay_light(_ed, _vp, _nd, _en, _wp, _sp, _lb, _sel) {
 /// GM3D cameras view along -Z of the node (opposite getWorldForward), like
 /// the editor fly camera in __gm3d_ed_view_forward usage.
 function __gm3d_ed_overlay_camera(_ed, _vp, _nd, _en, _wp, _sp, _lb, _sel) {
-	var _col = make_colour_rgb(100, 220, 255);
+	var _col = c_white;
 	if (_sel) {
 		_col = make_colour_rgb(255, 220, 80);
 	}
@@ -1208,7 +1434,7 @@ function __gm3d_ed_overlay_camera(_ed, _vp, _nd, _en, _wp, _sp, _lb, _sel) {
 
 /// Overlay for the environment node: icon, plus size box when selected.
 function __gm3d_ed_overlay_env(_ed, _vp, _nd, _en, _wp, _sp, _lb, _sel) {
-	var _col = make_colour_rgb(150, 190, 150);
+	var _col = c_white;
 	if (_sel) {
 		_col = make_colour_rgb(255, 220, 80);
 	}
@@ -1235,6 +1461,6 @@ function __gm3d_ed_overlay_env(_ed, _vp, _nd, _en, _wp, _sp, _lb, _sel) {
 		draw_set_alpha(1);
 	}
 	if (_sp != undefined) {
-		__gm3d_ed_overlay_icon(_ed, _sp, _lb, _col, _sel, "");
+		__gm3d_ed_overlay_icon(_ed, _sp, _lb, _col, _sel, "sprGM3DIconPointLight");
 	}
 }
