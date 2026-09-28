@@ -80,32 +80,66 @@ function __gm3d_ed_cam_fly(_ed, _vp, _dt, _allowKeys, _allowZoom) {
 	if (_node == undefined) {
 		return;
 	}
+	_ed.cam_speed_notice = max(0, _ed.cam_speed_notice - _dt);
 	var _vf = __gm3d_ed_view_forward(_ed);
 	var _yaw = radtodeg(arctan2(_vf.x, -_vf.z));
 	var _pitch = radtodeg(arcsin(clamp(_vf.y, -1.0, 1.0)));
-	var _orbit = _allowKeys && mouse_check_button(mb_right);
-	var _pan = _allowKeys && mouse_check_button(mb_middle);
-	if (_orbit) {
+	var _alt = keyboard_check(vk_alt);
+	var _can_start = _allowKeys && _allowZoom && _ed.giz.drag == -1 && !_ed.press_vp;
+	var _orbit = _allowKeys && (_can_start || _ed.cam_orbit) && _alt && mouse_check_button(mb_left);
+	var _pan = _allowKeys && (_can_start || _ed.cam_pan) && mouse_check_button(mb_middle);
+	var _zoom = _allowKeys && (_can_start || _ed.cam_zoom) && _alt && mouse_check_button(mb_right);
+	var _fly = _allowKeys && (_can_start || _ed.cam_fly) && !_alt && mouse_check_button(mb_right);
+	if (_orbit && !_ed.cam_orbit) {
+		var _origin = _node.getLocalPosition();
+		_ed.cam_orbit_target = array_length(_ed.sel) > 0
+			? __gm3d_ed_gizmo_pivot(_ed.sel)
+			: new GM3D_Vec3(_origin.x - _vf.x * 10, _origin.y - _vf.y * 10, _origin.z - _vf.z * 10);
+		var _offset = new GM3D_Vec3(
+			_origin.x - _ed.cam_orbit_target.x,
+			_origin.y - _ed.cam_orbit_target.y,
+			_origin.z - _ed.cam_orbit_target.z,
+		);
+		_ed.cam_orbit_radius = max(_offset.length(), 0.01);
+		_offset.normalizeSafe(0.000001);
+		_node.setLocalRotation(GM3D_Quaternion.fromLookRotation(_offset, GM3D_Vec3.up()).normalizeSafe(0.000001));
+	}
+	if (_zoom && !_ed.cam_zoom) {
+		var _zoom_pos = _node.getLocalPosition();
+		_ed.cam_zoom_target = array_length(_ed.sel) > 0
+			? __gm3d_ed_gizmo_pivot(_ed.sel)
+			: new GM3D_Vec3(_zoom_pos.x - _vf.x * 10, _zoom_pos.y - _vf.y * 10, _zoom_pos.z - _vf.z * 10);
+	}
+	_ed.cam_orbit = _orbit;
+	_ed.cam_pan = _pan;
+	_ed.cam_zoom = _zoom;
+	_ed.cam_fly = _fly;
+	if (_orbit || _fly) {
 		var _yp = __gm3d_ed_orbit_apply(_ed, window_mouse_get_delta_x(), window_mouse_get_delta_y());
 		_yaw = _yp[0];
 		_pitch = _yp[1];
 	}
 
-	var _boost = keyboard_check(vk_shift) ? 3.0 : 1.0;
-	var _step = _dt * 4.0 * _boost;
-	var _move = _allowKeys && !keyboard_check(vk_control);
+	var _boost = keyboard_check(vk_shift) ? 2.0 : 1.0;
+	var _step = _dt * _ed.cam_fly_speed * _boost;
+	var _move = _fly && !keyboard_check(vk_control);
 	var _fw = _move ? keyboard_check(ord("W")) - keyboard_check(ord("S")) : 0.0;
-	var _rt = _move ? keyboard_check(ord("D")) - keyboard_check(ord("A")) : 0.0;
+	var _rt = _move ? keyboard_check(ord("A")) - keyboard_check(ord("D")) : 0.0;
 	var _up = _move ? keyboard_check(ord("E")) - keyboard_check(ord("Q")) : 0.0;
 	var _wheel = 0;
-	if (_allowZoom) {
+	if (_allowZoom && _allowKeys) {
 		if (mouse_wheel_up()) {
 			_wheel = -1;
 		} else if (mouse_wheel_down()) {
 			_wheel = 1;
 		}
 	}
-	if (!_orbit && !_pan && _fw == 0 && _rt == 0 && _up == 0 && _wheel == 0) {
+	if (_fly && _wheel != 0) {
+		_ed.cam_fly_speed = clamp(_ed.cam_fly_speed * (_wheel < 0 ? 1.2 : 1 / 1.2), 0.1, 1000);
+		_ed.cam_speed_notice = 2;
+		_wheel = 0;
+	}
+	if (!_orbit && !_pan && !_zoom && !_fly && _wheel == 0) {
 		return;
 	}
 	_ed.cam_anim = undefined;
@@ -125,13 +159,27 @@ function __gm3d_ed_cam_fly(_ed, _vp, _dt, _allowKeys, _allowZoom) {
 	var _prz = _pfx;
 
 	var _pp = _node.getLocalPosition();
-	var _nx = _pp.x - (_pfx * _fw + _prx * _rt) * _step;
-	var _nz = _pp.z - (_pfz * _fw + _prz * _rt) * _step;
-	var _ny = _pp.y + _up * _step;
-	var _zl = 1.2 * _boost;
-	_nx += _f.x * _wheel * _zl;
-	_ny += _f.y * _wheel * _zl;
-	_nz += _f.z * _wheel * _zl;
+	var _nx = _pp.x + (-_pfx * _fw + _prx * _rt) * _step;
+	var _nz = _pp.z + (-_pfz * _fw + _prz * _rt) * _step;
+	var _ny = _pp.y - _f.y * _fw * _step + _up * _step;
+	if (_orbit) {
+		_nx = _ed.cam_orbit_target.x + _f.x * _ed.cam_orbit_radius;
+		_ny = _ed.cam_orbit_target.y + _f.y * _ed.cam_orbit_radius;
+		_nz = _ed.cam_orbit_target.z + _f.z * _ed.cam_orbit_radius;
+	}
+	if (_zoom || _wheel != 0) {
+		var _target = _zoom ? _ed.cam_zoom_target : (array_length(_ed.sel) > 0
+			? __gm3d_ed_gizmo_pivot(_ed.sel)
+			: new GM3D_Vec3(_pp.x - _f.x * 10, _pp.y - _f.y * 10, _pp.z - _f.z * 10));
+		var _zx = _nx - _target.x;
+		var _zy = _ny - _target.y;
+		var _zz = _nz - _target.z;
+		var _zoom_factor = _zoom ? 1 + window_mouse_get_delta_y() * 0.001 : (_wheel < 0 ? 0.9 : 1.1);
+		_zoom_factor = max(_zoom_factor, 0.01);
+		_nx = _target.x + _zx * _zoom_factor;
+		_ny = _target.y + _zy * _zoom_factor;
+		_nz = _target.z + _zz * _zoom_factor;
+	}
 	if (_pan) {
 		var _qb = __gm3d_ed_quat_basis(_node.getLocalRotation());
 		var _rx = _qb[0];
@@ -164,7 +212,7 @@ function __gm3d_ed_cam_fly(_ed, _vp, _dt, _allowKeys, _allowZoom) {
 	_node.setLocalRotation(GM3D_Quaternion.fromLookRotation(_f, _upv).normalizeSafe(0.000001));
 	// Deltas already consumed above: safe to teleport at the edges, the jump
 	// never leaks into orbit/pan. Infinite RMB/MMB gestures.
-	if (_orbit || _pan) {
+	if (_orbit || _pan || _zoom || _fly) {
 		__gm3d_ed_wrap_camera(_ed);
 	}
 }

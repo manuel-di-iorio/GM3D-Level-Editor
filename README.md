@@ -80,7 +80,9 @@ Lights, cameras and the environment carry a `light` / `camera` / `environment` s
 | 1 / 2 / 3 | Move / Rotate / Scale tool |
 | Left-drag model (Models panel) | Spawn into the scene |
 | Left-click / drag | Select (additive rectangle with drag) |
-| Right-drag + WASD/QE, wheel, Shift | Fly camera |
+| Alt + left-drag | Orbit around selection (or view target) |
+| Right-drag + W/S forward/back, A/D left/right, Q/E down/up, Shift | Fly camera; wheel adjusts fly speed |
+| Alt + right-drag / wheel | Zoom view |
 | Middle-drag | Pan view in screen space (around the selection if any) |
 | F (or double-click in Scene) | Focus selection |
 | F2 | Rename (labels are display-only) |

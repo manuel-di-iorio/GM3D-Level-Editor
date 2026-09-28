@@ -81,6 +81,16 @@ function gm3d_editor_draw(_ed) {
 		__gm3d_ed_gizmo_draw(_ed, _vp);
 		__gm3d_ed_overlay_draw(_ed, _vp);
 		__gm3d_ed_viewcube_draw(_ed, _vp);
+		if (_ed.cam_speed_notice > 0) {
+			var _tip_x = clamp(device_mouse_x_to_gui(0) + 18, 8, _ed.gw - 150);
+			var _tip_y = clamp(device_mouse_y_to_gui(0) + 18, 8, _ed.gh - 32);
+			draw_set_alpha(min(1, _ed.cam_speed_notice * 2) * 0.85);
+			draw_set_color(c_black);
+			draw_rectangle(_tip_x, _tip_y, _tip_x + 142, _tip_y + 26, false);
+			draw_set_alpha(min(1, _ed.cam_speed_notice * 2));
+			draw_set_color(c_white);
+			draw_text(_tip_x + 8, _tip_y + 5, "Fly speed " + string_format(_ed.cam_fly_speed, 0, 1));
+		}
 	}
 	if (!_ed.active) {
 		draw_set_halign(fa_center);
@@ -500,6 +510,15 @@ function __gm3d_ed_create(_inst, _rt) {
 		vp: undefined,
 		cam_anim: undefined,
 		cam_home: undefined,
+		cam_orbit: false,
+		cam_pan: false,
+		cam_zoom: false,
+		cam_fly: false,
+		cam_orbit_target: undefined,
+		cam_orbit_radius: 10,
+		cam_zoom_target: undefined,
+		cam_fly_speed: 5,
+		cam_speed_notice: 0,
 		hist_before: undefined,
 		wrap: undefined,
 		cube_geom: undefined,
@@ -554,7 +573,12 @@ function __gm3d_ed_step(_ed, _dt) {
 		return;
 	}
 
-	__gm3d_ed_cam_fly(_ed, _vp, _dt, !_typing, _in_vp && _ed.drag_lib == undefined);
+	var _camera_keys = !_typing || (keyboard_check(vk_alt) && !ImGui.WantTextInput());
+	var _camera_vp = _in_vp;
+	if (!_camera_vp && keyboard_check(vk_alt)) {
+		_camera_vp = __gm3d_ed_drag_in_viewport(_ed, _mx, _my);
+	}
+	__gm3d_ed_cam_fly(_ed, _vp, _dt, _camera_keys, _camera_vp && _ed.drag_lib == undefined);
 	__gm3d_ed_cam_anim_step(_ed, _dt);
 	__gm3d_ed_grid_ensure(_ed);
 
@@ -990,7 +1014,7 @@ function __gm3d_ed_step_hover(_ed, _vp, _mx, _my, _in_vp, _typing) {
 		_ed.giz.hover = -1;
 	}
 
-	if (mouse_check_button_pressed(mb_left) && _in_vp && !_typing) {
+	if (mouse_check_button_pressed(mb_left) && _in_vp && !_typing && !keyboard_check(vk_alt)) {
 		if (_ed.cube_geom != undefined && __gm3d_ed_viewcube_box_at(_ed.cube_geom, _mx, _my)) {
 			_ed.press_vp = true;
 			_ed.press_x = _mx;
