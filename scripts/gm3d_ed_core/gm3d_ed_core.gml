@@ -82,14 +82,26 @@ function gm3d_editor_draw(_ed) {
 		__gm3d_ed_overlay_draw(_ed, _vp);
 		__gm3d_ed_viewcube_draw(_ed, _vp);
 		if (_ed.cam_speed_notice > 0) {
-			var _tip_x = clamp(device_mouse_x_to_gui(0) + 18, 8, _ed.gw - 150);
-			var _tip_y = clamp(device_mouse_y_to_gui(0) + 18, 8, _ed.gh - 32);
-			draw_set_alpha(min(1, _ed.cam_speed_notice * 2) * 0.85);
-			draw_set_color(c_black);
-			draw_rectangle(_tip_x, _tip_y, _tip_x + 142, _tip_y + 26, false);
-			draw_set_alpha(min(1, _ed.cam_speed_notice * 2));
+			var _tip_w = 174;
+			var _tip_h = 36;
+			var _tip_x = clamp(device_mouse_x_to_gui(0) + 18, 8, _ed.gw - _tip_w - 8);
+			var _tip_y = clamp(device_mouse_y_to_gui(0) + 18, 8, _ed.gh - _tip_h - 8);
+			var _tip_alpha = min(1, _ed.cam_speed_notice * 2);
+			draw_set_alpha(_tip_alpha * 0.94);
+			draw_set_color(make_colour_rgb(22, 28, 38));
+			draw_rectangle(_tip_x, _tip_y, _tip_x + _tip_w, _tip_y + _tip_h, true);
+			draw_set_alpha(_tip_alpha * 0.8);
+			draw_set_color(make_colour_rgb(90, 103, 120));
+			draw_rectangle(_tip_x, _tip_y, _tip_x + _tip_w, _tip_y + _tip_h, false);
+			draw_set_alpha(_tip_alpha);
+			draw_set_color(make_colour_rgb(80, 210, 190));
+			draw_rectangle(_tip_x, _tip_y + 5, _tip_x + 3, _tip_y + _tip_h - 5, true);
+			draw_set_color(make_colour_rgb(170, 184, 199));
+			draw_text_transformed(_tip_x + 12, _tip_y + 11, "FLY SPEED", 0.8, 0.8, 0);
+			draw_set_halign(fa_right);
 			draw_set_color(c_white);
-			draw_text(_tip_x + 8, _tip_y + 5, "Fly speed " + string_format(_ed.cam_fly_speed, 0, 1));
+			draw_text(_tip_x + _tip_w - 12, _tip_y + 9, string_format(_ed.cam_fly_speed, 0, 1));
+			draw_set_halign(fa_left);
 		}
 	}
 	if (!_ed.active) {
@@ -493,6 +505,7 @@ function __gm3d_ed_create(_inst, _rt) {
 		redo: [],
 		imgui: undefined,
 		imgui_ok: undefined,
+		input_owner: undefined,
 		drag_lib: undefined,
 		drag_moved: false,
 		drag_preview: undefined,
@@ -570,13 +583,16 @@ function __gm3d_ed_step(_ed, _dt) {
 		return;
 	}
 
-	_input.camera_keys = !_input.typing || (keyboard_check(vk_alt) && !_input.text_input);
-	_input.camera_viewport = _input.in_viewport;
+	var _camera_owner_ok = _input.owner == undefined || __gm3d_ed_input_owner_is_camera(_input.owner);
+	_input.camera_keys = (_input.typing == false || (keyboard_check(vk_alt) && !_input.text_input)) && _camera_owner_ok;
+	_input.camera_viewport = _input.in_viewport && _camera_owner_ok;
 	if (!_input.camera_viewport && keyboard_check(vk_alt)) {
-		_input.camera_viewport = __gm3d_ed_drag_in_viewport(_ed, _input.mx, _input.my);
+		_input.camera_viewport = _camera_owner_ok && __gm3d_ed_drag_in_viewport(_ed, _input.mx, _input.my);
 	}
-	_input.camera_zoom = _input.camera_viewport && _ed.drag_lib == undefined;
+	_input.camera_zoom = _input.camera_viewport && _ed.drag_lib == undefined && _camera_owner_ok;
 	__gm3d_ed_cam_fly(_ed, _input, _dt);
+	_input.owner = __gm3d_ed_input_owner_sync(_ed);
+	_input.gesture_active = _input.owner != undefined && !__gm3d_ed_input_owner_is_camera(_input.owner);
 	__gm3d_ed_cam_anim_step(_ed, _dt);
 	__gm3d_ed_grid_ensure(_ed);
 

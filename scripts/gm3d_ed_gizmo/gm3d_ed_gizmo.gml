@@ -534,115 +534,128 @@ function __gm3d_ed_gizmo_drag(_ed, _vp, _mx, _my) {
 	var _g = _ed.giz;
 	var _ray = __gm3d_ed_screen_ray(_vp, _mx, _my);
 	if (_g.tool == Gm3dEdTool.Translate) {
-		var _hit = __gm3d_ed_ray_plane(_ray.origin, _ray.dir, _g.pivot, _g.plane_n);
-		if (_hit == undefined) {
+		__gm3d_ed_gizmo_drag_translate(_ed, _g, _ray);
+	} else if (_g.tool == Gm3dEdTool.Scale) {
+		__gm3d_ed_gizmo_drag_scale(_ed, _g, _ray, _my);
+	} else if (_g.tool == Gm3dEdTool.Rotate) {
+		__gm3d_ed_gizmo_drag_rotate(_ed, _vp, _g, _mx, _my);
+	}
+}
+
+function __gm3d_ed_gizmo_drag_translate(_ed, _g, _ray) {
+	var _hit = __gm3d_ed_ray_plane(_ray.origin, _ray.dir, _g.pivot, _g.plane_n);
+	if (_hit == undefined) {
+		return;
+	}
+	var _delta = new GM3D_Vec3();
+	_delta.subVectors(_hit, _g.start_hit);
+	if (_g.planar) {
+		var _dn = _delta.dot(_g.dir);
+		_delta.addScaledVector(_g.dir, -_dn);
+	} else if (!_g.center) {
+		var _d = _delta.dot(_g.dir);
+		_delta = _g.dir.clone();
+		_delta.multiplyScalar(_d);
+	}
+	for (var _i = 0; _i < array_length(_ed.sel); _i++) {
+		if (!__gm3d_ed_tool_allowed(_ed, _ed.sel[_i], Gm3dEdTool.Translate) || __gm3d_ed_hidden_get(_ed, _ed.sel[_i])) {
+			continue;
+		}
+		var _local = __gm3d_ed_gizmo_world_delta_to_local(_ed.sel[_i], _delta);
+		var _pos = _g.starts[_i].pos.clone();
+		_pos.add(_local);
+		var _sp = _ed.snap_on || keyboard_check(vk_control) ? _ed.snap_pos : 0;
+		if (_sp > 0) {
+			_pos.x = __gm3d_ed_snap(_pos.x, _sp);
+			_pos.y = __gm3d_ed_snap(_pos.y, _sp);
+			_pos.z = __gm3d_ed_snap(_pos.z, _sp);
+		}
+		_ed.sel[_i].setLocalPosition(_pos);
+	}
+}
+
+function __gm3d_ed_gizmo_drag_scale(_ed, _g, _ray, _my) {
+	var _f = 1.0;
+	if (_g.center) {
+		// Uniform scale from vertical mouse travel (Blender-style): the
+		// grab starts at the pivot, so a radial reference is degenerate
+		// (radius ~0 can only grow). Drag up grows, down shrinks freely.
+		_f = 1.0 + (_g.my0 - _my) / _g.size;
+	} else {
+		var _h2 = __gm3d_ed_ray_plane(_ray.origin, _ray.dir, _g.pivot, _g.plane_n);
+		if (_h2 == undefined) {
 			return;
 		}
-		var _delta = new GM3D_Vec3();
-		_delta.subVectors(_hit, _g.start_hit);
-		if (_g.planar) {
-			var _dn = _delta.dot(_g.dir);
-			_delta.addScaledVector(_g.dir, -_dn);
-		} else if (!_g.center) {
-			var _d = _delta.dot(_g.dir);
-			_delta = _g.dir.clone();
-			_delta.multiplyScalar(_d);
+		var _dd = new GM3D_Vec3();
+		_dd.subVectors(_h2, _g.start_hit);
+		_f = 1.0 + _dd.dot(_g.dir) / max(_g.world_len, 0.0001);
+	}
+	_f = max(_f, 0.01);
+	for (var _j = 0; _j < array_length(_ed.sel); _j++) {
+		if (!__gm3d_ed_tool_allowed(_ed, _ed.sel[_j], Gm3dEdTool.Scale) || __gm3d_ed_hidden_get(_ed, _ed.sel[_j])) {
+			continue;
 		}
-		for (var _i = 0; _i < array_length(_ed.sel); _i++) {
-			if (!__gm3d_ed_tool_allowed(_ed, _ed.sel[_i], Gm3dEdTool.Translate) || __gm3d_ed_hidden_get(_ed, _ed.sel[_i])) {
-				continue;
-			}
-			var _local = __gm3d_ed_gizmo_world_delta_to_local(_ed.sel[_i], _delta);
-			var _pos = _g.starts[_i].pos.clone();
-			_pos.add(_local);
-			var _sp = _ed.snap_on || keyboard_check(vk_control) ? _ed.snap_pos : 0;
-			if (_sp > 0) {
-				_pos.x = __gm3d_ed_snap(_pos.x, _sp);
-				_pos.y = __gm3d_ed_snap(_pos.y, _sp);
-				_pos.z = __gm3d_ed_snap(_pos.z, _sp);
-			}
-			_ed.sel[_i].setLocalPosition(_pos);
-		}
-	} else if (_g.tool == Gm3dEdTool.Scale) {
-		var _f = 1.0;
+		var _s = _g.starts[_j].sca.clone();
 		if (_g.center) {
-			// Uniform scale from vertical mouse travel (Blender-style): the
-			// grab starts at the pivot, so a radial reference is degenerate
-			// (radius ~0 can only grow). Drag up grows, down shrinks freely.
-			_f = 1.0 + (_g.my0 - _my) / _g.size;
+			_s.x *= _f;
+			_s.y *= _f;
+			_s.z *= _f;
+		} else if (_g.axis_idx == 0) {
+			_s.x *= _f;
+		} else if (_g.axis_idx == 1) {
+			_s.y *= _f;
 		} else {
-			var _h2 = __gm3d_ed_ray_plane(_ray.origin, _ray.dir, _g.pivot, _g.plane_n);
-			if (_h2 == undefined) {
-				return;
-			}
-			var _dd = new GM3D_Vec3();
-			_dd.subVectors(_h2, _g.start_hit);
-			_f = 1.0 + _dd.dot(_g.dir) / max(_g.world_len, 0.0001);
+			_s.z *= _f;
 		}
-		_f = max(_f, 0.01);
-		for (var _j = 0; _j < array_length(_ed.sel); _j++) {
-			if (!__gm3d_ed_tool_allowed(_ed, _ed.sel[_j], Gm3dEdTool.Scale) || __gm3d_ed_hidden_get(_ed, _ed.sel[_j])) {
-				continue;
-			}
-			var _s = _g.starts[_j].sca.clone();
-			if (_g.center) {
-				_s.x *= _f;
-				_s.y *= _f;
-				_s.z *= _f;
-			} else if (_g.axis_idx == 0) {
-				_s.x *= _f;
-			} else if (_g.axis_idx == 1) {
-				_s.y *= _f;
-			} else {
-				_s.z *= _f;
-			}
-			_s.x = max(_s.x, 0.01);
-			_s.y = max(_s.y, 0.01);
-			_s.z = max(_s.z, 0.01);
-			_ed.sel[_j].setLocalScale(_s);
-		}
-	} else if (_g.tool == Gm3dEdTool.Rotate) {
-		if (_g.drag == 7 && variable_struct_exists(_g, "tb_mx") && variable_struct_exists(_g, "tb_my")) {
-			// Relative trackball: dx -> yaw around camUp, dy (y-down) ->
-			// pitch around camRight. The same direction always gives the same
-			// rotation; there is no need to release the mouse.
-			var _dx7 = _mx - _g.tb_mx;
-			var _dy7 = _my - _g.tb_my;
-			_g.tb_mx = _mx;
-			_g.tb_my = _my;
-			var _mag7 = sqrt(_dx7 * _dx7 + _dy7 * _dy7);
-			if (_mag7 > 0.0001 && _vp.camRight != undefined && _vp.camUp != undefined) {
-				var _k7 = 0.01; // rad per pixel
-				var _rx7 = _vp.camRight;
-				var _ru7 = _vp.camUp;
-				var _axis7 = new GM3D_Vec3(
-					_rx7.x * _dy7 + _ru7.x * _dx7,
-					_rx7.y * _dy7 + _ru7.y * _dx7,
-					_rx7.z * _dy7 + _ru7.z * _dx7,
-				);
-				_axis7.normalizeSafe(0.000001);
-				var _qt7 = GM3D_Quaternion.fromAxisAngle(_axis7, _mag7 * _k7);
-				for (var _k7i = 0; _k7i < array_length(_ed.sel); _k7i++) {
-					if (!__gm3d_ed_tool_allowed(_ed, _ed.sel[_k7i], Gm3dEdTool.Rotate) || __gm3d_ed_hidden_get(_ed, _ed.sel[_k7i])) {
-						continue;
-					}
-					var _qr7 = _qt7.clone();
-					_qr7.multiply(_ed.sel[_k7i].getLocalRotation().clone());
-					// TEMP trackball NaN trap: remove once diagnosed.
-					var _bad7 = false;
-					try {
-						_bad7 = is_nan(_qr7.x) || is_nan(_qr7.y) || is_nan(_qr7.z) || is_nan(_qr7.w);
-					} catch (_eN) {
-						_bad7 = true;
-					}
-					if (_bad7) {
-						show_debug_message("[trackball] NaN quat skipped");
-						continue;
-					}
-					_ed.sel[_k7i].setLocalRotation(_qr7.normalizeSafe(0.000001));
+		_s.x = max(_s.x, 0.01);
+		_s.y = max(_s.y, 0.01);
+		_s.z = max(_s.z, 0.01);
+		_ed.sel[_j].setLocalScale(_s);
+	}
+}
+
+function __gm3d_ed_gizmo_drag_rotate(_ed, _vp, _g, _mx, _my) {
+	if (_g.drag == 7 && variable_struct_exists(_g, "tb_mx") && variable_struct_exists(_g, "tb_my")) {
+		// Relative trackball: dx -> yaw around camUp, dy (y-down) ->
+		// pitch around camRight. The same direction always gives the same
+		// rotation; there is no need to release the mouse.
+		var _dx7 = _mx - _g.tb_mx;
+		var _dy7 = _my - _g.tb_my;
+		_g.tb_mx = _mx;
+		_g.tb_my = _my;
+		var _mag7 = sqrt(_dx7 * _dx7 + _dy7 * _dy7);
+		if (_mag7 > 0.0001 && _vp.camRight != undefined && _vp.camUp != undefined) {
+			var _k7 = 0.01; // rad per pixel
+			var _rx7 = _vp.camRight;
+			var _ru7 = _vp.camUp;
+			var _axis7 = new GM3D_Vec3(
+				_rx7.x * _dy7 + _ru7.x * _dx7,
+				_rx7.y * _dy7 + _ru7.y * _dx7,
+				_rx7.z * _dy7 + _ru7.z * _dx7,
+			);
+			_axis7.normalizeSafe(0.000001);
+			var _qt7 = GM3D_Quaternion.fromAxisAngle(_axis7, _mag7 * _k7);
+			for (var _k7i = 0; _k7i < array_length(_ed.sel); _k7i++) {
+				if (!__gm3d_ed_tool_allowed(_ed, _ed.sel[_k7i], Gm3dEdTool.Rotate) || __gm3d_ed_hidden_get(_ed, _ed.sel[_k7i])) {
+					continue;
 				}
+				var _qr7 = _qt7.clone();
+				_qr7.multiply(_ed.sel[_k7i].getLocalRotation().clone());
+				// TEMP trackball NaN trap: remove once diagnosed.
+				var _bad7 = false;
+				try {
+					_bad7 = is_nan(_qr7.x) || is_nan(_qr7.y) || is_nan(_qr7.z) || is_nan(_qr7.w);
+				} catch (_eN) {
+					_bad7 = true;
+				}
+				if (_bad7) {
+					show_debug_message("[trackball] NaN quat skipped");
+					continue;
+				}
+				_ed.sel[_k7i].setLocalRotation(_qr7.normalizeSafe(0.000001));
 			}
-		} else {
+		}
+	} else {
 		var _rot_dx = _mx - _g.rot_mx;
 		var _rot_dy = _my - _g.rot_my;
 		_g.rot_mx = _mx;
@@ -670,7 +683,6 @@ function __gm3d_ed_gizmo_drag(_ed, _vp, _mx, _my) {
 				_q.multiply(_g.starts[_k].rot);
 			}
 			_ed.sel[_k].setLocalRotation(_q.normalizeSafe(0.000001));
-		}
 		}
 	}
 }

@@ -1,5 +1,55 @@
 /// @module gm3d_ed_input
 
+/// Resolves the active gesture owner and clears owners whose gesture ended.
+function __gm3d_ed_input_owner_sync(_ed) {
+	var _owner = _ed.input_owner;
+	if (_owner == undefined) {
+		if (_ed.giz.drag != -1) {
+			_owner = "gizmo";
+		} else if (_ed.drag_lib != undefined) {
+			_owner = "library";
+		} else if (_ed.cube_armed == true) {
+			_owner = "viewcube";
+		} else if (_ed.rect != undefined) {
+			_owner = "rect";
+		} else if (_ed.cam_orbit) {
+			_owner = "camera_orbit";
+		} else if (_ed.cam_zoom) {
+			_owner = "camera_zoom";
+		} else if (_ed.cam_fly) {
+			_owner = "camera_fly";
+		} else if (_ed.cam_pan) {
+			_owner = "camera_pan";
+		}
+	}
+	if (
+		(_owner == "gizmo" && _ed.giz.drag == -1) ||
+		(_owner == "library" && _ed.drag_lib == undefined) ||
+		(_owner == "viewcube" && _ed.cube_armed != true) ||
+		(_owner == "rect" && _ed.rect == undefined) ||
+		(_owner == "camera_orbit" && !_ed.cam_orbit) ||
+		(_owner == "camera_zoom" && !_ed.cam_zoom) ||
+		(_owner == "camera_fly" && !_ed.cam_fly) ||
+		(_owner == "camera_pan" && !_ed.cam_pan)
+	) {
+		_owner = undefined;
+	}
+	_ed.input_owner = _owner;
+	return _owner;
+}
+
+/// True when the active owner is one of the camera gestures.
+function __gm3d_ed_input_owner_is_camera(_owner) {
+	return _owner == "camera_orbit" || _owner == "camera_zoom" || _owner == "camera_fly" || _owner == "camera_pan";
+}
+
+/// Clears the owner only when the requested gesture currently owns input.
+function __gm3d_ed_input_owner_clear(_ed, _owner) {
+	if (_ed.input_owner == _owner) {
+		_ed.input_owner = undefined;
+	}
+}
+
 /// Captures shared per-frame input state before camera and editor handlers run.
 function __gm3d_ed_input_context(_ed, _keys) {
 	var _mx = device_mouse_x_to_gui(0);
@@ -15,6 +65,7 @@ function __gm3d_ed_input_context(_ed, _keys) {
 	var _typing = _keyboard_capture || _text_input;
 	var _in_viewport = !_mouse_capture && _mx >= 0 && _mx <= _ed.gw && _my >= 0 && _my <= _ed.gh;
 	var _vp = __gm3d_ed_viewport(_ed);
+	var _owner = __gm3d_ed_input_owner_sync(_ed);
 	return {
 		keys: _keys,
 		mx: _mx,
@@ -25,7 +76,8 @@ function __gm3d_ed_input_context(_ed, _keys) {
 		text_input: _text_input,
 		typing: _typing,
 		in_viewport: _in_viewport,
-		gesture_active: _ed.giz.drag != -1 || _ed.drag_lib != undefined || (_ed.rect != undefined && _ed.rect.on),
+		owner: _owner,
+		gesture_active: _owner != undefined && !__gm3d_ed_input_owner_is_camera(_owner),
 		camera_keys: false,
 		camera_viewport: _in_viewport,
 		camera_zoom: false,
@@ -121,8 +173,17 @@ function __gm3d_ed_step_cancel(_ed, _input) {
 			__gm3d_ed_drop_preview_clear(_ed);
 			_ed.drag_lib = undefined;
 			_ed.drag_moved = false;
+			__gm3d_ed_input_owner_clear(_ed, "library");
+		} else if (_ed.cube_armed == true) {
+			_ed.cube_armed = undefined;
+			_ed.cube_face = undefined;
+			_ed.cube_moved = false;
+			_ed.press_vp = false;
+			__gm3d_ed_input_owner_clear(_ed, "viewcube");
 		} else if (_ed.rect != undefined) {
 			_ed.rect = undefined;
+			_ed.press_vp = false;
+			__gm3d_ed_input_owner_clear(_ed, "rect");
 		} else if (_ed.giz.drag != -1) {
 			var _g = _ed.giz;
 			if (is_array(_g.starts) && array_length(_g.starts) == array_length(_ed.sel)) {
@@ -136,6 +197,7 @@ function __gm3d_ed_step_cancel(_ed, _input) {
 			_ed.giz.drag = -1;
 			__gm3d_ed_wrap_end(_ed);
 			_ed.hist_before = undefined;
+			__gm3d_ed_input_owner_clear(_ed, "gizmo");
 		} else {
 			__gm3d_ed_sel_clear(_ed);
 		}
@@ -158,6 +220,7 @@ function __gm3d_ed_step_gizmo(_ed, _input) {
 			__gm3d_ed_rows_follow(_ed, _ed.sel);
 
 			_ed.hist_before = undefined;
+			__gm3d_ed_input_owner_clear(_ed, "gizmo");
 		} else {
 			if (_ed.wrap == undefined) {
 				__gm3d_ed_wrap_begin(_ed, _mx, _my);
@@ -242,6 +305,7 @@ function __gm3d_ed_step_libdrop(_ed, _input) {
 			}
 			_ed.drag_lib = undefined;
 			_ed.drag_moved = false;
+			__gm3d_ed_input_owner_clear(_ed, "library");
 		}
 		return true;
 	}
@@ -273,6 +337,7 @@ function __gm3d_ed_step_rect(_ed, _input) {
 			}
 			_ed.rect = undefined;
 			_ed.press_vp = false;
+			__gm3d_ed_input_owner_clear(_ed, "rect");
 		}
 		return true;
 	}
@@ -301,8 +366,11 @@ function __gm3d_ed_step_hover(_ed, _input) {
 		_ed.giz.hover = -1;
 	}
 
-	if (mouse_check_button_pressed(mb_left) && _in_vp && !_typing && !keyboard_check(vk_alt)) {
+	if (mouse_check_button_pressed(mb_left) && _in_vp && !_typing && !keyboard_check(vk_alt) && _input.owner == undefined) {
 		if (_ed.cube_geom != undefined && __gm3d_ed_viewcube_box_at(_ed.cube_geom, _mx, _my)) {
+			_ed.input_owner = "viewcube";
+			_input.owner = "viewcube";
+			_input.gesture_active = true;
 			_ed.press_vp = true;
 			_ed.press_x = _mx;
 			_ed.press_y = _my;
@@ -312,9 +380,15 @@ function __gm3d_ed_step_hover(_ed, _input) {
 			_ed.cube_gx = _mx - _ed.cube_geom.cx;
 			_ed.cube_gy = _my - _ed.cube_geom.cy;
 		} else if (_ed.giz.hover != -1 && array_length(_ed.sel) > 0) {
+			_ed.input_owner = "gizmo";
+			_input.owner = "gizmo";
+			_input.gesture_active = true;
 			_ed.giz.drag = _ed.giz.hover;
 			__gm3d_ed_gizmo_begin(_ed, _vp, _mx, _my);
 		} else {
+			_ed.input_owner = "rect";
+			_input.owner = "rect";
+			_input.gesture_active = true;
 			_ed.press_vp = true;
 			_ed.press_x = _mx;
 			_ed.press_y = _my;
@@ -340,8 +414,10 @@ function __gm3d_ed_step_hover(_ed, _input) {
 	if (mouse_check_button_released(mb_left) && _ed.press_vp && (_ed.rect == undefined || !_ed.rect.on)) {
 		_ed.press_vp = false;
 		_ed.rect = undefined;
+		__gm3d_ed_input_owner_clear(_ed, "rect");
 		if (_ed.cube_armed == true) {
 			_ed.cube_armed = undefined;
+			__gm3d_ed_input_owner_clear(_ed, "viewcube");
 			if (_ed.cube_moved) {
 				__gm3d_ed_ui_save(_ed);
 			}

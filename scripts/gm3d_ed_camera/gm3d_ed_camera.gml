@@ -88,11 +88,24 @@ function __gm3d_ed_cam_fly(_ed, _input, _dt) {
 	var _yaw = radtodeg(arctan2(_vf.x, -_vf.z));
 	var _pitch = radtodeg(arcsin(clamp(_vf.y, -1.0, 1.0)));
 	var _alt = keyboard_check(vk_alt);
-	var _can_start = _allowKeys && _allowZoom && _ed.giz.drag == -1 && !_ed.press_vp;
-	var _orbit = _allowKeys && (_can_start || _ed.cam_orbit) && _alt && mouse_check_button(mb_left);
-	var _pan = _allowKeys && (_can_start || _ed.cam_pan) && mouse_check_button(mb_middle);
-	var _zoom = _allowKeys && (_can_start || _ed.cam_zoom) && _alt && mouse_check_button(mb_right);
-	var _fly = _allowKeys && (_can_start || _ed.cam_fly) && !_alt && mouse_check_button(mb_right);
+	var _owner = __gm3d_ed_input_owner_sync(_ed);
+	var _can_start = _allowKeys && _allowZoom && _owner == undefined && _ed.giz.drag == -1 && !_ed.press_vp;
+	if (_can_start) {
+		if (_alt && mouse_check_button(mb_left)) {
+			_owner = "camera_orbit";
+		} else if (_alt && mouse_check_button(mb_right)) {
+			_owner = "camera_zoom";
+		} else if (!_alt && mouse_check_button(mb_right)) {
+			_owner = "camera_fly";
+		} else if (mouse_check_button(mb_middle)) {
+			_owner = "camera_pan";
+		}
+		_ed.input_owner = _owner;
+	}
+	var _orbit = _allowKeys && _owner == "camera_orbit" && _alt && mouse_check_button(mb_left);
+	var _pan = _allowKeys && _owner == "camera_pan" && mouse_check_button(mb_middle);
+	var _zoom = _allowKeys && _owner == "camera_zoom" && _alt && mouse_check_button(mb_right);
+	var _fly = _allowKeys && _owner == "camera_fly" && !_alt && mouse_check_button(mb_right);
 	if (_orbit && !_ed.cam_orbit) {
 		var _origin = _node.getLocalPosition();
 		_ed.cam_orbit_target = new GM3D_Vec3(
@@ -112,6 +125,14 @@ function __gm3d_ed_cam_fly(_ed, _input, _dt) {
 	_ed.cam_pan = _pan;
 	_ed.cam_zoom = _zoom;
 	_ed.cam_fly = _fly;
+	if (
+		(_owner == "camera_orbit" && !_orbit) ||
+		(_owner == "camera_pan" && !_pan) ||
+		(_owner == "camera_zoom" && !_zoom) ||
+		(_owner == "camera_fly" && !_fly)
+	) {
+		_ed.input_owner = undefined;
+	}
 	if (_orbit || _fly) {
 		var _yp = __gm3d_ed_orbit_apply(_ed, window_mouse_get_delta_x(), window_mouse_get_delta_y());
 		_yaw = _yp[0];
