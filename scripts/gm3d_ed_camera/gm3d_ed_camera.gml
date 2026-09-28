@@ -74,8 +74,11 @@ function __gm3d_ed_orbit_apply(_ed, _ddx, _ddy) {
 
 /// Flies, pans, orbits and dollies the camera node.
 /// @param {Real} _dt seconds since last frame
-/// @param {Bool} _allowKeys/_allowZoom input gates
-function __gm3d_ed_cam_fly(_ed, _vp, _dt, _allowKeys, _allowZoom) {
+/// @param _input per-frame editor input snapshot
+function __gm3d_ed_cam_fly(_ed, _input, _dt) {
+	var _vp = _input.vp;
+	var _allowKeys = _input.camera_keys;
+	var _allowZoom = _input.camera_zoom;
 	var _node = _ed.rt.cam;
 	if (_node == undefined) {
 		return;

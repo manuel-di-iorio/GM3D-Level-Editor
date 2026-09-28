@@ -480,6 +480,40 @@ function __gm3d_ed_scene_list_commit(_ed, _ren, _foc, _dup, _del) {
 	}
 }
 
+/// Writes one transform component over the whole selection.
+/// @param _mode 0 position, 1 rotation (deg), 2 scale.
+/// @param _idx 0 X, 1 Y, 2 Z.
+function __gm3d_ed_apply_axis(_ed, _mode, _idx, _v) {
+	for (var _i = 0; _i < array_length(_ed.sel); _i++) {
+		var _n = _ed.sel[_i];
+		if (_mode == 0) {
+			var _p = _n.getLocalPosition().clone();
+			if (_idx == 0) {
+				_p.x = _v;
+			} else if (_idx == 1) {
+				_p.y = _v;
+			} else {
+				_p.z = _v;
+			}
+			_n.setLocalPosition(_p);
+		} else if (_mode == 1) {
+			var _e = __gm3d_ed_quat_to_euler(_n.getLocalRotation());
+			_e[_idx] = degtorad(_v);
+			_n.setLocalRotation(__gm3d_ed_euler_to_quat(_e[0], _e[1], _e[2]));
+		} else {
+			var _s = _n.getLocalScale().clone();
+			if (_idx == 0) {
+				_s.x = max(_v, 0.01);
+			} else if (_idx == 1) {
+				_s.y = max(_v, 0.01);
+			} else {
+				_s.z = max(_v, 0.01);
+			}
+			_n.setLocalScale(_s);
+		}
+	}
+}
+
 /// Applies an inspector axis edit to the selection; undoable.
 /// @param _mode 0 position, 1 rotation, 2 scale (clamped).
 function __gm3d_ed_inspector_apply(_ed, _mode, _idx, _v) {
