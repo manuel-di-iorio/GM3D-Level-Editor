@@ -2,7 +2,7 @@
 
 <img src="docs/icon.png" width="300px" />
 
-Embeddable 3D level editor for GameMaker (GML) on the GM3D runtime, using the built-in ImGUI interface. The game owns its runtime (scene, camera, models); the editor only drives it through a small adapter. Drop it into a project, wire one gateway object, edit levels in-game, save them as JSON.
+Embeddable 3D level editor for GameMaker on the GM3D runtime, using the built-in ImGUI interface. The game owns its runtime (scene, camera, models); the editor only drives it through a small adapter. Drop it into a project, edit levels in-game, save them as a JSON file and you will be able it to load it later.
 
 ## Requirements
 
