@@ -92,17 +92,12 @@ function __gm3d_ed_cam_fly(_ed, _vp, _dt, _allowKeys, _allowZoom) {
 	var _fly = _allowKeys && (_can_start || _ed.cam_fly) && !_alt && mouse_check_button(mb_right);
 	if (_orbit && !_ed.cam_orbit) {
 		var _origin = _node.getLocalPosition();
-		_ed.cam_orbit_target = array_length(_ed.sel) > 0
-			? __gm3d_ed_gizmo_pivot(_ed.sel)
-			: new GM3D_Vec3(_origin.x - _vf.x * 10, _origin.y - _vf.y * 10, _origin.z - _vf.z * 10);
-		var _offset = new GM3D_Vec3(
-			_origin.x - _ed.cam_orbit_target.x,
-			_origin.y - _ed.cam_orbit_target.y,
-			_origin.z - _ed.cam_orbit_target.z,
+		_ed.cam_orbit_target = new GM3D_Vec3(
+			_origin.x - _vf.x * 10,
+			_origin.y - _vf.y * 10,
+			_origin.z - _vf.z * 10,
 		);
-		_ed.cam_orbit_radius = max(_offset.length(), 0.01);
-		_offset.normalizeSafe(0.000001);
-		_node.setLocalRotation(GM3D_Quaternion.fromLookRotation(_offset, GM3D_Vec3.up()).normalizeSafe(0.000001));
+		_ed.cam_orbit_radius = 10;
 	}
 	if (_zoom && !_ed.cam_zoom) {
 		var _zoom_pos = _node.getLocalPosition();
