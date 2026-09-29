@@ -191,17 +191,27 @@ function __gm3d_ed_node_aabb(_node) {
 		var _wm = _cur.getWorldMatrix();
 		_wm = _wm.clone();
 		var _boxes = [];
-
-		var _meshes = _cur.getMeshes();
-		for (var i = 0; i < array_length(_meshes); ++i) {
-			array_push(_boxes, { min: _meshes[i].getBoundingBoxMin(), max: _meshes[i].getBoundingBoxMax() });
+		// per-component meshes with single-call bounds.
+		var _comps = _cur.getMeshComponents();
+		for (var i = 0; i < array_length(_comps); ++i) {
+			var _cm = _comps[i].getMesh();
+			if (_cm == undefined) {
+				continue;
+			}
+			var _cb = _cm.getBoundingBox();
+			if (_cb == undefined || _cb.min == undefined || _cb.max == undefined) {
+				continue;
+			}
+			array_push(_boxes, { min: _cb.min, max: _cb.max });
 		}
-
-		var _sk = _cur.getSkinnedMeshComponent();
-		if (_sk != undefined) {
-			var _skMesh = _sk.getMesh();
-			if (_skMesh != undefined) {
-				array_push(_boxes, { min: _skMesh.getBoundingBoxMin(), max: _skMesh.getBoundingBoxMax() });
+		var _skn = _cur.getSkinnedMeshComponent();
+		if (_skn != undefined) {
+			var _smn = _skn.getMesh();
+			if (_smn != undefined) {
+				var _sbn = _smn.getBoundingBox();
+				if (_sbn != undefined && _sbn.min != undefined && _sbn.max != undefined) {
+					array_push(_boxes, { min: _sbn.min, max: _sbn.max });
+				}
 			}
 		}
 

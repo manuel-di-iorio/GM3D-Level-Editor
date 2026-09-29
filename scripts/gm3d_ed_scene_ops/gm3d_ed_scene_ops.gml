@@ -60,7 +60,7 @@ function __gm3d_ed_grid_ensure(_ed) {
 		for (var _i = 0; _i < array_length(_mats); ++_i) {
 			// Grid shader: same lighting as sStatic plus distance fade that
 			// dissolves far lines instead of letting them shimmer (no MSAA).
-			_mats[_i].setShader(shGM3DGrid);
+			_mats[_i].setShader(GM3D_ERenderPass.Forward, shGM3DGrid);
 		}
 		_src.freeze();
 		_ed.grid_src = _src;

@@ -6,14 +6,14 @@ Embeddable 3D level editor for GameMaker on the GM3D runtime, using the built-in
 
 ## Requirements
 
-- GameMaker with GMRT 0.21 (from the Package Manager)
+- GameMaker with GMRT 0.22.1 (from the Package Manager)
 - Tick "Disable file system sandbox" in Game Options > Windows, or scenes will not be able to be saved/loaded from anywhere.
 
 ## Quick start
 
 <img src="docs/screenshot.png" width="600px" />
 
-**1. Import the editor package** — drag `gm3d_editor.yymps` onto the GameMaker IDE to import the scripts. You also need GMRT 0.21 (Package Manager), which provides `GM3D_*` and `ImGui`.
+**1. Import the editor package** — drag `gm3d_editor.yymps` onto the GameMaker IDE to import the scripts. You also need GMRT 0.22.1 (Package Manager), which provides `GM3D_*` and `ImGui`.
 
 **2. Add an object** with 5 events (full working example in `objects/oEditor`):
 

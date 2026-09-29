@@ -93,7 +93,7 @@ function __gm3d_ed_gpupick_mat(_ed, _g, _id, _skinned) {
 	}
 	try {
 		var _m = new GM3D_Material("gm3d_ed_pick_" + string(_id) + (_skinned ? "_k" : "_s"));
-		_m.setShader(_skinned ? shGM3DIdSkin : shGM3DId);
+		_m.setShader(GM3D_ERenderPass.Forward, _skinned ? shGM3DIdSkin : shGM3DId);
 		_m.setFloatArray("u_id", __gm3d_ed_gpupick_id_encode(_id));
 		_en[$ _key] = _m;
 		_g.mats_ok = true;

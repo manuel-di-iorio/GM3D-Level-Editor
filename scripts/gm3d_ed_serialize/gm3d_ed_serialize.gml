@@ -747,7 +747,7 @@ function __gm3d_load_prop(_scene, _p, _kind, _name) {
 		var _e = _p.environment;
 		if (is_array(_e.size) && array_length(_e.size) == 3) {
 			try {
-				_ec.setSize(max(_e.size[0], 0.01), max(_e.size[1], 0.01), max(_e.size[2], 0.01));
+				_ec.setSize(new GM3D_Vec3(max(_e.size[0], 0.01), max(_e.size[1], 0.01), max(_e.size[2], 0.01)));
 			} catch (_e15) {
 			}
 		}

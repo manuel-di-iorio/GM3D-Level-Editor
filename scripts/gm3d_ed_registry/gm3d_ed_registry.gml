@@ -807,7 +807,7 @@ function __gm3d_ed_env_apply(_node, _d) {
 		return;
 	}
 	try {
-		_ec.setSize(max(_d.size[0], 0.01), max(_d.size[1], 0.01), max(_d.size[2], 0.01));
+		_ec.setSize(new GM3D_Vec3(max(_d.size[0], 0.01), max(_d.size[1], 0.01), max(_d.size[2], 0.01)));
 	} catch (_e) {
 	}
 	try {

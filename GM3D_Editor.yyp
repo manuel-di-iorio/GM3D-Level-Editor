@@ -11,8 +11,8 @@
   "defaultScriptType":1,
   "Folders":[
     {"$GMFolder":"","%Name":"GM3D Level Editor","folderPath":"folders/GM3D Level Editor.yy","name":"GM3D Level Editor","resourceType":"GMFolder","resourceVersion":"2.0",},
-    {"$GMFolder":"","%Name":"Shaders","folderPath":"folders/GM3D Level Editor/Shaders.yy","name":"Shaders","resourceType":"GMFolder","resourceVersion":"2.0",},
     {"$GMFolder":"","%Name":"Icons","folderPath":"folders/GM3D Level Editor/Icons.yy","name":"Icons","resourceType":"GMFolder","resourceVersion":"2.0",},
+    {"$GMFolder":"","%Name":"Shaders","folderPath":"folders/GM3D Level Editor/Shaders.yy","name":"Shaders","resourceType":"GMFolder","resourceVersion":"2.0",},
   ],
   "ForcedPrefabProjectReferences":[],
   "IncludedFiles":[
@@ -61,6 +61,7 @@
     {"id":{"name":"imgui_enums","path":"scripts/imgui_enums/imgui_enums.yy",},},
     {"id":{"name":"scr_demo","path":"scripts/scr_demo/scr_demo.yy",},},
     {"id":{"name":"sAnimated","path":"shaders/sAnimated/sAnimated.yy",},},
+    {"id":{"name":"sAnimatedShadow","path":"shaders/sAnimatedShadow/sAnimatedShadow.yy",},},
     {"id":{"name":"shGM3DGrid","path":"shaders/shGM3DGrid/shGM3DGrid.yy",},},
     {"id":{"name":"shGM3DId","path":"shaders/shGM3DId/shGM3DId.yy",},},
     {"id":{"name":"shGM3DIdSkin","path":"shaders/shGM3DIdSkin/shGM3DIdSkin.yy",},},
@@ -68,6 +69,7 @@
     {"id":{"name":"shGM3DMaskSkin","path":"shaders/shGM3DMaskSkin/shGM3DMaskSkin.yy",},},
     {"id":{"name":"shGM3DOutline","path":"shaders/shGM3DOutline/shGM3DOutline.yy",},},
     {"id":{"name":"sStatic","path":"shaders/sStatic/sStatic.yy",},},
+    {"id":{"name":"sStaticShadow","path":"shaders/sStaticShadow/sStaticShadow.yy",},},
     {"id":{"name":"sprGM3DIconCamera","path":"sprites/sprGM3DIconCamera/sprGM3DIconCamera.yy",},},
     {"id":{"name":"sprGM3DIconCenter","path":"sprites/sprGM3DIconCenter/sprGM3DIconCenter.yy",},},
     {"id":{"name":"sprGM3DIconDirectionalLight","path":"sprites/sprGM3DIconDirectionalLight/sprGM3DIconDirectionalLight.yy",},},

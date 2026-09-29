@@ -9,67 +9,106 @@
 /// the full sprite (passing undefined throws; [0,0,1,1] samples the whole
 /// texture page).
 
-/// Returns a fixed 31-char padded buffer for stable text input.
+/// Returns a fixed-capacity padded buffer for stable text input.
 function __gm3d_ed_imgui_pad(_base) {
 	if (!is_string(_base)) {
 		_base = "";
 	}
 	var _buf = _base;
-	while (string_length(_buf) < 31) {
+	while (string_length(_buf) < 255) {
 		_buf += " ";
 	}
 	return _buf;
 }
 
-/// Fixed-length text input with GML-tracked edit session.
+/// Fixed-length text input with a persistent per-key buffer.
+/// The buffer is reseeded from _val only while the widget is inactive;
+/// while editing, the in-progress text round-trips untouched, so the native
+/// side never sees a fresh allocation mid-edit and typing can never overflow
+/// the buffer ceiling.
 /// @param _key unique field id across frames.
 /// @return { text, active, was_active }.
 function __gm3d_ed_imgui_text(_key, _label, _val) {
 	static _active = {};
+	static _bufs = {};
 	var _base = _val;
 	if (!is_string(_base)) {
 		_base = "";
 	}
-	var _was = false;
-	_was = _active[$ _key] == true;
-	var _out = _base;
-	var _now = false;
+	var _was = _active[$ _key] == true;
+	if (!_was || !variable_struct_exists(_bufs, _key)) {
+		_bufs[$ _key] = __gm3d_ed_imgui_pad(_base);
+	}
 
-	_out = ImGui.InputText(_label, __gm3d_ed_imgui_pad(_base), ImGuiInputTextFlags.AutoSelectAll);
-	_now = ImGui.IsItemActive();
+	var _out = ImGui.InputText(_label, _bufs[$ _key], ImGuiInputTextFlags.AutoSelectAll);
+	var _now = ImGui.IsItemActive();
 
 	_active[$ _key] = _now;
 	if (!is_string(_out)) {
 		return { text: _base, active: _now, was_active: _was };
 	}
+	_bufs[$ _key] = _out;
 	return { text: string_trim(_out), active: _now, was_active: _was };
 }
 
+/// Drag-based float field (no typing needed): bypasses the broken char-input
+/// path of text widgets on runtimes where typed glyphs render as "????".
+/// Probes ImGui.DragFloat once; falls back to InputFloat when missing.
+/// @param _speed drag speed in units per pixel.
+/// @return Current value (old value when the binding misbehaves).
+function __gm3d_ed_imgui_dragfloat(_label, _val, _speed) {
+	static _has = undefined;
+	if (_has == undefined) {
+		_has = false;
+		try {
+			_has = variable_struct_exists(ImGui, "DragFloat");
+		} catch (_eP) {
+			_has = false;
+		}
+	}
+	if (!_has) {
+		return ImGui.InputFloat(_label, _val, 0, 0);
+	}
+	var _out = _val;
+	try {
+		_out = ImGui.DragFloat(_label, _val, _speed, 0, 0);
+	} catch (_eD) {
+		return ImGui.InputFloat(_label, _val, 0, 0);
+	}
+	if (!is_real(_out)) {
+		return _val;
+	}
+	return _out;
+}
+
 /// Text input with placeholder hint and hidden label id.
+/// Same persistent-buffer contract as imgui_text.
 /// @param _id_label hidden ImGui id (e.g. ##x).
 function __gm3d_ed_imgui_text_hint(_id_label, _hint, _val) {
 	static _active = {};
+	static _bufs = {};
 	var _base = _val;
 	if (!is_string(_base)) {
 		_base = "";
 	}
-	var _was = false;
-	_was = _active[$ _id_label] == true;
-	var _out = _base;
-	var _now = false;
+	var _was = _active[$ _id_label] == true;
+	if (!_was || !variable_struct_exists(_bufs, _id_label)) {
+		_bufs[$ _id_label] = __gm3d_ed_imgui_pad(_base);
+	}
 
-	_out = ImGui.InputTextWithHint(
+	var _out = ImGui.InputTextWithHint(
 		_id_label,
 		_hint,
-		_was ? __gm3d_ed_imgui_pad(_base) : _base,
+		_bufs[$ _id_label],
 		ImGuiInputTextFlags.AutoSelectAll,
 	);
-	_now = ImGui.IsItemActive();
+	var _now = ImGui.IsItemActive();
 
 	_active[$ _id_label] = _now;
 	if (!is_string(_out)) {
 		return _base;
 	}
+	_bufs[$ _id_label] = _out;
 	return string_trim(_out);
 }
 
@@ -422,9 +461,9 @@ function __gm3d_ed_imgui_menu(_ed) {
 		}
 		ImGui.Separator();
 		_ed.snap_on = ImGui.Checkbox("Snap", _ed.snap_on);
-		_ed.snap_pos = ImGui.InputFloat("Snap pos", _ed.snap_pos, 0.05, 0.25);
+		_ed.snap_pos = __gm3d_ed_imgui_dragfloat("Snap pos", _ed.snap_pos, 0.005);
 		_ed.snap_pos = max(0.01, _ed.snap_pos);
-		_ed.snap_rot = ImGui.InputFloat("Snap rot", _ed.snap_rot, 1, 5);
+		_ed.snap_rot = __gm3d_ed_imgui_dragfloat("Snap rot", _ed.snap_rot, 0.1);
 		_ed.snap_rot = max(0.5, _ed.snap_rot);
 		ImGui.EndMenu();
 	}

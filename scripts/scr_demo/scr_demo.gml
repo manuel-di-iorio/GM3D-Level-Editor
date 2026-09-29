@@ -18,7 +18,7 @@ function demo_create(_self) {
 	var _envNode = _self.scene.createNode("Environment");
 	var _envComp = new GM3D_EnvironmentVolumeComponent();
 	_envNode.addComponent(_envComp);
-	_envComp.setSize(20000.0, 20000.0, 20000.0);
+	_envComp.setSize(new GM3D_Vec3(20000.0, 20000.0, 20000.0));
 	_envComp.setAmbientColor(make_colour_rgb(70, 70, 85));
 	_self.envNode = _envNode;
 	_self.envComp = _envComp;
@@ -113,7 +113,8 @@ function demo_assign_shaders(_scene) {
 	var _materials = _scene.getMaterials();
 
 	for (var _matIdx = 0; _matIdx < array_length(_materials); ++_matIdx) {
-		_materials[_matIdx].setShader(sStatic);
+		_materials[_matIdx].setShader(GM3D_ERenderPass.Forward, sStatic);
+		_materials[_matIdx].setShader(GM3D_ERenderPass.Shadow, sStaticShadow);
 	}
 
 	for (var _nodeIdx = 0; _nodeIdx < array_length(_nodes); ++_nodeIdx) {
@@ -122,7 +123,8 @@ function demo_assign_shaders(_scene) {
 		if (_skinnedComp != undefined) {
 			var _skinnedMat = _skinnedComp.getMaterial();
 			if (_skinnedMat != undefined) {
-				_skinnedMat.setShader(sAnimated);
+				_skinnedMat.setShader(GM3D_ERenderPass.Forward, sAnimated);
+				_skinnedMat.setShader(GM3D_ERenderPass.Shadow, sAnimatedShadow);
 			}
 		}
 	}
@@ -159,6 +161,13 @@ function demo_on_spawn(_self, _node, _asset, _src) {
 function demo_find_anim(_node) {
 	if (_node == undefined) {
 		return undefined;
+	}
+	try {
+		var _found = _node.findAnimationComponent();
+		if (_found != undefined) {
+			return _found;
+		}
+	} catch (_eFind) {
 	}
 	var _comp = _node.getAnimationComponent();
 	if (_comp != undefined) {

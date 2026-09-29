@@ -137,7 +137,7 @@ function __gm3d_ed_imgui_axis_row(_ed, _mode, _label) {
 		var _fkey = "ax" + string(_mode) + "_" + _label + "_" + _names[_a];
 		var _was = false;
 		_was = _ed.imgui.ax_active[$ _fkey] == true;
-		var _nv = ImGui.InputFloat(_names[_a], _av.val, 0, 0);
+		var _nv = __gm3d_ed_imgui_dragfloat(_names[_a], _av.val, 0.01);
 		var _now = ImGui.IsItemActive();
 		_ed.imgui.ax_active[$ _fkey] = _now;
 		if (_was && !_now && _nv != _av.val) {
@@ -161,7 +161,7 @@ function __gm3d_ed_imgui_prop_float(_ed, _key, _label, _val, _w) {
 		_ed.imgui.flt_active = {};
 	}
 	ImGui.SetNextItemWidth(_w);
-	var _nv = ImGui.InputFloat(_label, _val, 0, 0);
+	var _nv = __gm3d_ed_imgui_dragfloat(_label, _val, 0.01);
 	var _now = ImGui.IsItemActive();
 	var _was = _ed.imgui.flt_active[$ _key] == true;
 	_ed.imgui.flt_active[$ _key] = _now;

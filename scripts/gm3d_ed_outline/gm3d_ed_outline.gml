@@ -62,9 +62,9 @@ function __gm3d_ed_outline_mats(_ed, _o) {
 	}
 	try {
 		var _w = new GM3D_Material("gm3d_ed_mask");
-		_w.setShader(shGM3DMask);
+		_w.setShader(GM3D_ERenderPass.Forward, shGM3DMask);
 		var _ws = new GM3D_Material("gm3d_ed_mask_skin");
-		_ws.setShader(shGM3DMaskSkin);
+		_ws.setShader(GM3D_ERenderPass.Forward, shGM3DMaskSkin);
 		_o.white = _w;
 		_o.whiteSkin = _ws;
 		_o.mats_ok = true;
