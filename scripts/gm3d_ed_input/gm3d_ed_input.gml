@@ -227,6 +227,14 @@ function __gm3d_ed_step_gizmo(_ed, _input) {
 			}
 			var _wv = __gm3d_ed_wrap_step(_ed, _mx, _my);
 			__gm3d_ed_gizmo_drag(_ed, _vp, _wv[0], _wv[1]);
+			// Keep tracked positions following the live nodes every frame.
+			// Entries match by live name + nearest recorded position and two
+			// placements from the same asset share the live name: without a
+			// per-frame follow, dragging a (just created/duplicated) node
+			// near a similar one makes registry_find snap to the wrong entry
+			// (outline flicker, wrong hidden/kind, corrupt rows_follow on
+			// release). Small per-frame deltas keep the 1-to-1 mapping stable.
+			__gm3d_ed_rows_follow(_ed, _ed.sel);
 		}
 		_ed.giz.hover = _ed.giz.drag;
 		_ed.rect = undefined;

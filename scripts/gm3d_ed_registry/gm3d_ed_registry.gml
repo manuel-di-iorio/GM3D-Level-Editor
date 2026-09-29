@@ -217,17 +217,64 @@ function __gm3d_ed_fresh_label(_ed, _base) {
 }
 
 /// Re-points tracked rows at the live positions of moved nodes.
+/// Entries are matched by live name + nearest position, but two placements
+/// spawned from the same asset share the same live name: matching each node
+/// independently can map both live nodes to the SAME entry when they are
+/// dragged close together, permanently swapping/corrupting identities
+/// (wrong outline, wrong pick, wrong unregister). Claim entries 1-to-1
+/// within this call so simultaneous moves never double-claim.
 function __gm3d_ed_rows_follow(_ed, _nodes) {
 	if (!is_array(_nodes)) {
 		return;
 	}
+	var _claimed = [];
 	for (var _i = 0; _i < array_length(_nodes); _i++) {
-		var _en = __gm3d_ed_registry_find(_ed, _nodes[_i]);
-		if (_en == undefined) {
+		var _nd = _nodes[_i];
+		if (_nd == undefined) {
 			continue;
 		}
-		var _pp = _nodes[_i].getLocalPosition();
-		_en.pos = [_pp.x, _pp.y, _pp.z];
+		var _nm = _nd.name;
+		var _pp = undefined;
+		try {
+			_pp = _nd.getLocalPosition();
+		} catch (_e) {
+			continue;
+		}
+		var _reg = _ed.tracked;
+		if (!is_array(_reg)) {
+			continue;
+		}
+		var _best = undefined;
+		var _bestd = 1000000000;
+		for (var _j = 0; _j < array_length(_reg); _j++) {
+			var _re = _reg[_j];
+			if (_re.name != _nm) {
+				continue;
+			}
+			var _taken = false;
+			for (var _k = 0; _k < array_length(_claimed); _k++) {
+				if (_claimed[_k] == _re) {
+					_taken = true;
+					break;
+				}
+			}
+			if (_taken) {
+				continue;
+			}
+			var _dx = _re.pos[0] - _pp.x;
+			var _dy = _re.pos[1] - _pp.y;
+			var _dz = _re.pos[2] - _pp.z;
+			var _d = _dx * _dx + _dy * _dy + _dz * _dz;
+			if (_d < _bestd) {
+				_bestd = _d;
+				_best = _re;
+			}
+		}
+		if (_best == undefined) {
+			continue;
+		}
+		_best.pos = [_pp.x, _pp.y, _pp.z];
+		array_push(_claimed, _best);
 	}
 }
 
