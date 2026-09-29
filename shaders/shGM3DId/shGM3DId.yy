@@ -1,7 +1,7 @@
 {
   "$GMShader":"",
-  "%Name":"shGM3DOutline",
-  "name":"shGM3DOutline",
+  "%Name":"shGM3DId",
+  "name":"shGM3DId",
   "parent":{
     "name":"Shaders",
     "path":"folders/GM3D Level Editor/Shaders.yy",

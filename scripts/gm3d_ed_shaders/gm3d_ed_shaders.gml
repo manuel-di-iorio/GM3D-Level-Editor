@@ -7,7 +7,7 @@
 
 /// Editor-owned shaders to precompile. Add new editor shaders here.
 function __gm3d_ed_editor_shaders() {
-	return [shGM3DGrid, shGM3DMask, shGM3DMaskSkin, shGM3DOutline];
+	return [shGM3DGrid, shGM3DMask, shGM3DMaskSkin, shGM3DOutline, shGM3DId, shGM3DIdSkin];
 }
 
 /// Compiles all editor shaders once. Safe to call every frame; runs once.

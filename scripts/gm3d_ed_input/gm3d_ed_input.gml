@@ -331,17 +331,10 @@ function __gm3d_ed_step_rect(_ed, _input) {
 		if (!mouse_check_button(mb_left)) {
 			var _r = __gm3d_ed_rect_norm(_ed.rect);
 			if (abs(_r.x1 - _r.x0) > 6 || abs(_r.y1 - _r.y0) > 6) {
-				var _hits = __gm3d_ed_pick_rect(_ed, _ed.rt.scene.getNodes(), _vp, _r);
-				if (keyboard_check(vk_shift)) {
-					for (var _i = 0; _i < array_length(_hits); _i++) {
-						if (!__gm3d_ed_sel_has(_ed, _hits[_i])) {
-							array_push(_ed.sel, _hits[_i]);
-						}
-					}
-				} else {
-					_ed.sel = _hits;
-				}
-				__gm3d_ed_sel_apply_tool(_ed);
+				// GPU rect pick, executed in Draw (valid 3D render context)
+				// same frame: one ID render + one buffer download + region
+				// scan, then replace vs shift-add with the old semantics.
+				__gm3d_ed_gpupick_request_rect(_ed, _r, keyboard_check(vk_shift));
 			}
 			_ed.rect = undefined;
 			_ed.press_vp = false;
@@ -443,19 +436,9 @@ function __gm3d_ed_step_hover(_ed, _input) {
 			}
 			_ed.cube_face = undefined;
 		} else if (_in_vp) {
-			var _hit = __gm3d_ed_pick_cycle(_ed, _ed.rt.scene.getNodes(), _vp, _mx, _my);
-			if (keyboard_check(vk_shift)) {
-				if (_hit != undefined) {
-					__gm3d_ed_sel_toggle(_ed, _hit);
-					__gm3d_ed_sel_apply_tool(_ed);
-				}
-			} else if (_hit != undefined) {
-				_ed.sel = [_hit];
-				_ed.giz.drag = -1;
-				__gm3d_ed_sel_apply_tool(_ed);
-			} else {
-				__gm3d_ed_sel_clear(_ed);
-			}
+			// GPU ID pick, executed in Draw (valid 3D render context) same
+			// frame: precise per-pixel topmost with depth, icons first.
+			__gm3d_ed_gpupick_request_click(_ed, _mx, _my, keyboard_check(vk_shift));
 		}
 	}
 }

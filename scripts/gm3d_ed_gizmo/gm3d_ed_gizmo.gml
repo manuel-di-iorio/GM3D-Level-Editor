@@ -641,7 +641,7 @@ function __gm3d_ed_gizmo_drag_rotate(_ed, _vp, _g, _mx, _my) {
 				}
 				var _qr7 = _qt7.clone();
 				_qr7.multiply(_ed.sel[_k7i].getLocalRotation().clone());
-				// TEMP trackball NaN trap: remove once diagnosed.
+				// Guards a corrupt trackball update: never apply a NaN rotation.
 				var _bad7 = false;
 				try {
 					_bad7 = is_nan(_qr7.x) || is_nan(_qr7.y) || is_nan(_qr7.z) || is_nan(_qr7.w);
@@ -649,7 +649,6 @@ function __gm3d_ed_gizmo_drag_rotate(_ed, _vp, _g, _mx, _my) {
 					_bad7 = true;
 				}
 				if (_bad7) {
-					show_debug_message("[trackball] NaN quat skipped");
 					continue;
 				}
 				_ed.sel[_k7i].setLocalRotation(_qr7.normalizeSafe(0.000001));
