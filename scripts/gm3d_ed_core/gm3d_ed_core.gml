@@ -78,6 +78,7 @@ function gm3d_editor_draw(_ed) {
 				draw_set_valign(fa_top);
 			}
 		}
+		__gm3d_ed_outline_composite(_ed);
 		__gm3d_ed_gizmo_draw(_ed, _vp);
 		__gm3d_ed_overlay_draw(_ed, _vp);
 		__gm3d_ed_viewcube_draw(_ed, _vp);
@@ -118,6 +119,7 @@ function gm3d_editor_draw(_ed) {
 
 /// Unregisters the editor instance; call from CleanUp event.
 function gm3d_editor_cleanup(_ed) {
+	__gm3d_ed_outline_cleanup(_ed);
 	__gm3d_ed_ui_save(_ed);
 	__gm3d_ed_drop_preview_clear(_ed);
 	__gm3d_ed_view_restore(_ed);

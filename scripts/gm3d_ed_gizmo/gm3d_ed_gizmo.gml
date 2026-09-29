@@ -691,7 +691,9 @@ function __gm3d_ed_gizmo_drag_rotate(_ed, _vp, _g, _mx, _my) {
 function __gm3d_ed_gizmo_draw(_ed, _vp) {
 	var _cols = [c_red, c_lime, c_blue];
 	var _hls = [make_colour_rgb(255, 150, 60), make_colour_rgb(255, 255, 120), make_colour_rgb(110, 200, 255)];
-	__gm3d_ed_gizmo_draw_selboxes(_ed, _vp);
+	// AABB selection boxes retired: the Unique-style silhouette outline in
+	// gm3d_ed_outline replaces them (kept call below for quick re-enable).
+	// __gm3d_ed_gizmo_draw_selboxes(_ed, _vp);
 	if (array_length(_ed.sel) == 0) {
 		return;
 	}

@@ -1,7 +1,7 @@
 {
   "$GMShader":"",
-  "%Name":"shGM3DGrid",
-  "name":"shGM3DGrid",
+  "%Name":"shGM3DMaskSkin",
+  "name":"shGM3DMaskSkin",
   "parent":{
     "name":"GM3D Level Editor",
     "path":"folders/GM3D Level Editor.yy",
