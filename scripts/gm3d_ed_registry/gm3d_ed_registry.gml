@@ -343,10 +343,81 @@ function __gm3d_ed_root_tracked(_ed) {
 		if (_nd.parent != undefined) {
 			continue;
 		}
+		// Viewport camera is never a tracked scene node, even if registered
+		// by mistake: rebuild/new-scene must never destroy it.
+		if (_ed != undefined && variable_struct_exists(_ed, "rt") && is_struct(_ed.rt)) {
+			if (variable_struct_exists(_ed.rt, "cam") && _nd == _ed.rt.cam) {
+				continue;
+			}
+		}
 		if (__gm3d_ed_registry_find(_ed, _nd) == undefined) {
 			continue;
 		}
 		array_push(_out, _nd);
+	}
+	return _out;
+}
+
+/// Returns live root nodes in tracked-registration order, skipping stale
+/// entries and structural nodes (grid, viewport camera, drop preview).
+/// Native scene order does not survive destroy/recreate (undo rebuild flips
+/// it), so save/undo snapshots and the Scene list follow ed.tracked order
+/// instead: every creation path appends and rebuild re-appends in descriptor
+/// order, keeping row order stable across undo/redo/load.
+function __gm3d_ed_tracked_nodes(_ed) {
+	var _out = [];
+	if (_ed == undefined || _ed.rt == undefined || _ed.rt.scene == undefined) {
+		return _out;
+	}
+	if (!is_array(_ed.tracked)) {
+		return _out;
+	}
+	var _roots = _ed.rt.scene.getNodes();
+	var _used = [];
+	for (var _u = 0; _u < array_length(_roots); _u++) {
+		array_push(_used, false);
+	}
+	for (var _i = 0; _i < array_length(_ed.tracked); _i++) {
+		var _en = _ed.tracked[_i];
+		if (!is_struct(_en) || !is_string(_en.name) || !is_array(_en.pos) || array_length(_en.pos) != 3) {
+			continue;
+		}
+		var _best = -1;
+		var _bestd = 1000000000;
+		for (var _j = 0; _j < array_length(_roots); _j++) {
+			if (_used[_j]) {
+				continue;
+			}
+			var _nd = _roots[_j];
+			if (_nd == undefined || _nd.parent != undefined) {
+				continue;
+			}
+			if (__gm3d_ed_is_grid(_ed, _nd)) {
+				continue;
+			}
+			if (variable_struct_exists(_ed.rt, "cam") && _nd == _ed.rt.cam) {
+				continue;
+			}
+			if (variable_struct_exists(_ed, "drag_preview") && _nd == _ed.drag_preview) {
+				continue;
+			}
+			if (_nd.name != _en.name) {
+				continue;
+			}
+			var _pp = _nd.getLocalPosition();
+			var _dx = _en.pos[0] - _pp.x;
+			var _dy = _en.pos[1] - _pp.y;
+			var _dz = _en.pos[2] - _pp.z;
+			var _d = _dx * _dx + _dy * _dy + _dz * _dz;
+			if (_d < _bestd) {
+				_bestd = _d;
+				_best = _j;
+			}
+		}
+		if (_best >= 0) {
+			_used[_best] = true;
+			array_push(_out, _roots[_best]);
+		}
 	}
 	return _out;
 }

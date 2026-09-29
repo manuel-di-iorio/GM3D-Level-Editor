@@ -284,7 +284,8 @@ function __gm3d_ed_imgui_scene_list(_ed) {
 	}
 	var _flt = "";
 	_flt = string_lower(_ui.scene_filter);
-	_roots = __gm3d_ed_root_tracked(_ed);
+	// Tracked order, not native scene order: stays put across undo/redo/load.
+	_roots = __gm3d_ed_tracked_nodes(_ed);
 	for (var _i = 0; _i < array_length(_roots); _i++) {
 		var _nd = _roots[_i];
 		var _dl = __gm3d_ed_label_get(_ed, _nd);

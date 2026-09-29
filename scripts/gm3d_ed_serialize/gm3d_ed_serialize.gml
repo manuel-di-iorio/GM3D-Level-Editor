@@ -18,12 +18,28 @@ function __gm3d_ed_node_to_descriptor(_ed, _node) {
 	if (__gm3d_ed_is_grid(_ed, _node)) {
 		return undefined;
 	}
+	// Viewport camera and drop preview are live scene nodes but never part of
+	// save/undo: the viewport is editor chrome, the preview is transient.
+	if (_ed != undefined && variable_struct_exists(_ed, "rt") && is_struct(_ed.rt)) {
+		if (variable_struct_exists(_ed.rt, "cam") && _node == _ed.rt.cam) {
+			return undefined;
+		}
+	}
+	if (_ed != undefined && variable_struct_exists(_ed, "drag_preview") && _node == _ed.drag_preview) {
+		return undefined;
+	}
 	return __gm3d_ed_node_desc(_ed, _node);
 }
 
 /// Builds a serializable descriptor for any tracked live node.
 /// @return Descriptor with kind, or undefined when untracked.
 function __gm3d_ed_node_desc(_ed, _node) {
+	// Only tracked nodes serialize: untracked game nodes (including the
+	// viewport camera, which carries a camera component) must never enter
+	// save/undo snapshots, or undo would rebuild them as new tracked nodes.
+	if (__gm3d_ed_registry_find(_ed, _node) == undefined) {
+		return undefined;
+	}
 	var _kind = __gm3d_ed_kind_of(_ed, _node);
 	if (_kind == undefined) {
 		return undefined;
@@ -109,16 +125,13 @@ function __gm3d_ed_prop_desc(_ed, _node, _kind) {
 	return _d;
 }
 
-/// Serializes the live scene into a descriptor list.
+/// Serializes the live scene into a descriptor list, in tracked order (stable
+/// across undo rebuilds; native scene order is not).
 function __gm3d_ed_serialize_scene(_ed) {
-	var _roots = [];
-	_roots = _ed.rt.scene.getNodes();
+	var _nodes = __gm3d_ed_tracked_nodes(_ed);
 	var _out = [];
-	for (var i = 0; i < array_length(_roots); ++i) {
-		if (_roots[i].parent != undefined) {
-			continue;
-		}
-		var _d = __gm3d_ed_node_to_descriptor(_ed, _roots[i]);
+	for (var i = 0; i < array_length(_nodes); ++i) {
+		var _d = __gm3d_ed_node_to_descriptor(_ed, _nodes[i]);
 		if (_d != undefined) {
 			array_push(_out, _d);
 		}
