@@ -48,7 +48,7 @@ function __gm3d_ed_grid_ensure(_ed) {
 		return;
 	}
 	if (_ed.grid_src == undefined) {
-		var _path = working_directory + "grid.glb";
+		var _path = working_directory + "__gm3dEditorGrid.glb";
 		if (!file_exists(_path)) {
 			return;
 		}

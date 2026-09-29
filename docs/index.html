@@ -105,7 +105,8 @@ gm3d_editor_cleanup(ed);</code></pre>
         <tr><td><code>gm3d_editor_enable / disable / toggle / is_active()</code></td><td>Open/close the editor</td></tr>
         <tr><td><code>gm3d_editor_asset_add(ed, name, model)</code> / <code>gm3d_editor_asset_clear(ed)</code></td><td>Models library (names should be unique)</td></tr>
         <tr><td><code>gm3d_editor_track_node(ed, asset, node, label?)</code></td><td>Adopt a code-spawned instance into Scene/Inspector/save/undo</td></tr>
-        <tr><td><code>gm3d_editor_load(fname)</code></td><td>Load a scene file</td></tr>
+        <tr><td><code>gm3d_editor_load(fname)</code></td><td>Load a scene file into the editor</td></tr>
+        <tr><td><code>gm3d_load(scene, fname, models)</code></td><td>Load a saved scene into a live game scene (no editor); <code>models</code> is <code>{ asset: loadedModel }</code>, returns <code>{ placed, failed }</code></td></tr>
       </tbody>
     </table>
   </section>
@@ -123,6 +124,18 @@ gm3d_editor_cleanup(ed);</code></pre>
   "rotation": [0.0, 0.0, 0.0, 1.0],
   "scale": [1.0, 1.0, 1.0]
 }</code></pre>
+    </div>
+    <p class="sub">Lights, cameras and the environment carry a <code>light</code> / <code>camera</code> / <code>environment</code> sub-struct (angles in degrees, colors as <code>[r, g, b]</code> 0-255).</p>
+    <h3>In-game loading (no editor)</h3>
+    <p class="sub"><code>gm3d_load(scene, fname, models)</code> spawns a saved scene into any live <code>GM3D_Scene</code>. Load and freeze each model once, then pass them as <code>{ asset: model }</code> — the <code>asset</code> field is the key into this struct, <code>name</code> is just the instance label:</p>
+    <div class="codeblock terminal">
+      <div class="term-bar"><span></span><span></span><span></span><button class="copy" data-copy="fmt-load">Copy</button></div>
+<pre id="fmt-load"><code class="lang-gml">var _models = {
+    Tree: my_load_model("models/tree.glb"),
+    Rock: my_load_model("models/rock.glb"),
+};
+var _rep = gm3d_load(my_scene, "level1.json", _models);
+// _rep = { placed: 9, failed: 0 }</code></pre>
     </div>
   </section>
 

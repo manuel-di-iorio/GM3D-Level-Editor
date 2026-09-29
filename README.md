@@ -53,7 +53,8 @@ While the editor is open it owns the camera and the scene: pause your own simula
 | `gm3d_editor_asset_add(ed, name, model)` / `gm3d_editor_asset_clear(ed)` | Models library (names should be unique) |
 | `gm3d_editor_track_node(ed, asset, node, label?)` | Adopt a code-spawned instance into Scene/Inspector/save/undo |
 | `gm3d_editor_light_add(ed, node, label?)` / `gm3d_editor_camera_add(ed, node, label?)` / `gm3d_editor_environment_add(ed, node, label?)` | Adopt a code-spawned light, camera or environment node |
-| `gm3d_editor_load(fname)` | Load a .scene file |
+| `gm3d_editor_load(fname)` | Load a scene file into the editor |
+| `gm3d_load(scene, fname, models)` | Load a saved scene into a live game scene (no editor); `models` is `{ asset: loadedModel }`, returns `{ placed, failed }` |
 
 ## Scene file format
 
@@ -71,6 +72,19 @@ While the editor is open it owns the camera and the scene: pause your own simula
 ```
 
 Lights, cameras and the environment carry a `light` / `camera` / `environment` sub-struct (angles in degrees, colors as `[r, g, b]` 0-255).
+
+## Loading scenes in-game (no editor)
+
+`gm3d_load(scene, fname, models)` spawns a saved scene into any live `GM3D_Scene` without the editor. Load and freeze each model once, then pass them as `{ asset: model }` — the `asset` field of each descriptor is the key into this struct, while `name` is just the instance label:
+
+```gml
+var _models = {
+    Tree: my_load_model("models/tree.glb"),
+    Rock: my_load_model("models/rock.glb"),
+};
+var _rep = gm3d_load(my_scene, "level1.json", _models);
+// _rep = { placed: 9, failed: 0 } — unknown assets count as failed, the rest still loads
+```
 
 ## Controls
 

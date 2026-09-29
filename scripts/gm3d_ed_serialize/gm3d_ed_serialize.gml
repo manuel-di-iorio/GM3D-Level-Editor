@@ -534,3 +534,275 @@ function __gm3d_ed_write_text_file_atomic(_path, _txt) {
 	file_rename(_tmp, _path);
 	return file_exists(_path);
 }
+
+/// Loads an editor-saved scene JSON into a live game scene (no editor).
+/// @param {Any} _scene live GM3D_Scene to spawn into
+/// @param {String} _fname scene JSON path
+/// @param {Struct} _models { assetName: loadedModel, ... }; models must be
+/// loaded and frozen by the caller
+/// @return {Struct} { placed, failed } counts
+function gm3d_load(_scene, _fname, _models) {
+	var _rep = { placed: 0, failed: 0 };
+	if (_scene == undefined || _fname == undefined || _fname == "" || !is_struct(_models)) {
+		return _rep;
+	}
+	if (!file_exists(_fname)) {
+		return _rep;
+	}
+	var _json = "";
+	var _f = file_text_open_read(_fname);
+	if (_f < 0) {
+		return _rep;
+	}
+	while (!file_text_eof(_f)) {
+		_json += file_text_read_string(_f);
+		file_text_readln(_f);
+	}
+	file_text_close(_f);
+	if (_json == "") {
+		return _rep;
+	}
+	var _data = undefined;
+	try {
+		_data = json_parse(_json);
+	} catch (_e) {
+		return _rep;
+	}
+	if (!is_struct(_data) || !variable_struct_exists(_data, "nodes") || !is_array(_data.nodes)) {
+		return _rep;
+	}
+	var _nodes = _data.nodes;
+	for (var _i = 0; _i < array_length(_nodes); ++_i) {
+		var _ok = false;
+		try {
+			_ok = __gm3d_load_node(_scene, _models, _nodes[_i]) != undefined;
+		} catch (_e2) {
+			_ok = false;
+		}
+		if (_ok) {
+			_rep.placed++;
+		} else {
+			_rep.failed++;
+		}
+	}
+	try {
+		_scene.update(0);
+	} catch (_e3) {
+	}
+	return _rep;
+}
+
+/// Spawns one scene descriptor into a live scene.
+/// @return Spawned node or undefined.
+function __gm3d_load_node(_scene, _models, _p) {
+	if (_scene == undefined || !is_struct(_p)) {
+		return undefined;
+	}
+	var _kind = undefined;
+	if (variable_struct_exists(_p, "kind") && is_string(_p.kind) && _p.kind != "") {
+		_kind = _p.kind;
+	}
+	var _name = "node";
+	if (variable_struct_exists(_p, "name") && is_string(_p.name) && _p.name != "") {
+		_name = _p.name;
+	}
+	if (_kind == "light" || _kind == "camera" || _kind == "environment") {
+		return __gm3d_load_prop(_scene, _p, _kind, _name);
+	}
+	if (_kind != "asset") {
+		return undefined;
+	}
+	if (!variable_struct_exists(_p, "asset") || !is_string(_p.asset) || _p.asset == "") {
+		return undefined;
+	}
+	var _akey = _p.asset;
+	if (!variable_struct_exists(_models, _akey)) {
+		return undefined;
+	}
+	var _model = _models[$ _akey];
+	if (_model == undefined) {
+		return undefined;
+	}
+	var _node = _model.spawnInto(_scene, undefined);
+	if (_node == undefined) {
+		return undefined;
+	}
+	_node.setLocalPosition(__gm3d_load_vec3(_p, "position", 0, 0, 0));
+	_node.setLocalScale(__gm3d_load_vec3(_p, "scale", 1, 1, 1));
+	_node.setLocalRotation(__gm3d_load_quat(_p));
+	return _node;
+}
+
+/// Creates one light/camera/environment node from a descriptor.
+/// @return New node or undefined.
+function __gm3d_load_prop(_scene, _p, _kind, _name) {
+	var _node = _scene.createNode(_name);
+	if (_node == undefined) {
+		return undefined;
+	}
+	_node.setLocalPosition(__gm3d_load_vec3(_p, "position", 0, 0, 0));
+	_node.setLocalScale(__gm3d_load_vec3(_p, "scale", 1, 1, 1));
+	_node.setLocalRotation(__gm3d_load_quat(_p));
+	if (_kind == "light" && is_struct(_p.light)) {
+		var _lc = new GM3D_LightComponent();
+		_node.addComponent(_lc);
+		var _l = _p.light;
+		try {
+			_lc.setType(_l.type == "point" ? GM3D_ELightType.Point : _l.type == "spot" ? GM3D_ELightType.Spot : GM3D_ELightType.Directional);
+		} catch (_e) {
+		}
+		if (is_array(_l.color) && array_length(_l.color) == 3) {
+			try {
+				_lc.setColor(make_colour_rgb(clamp(_l.color[0], 0, 255), clamp(_l.color[1], 0, 255), clamp(_l.color[2], 0, 255)));
+			} catch (_e2) {
+			}
+		}
+		if (is_real(_l.intensity)) {
+			try {
+				_lc.setIntensity(max(_l.intensity, 0));
+			} catch (_e3) {
+			}
+		}
+		if (is_real(_l.range) && _l.range > 0) {
+			try {
+				_lc.setRange(_l.range);
+			} catch (_e4) {
+			}
+		}
+		if (is_real(_l.innerCone)) {
+			try {
+				_lc.setInnerConeAngle(degtorad(clamp(_l.innerCone, 0, 89)));
+			} catch (_e5) {
+			}
+		}
+		if (is_real(_l.outerCone)) {
+			try {
+				_lc.setOuterConeAngle(degtorad(clamp(_l.outerCone, 1, 89)));
+			} catch (_e6) {
+			}
+		}
+		try {
+			_lc.setEnabled(!variable_struct_exists(_l, "enabled") || _l.enabled == true);
+		} catch (_e7) {
+		}
+	} else if (_kind == "camera" && is_struct(_p.camera)) {
+		var _cc = new GM3D_CameraComponent();
+		_node.addComponent(_cc);
+		var _c = _p.camera;
+		try {
+			_cc.setProjection(_c.projection == "ortho" ? GM3D_ECameraProjection.Orthographic : GM3D_ECameraProjection.Perspective);
+		} catch (_e8) {
+		}
+		if (_c.projection == "ortho") {
+			if (is_real(_c.orthoWidth) && _c.orthoWidth > 0) {
+				try {
+					_cc.setOrthoWidth(_c.orthoWidth);
+				} catch (_e9) {
+				}
+			}
+			if (is_real(_c.orthoHeight) && _c.orthoHeight > 0) {
+				try {
+					_cc.setOrthoHeight(_c.orthoHeight);
+				} catch (_e10) {
+				}
+			}
+		} else if (is_real(_c.fovY) && _c.fovY > 0) {
+			try {
+				_cc.setFovY(degtorad(clamp(_c.fovY, 1, 179)));
+			} catch (_e11) {
+			}
+		}
+		if (is_real(_c.near) && _c.near > 0) {
+			try {
+				_cc.setNear(_c.near);
+			} catch (_e12) {
+			}
+		}
+		if (is_real(_c.far) && _c.far > 0) {
+			try {
+				_cc.setFar(_c.far);
+			} catch (_e13) {
+			}
+		}
+		try {
+			_cc.setEnabled(!variable_struct_exists(_c, "enabled") || _c.enabled == true);
+		} catch (_e14) {
+		}
+	} else if (_kind == "environment" && is_struct(_p.environment)) {
+		var _ec = new GM3D_EnvironmentVolumeComponent();
+		_node.addComponent(_ec);
+		var _e = _p.environment;
+		if (is_array(_e.size) && array_length(_e.size) == 3) {
+			try {
+				_ec.setSize(max(_e.size[0], 0.01), max(_e.size[1], 0.01), max(_e.size[2], 0.01));
+			} catch (_e15) {
+			}
+		}
+		if (is_array(_e.ambient) && array_length(_e.ambient) == 3) {
+			try {
+				_ec.setAmbientColor(make_colour_rgb(clamp(_e.ambient[0], 0, 255), clamp(_e.ambient[1], 0, 255), clamp(_e.ambient[2], 0, 255)));
+			} catch (_e16) {
+			}
+		}
+		try {
+			_ec.setFogEnabled(variable_struct_exists(_e, "fogEnabled") && _e.fogEnabled == true);
+		} catch (_e17) {
+		}
+		if (is_array(_e.fogColor) && array_length(_e.fogColor) == 3) {
+			try {
+				_ec.setFogColor(make_colour_rgb(clamp(_e.fogColor[0], 0, 255), clamp(_e.fogColor[1], 0, 255), clamp(_e.fogColor[2], 0, 255)));
+			} catch (_e18) {
+			}
+		}
+		if (is_real(_e.fogStart)) {
+			try {
+				_ec.setFogStart(_e.fogStart);
+			} catch (_e19) {
+			}
+		}
+		if (is_real(_e.fogEnd)) {
+			try {
+				_ec.setFogEnd(_e.fogEnd);
+			} catch (_e20) {
+			}
+		}
+		try {
+			_ec.setEnabled(!variable_struct_exists(_e, "enabled") || _e.enabled == true);
+		} catch (_e21) {
+		}
+	} else {
+		_node.destroy();
+		return undefined;
+	}
+	return _node;
+}
+
+/// Reads a [x, y, z] array from a descriptor field, with fallback.
+function __gm3d_load_vec3(_p, _field, _fx, _fy, _fz) {
+	try {
+		var _a = _p[$ _field];
+		if (is_array(_a) && array_length(_a) == 3 && is_real(_a[0]) && is_real(_a[1]) && is_real(_a[2])) {
+			return new GM3D_Vec3(_a[0], _a[1], _a[2]);
+		}
+	} catch (_e) {
+	}
+	return new GM3D_Vec3(_fx, _fy, _fz);
+}
+
+/// Reads an [x, y, z, w] quaternion from a descriptor, with fallback.
+function __gm3d_load_quat(_p) {
+	try {
+		var _a = _p.rotation;
+		if (is_array(_a) && array_length(_a) == 4 && is_real(_a[0]) && is_real(_a[1]) && is_real(_a[2]) && is_real(_a[3])) {
+			var _q = new GM3D_Quaternion();
+			_q.x = _a[0];
+			_q.y = _a[1];
+			_q.z = _a[2];
+			_q.w = _a[3];
+			return _q.normalizeSafe(0.000001);
+		}
+	} catch (_e) {
+	}
+	var _q0 = new GM3D_Quaternion();
+	return _q0;
+}
