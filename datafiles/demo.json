@@ -2,6 +2,38 @@
   "version": 1.0,
   "nodes": [
     {
+      "kind": "light",
+      "name": "Sun",
+      "position": [0.0, 0.0, 0.0],
+      "rotation": [-0.433281, 0.288487, 0.148668, 0.8408],
+      "scale": [1.0, 1.0, 1.0],
+      "light": {
+        "type": "directional",
+        "color": [255, 255, 255],
+        "intensity": 1.0,
+        "range": 0.0,
+        "innerCone": 30.0,
+        "outerCone": 45.0,
+        "enabled": true
+      }
+    },
+    {
+      "kind": "environment",
+      "name": "Environment",
+      "position": [0.0, 0.0, 0.0],
+      "rotation": [0.0, 0.0, 0.0, 1.0],
+      "scale": [1.0, 1.0, 1.0],
+      "environment": {
+        "size": [20000.0, 20000.0, 20000.0],
+        "ambient": [70, 70, 85],
+        "fogEnabled": false,
+        "fogColor": [192, 192, 192],
+        "fogStart": 20.0,
+        "fogEnd": 100.0,
+        "enabled": true
+      }
+    },
+    {
       "kind": "asset",
       "asset": "Platform",
       "name": "Platform",
@@ -64,38 +96,6 @@
       "position": [0.949999988079071, 0.0, 0.550000011920929],
       "rotation": [0.0, -0.2164396196603775, 0.0, 0.9762960076332092],
       "scale": [0.30000001192092896, 0.30000001192092896, 0.30000001192092896]
-    },
-    {
-      "kind": "light",
-      "name": "Sun",
-      "position": [0.0, 0.0, 0.0],
-      "rotation": [-0.433281, 0.288487, 0.148668, 0.8408],
-      "scale": [1.0, 1.0, 1.0],
-      "light": {
-        "type": "directional",
-        "color": [255, 255, 255],
-        "intensity": 1.0,
-        "range": 0.0,
-        "innerCone": 30.0,
-        "outerCone": 45.0,
-        "enabled": true
-      }
-    },
-    {
-      "kind": "environment",
-      "name": "Environment",
-      "position": [0.0, 0.0, 0.0],
-      "rotation": [0.0, 0.0, 0.0, 1.0],
-      "scale": [1.0, 1.0, 1.0],
-      "environment": {
-        "size": [20000.0, 20000.0, 20000.0],
-        "ambient": [70, 70, 85],
-        "fogEnabled": false,
-        "fogColor": [192, 192, 192],
-        "fogStart": 20.0,
-        "fogEnd": 100.0,
-        "enabled": true
-      }
     }
   ]
 }
