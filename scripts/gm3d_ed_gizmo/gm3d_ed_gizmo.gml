@@ -20,9 +20,22 @@ function __gm3d_ed_gizmo_pivot(_sel) {
 }
 
 /// Gizmo axes in world space, or active node frame in local mode.
+/// Local mode uses the WORLD rotation (identical to local for the flat
+/// editor hierarchies, correct under rotated parents too): the rings must
+/// match the visible orientation of the object.
 function __gm3d_ed_gizmo_dirs(_ed) {
 	if (_ed.giz.orient == 1 && array_length(_ed.sel) > 0) {
-		return __gm3d_ed_quat_basis(_ed.sel[array_length(_ed.sel) - 1].getLocalRotation());
+		var _last = _ed.sel[array_length(_ed.sel) - 1];
+		var _wq = undefined;
+		try {
+			_wq = _last.getWorldRotation();
+		} catch (_e) {
+			_wq = undefined;
+		}
+		if (_wq == undefined) {
+			_wq = _last.getLocalRotation();
+		}
+		return __gm3d_ed_quat_basis(_wq);
 	}
 	return [new GM3D_Vec3(1, 0, 0), GM3D_Vec3.up(), GM3D_Vec3.forward()];
 }
@@ -661,7 +674,24 @@ function __gm3d_ed_gizmo_drag_rotate(_ed, _vp, _g, _mx, _my) {
 		_g.rot_my = _my;
 		var _dd = (_rot_dx * _g.rot_tx + _rot_dy * _g.rot_ty) * 0.01;
 		var _ax2 = _g.center ? 1 : _g.axis_idx;
-		var _axis = _g.drag == 6 ? _g.dir : __gm3d_ed_gizmo_dirs(_ed)[_ax2];
+		// Frozen rotation axis: _g.dir was captured at grab time in begin.
+		// Recomputing the basis here every frame feeds the CURRENT (already
+		// rotated) orientation back into the absolute total angle, so the
+		// axis drifts with the object and the error compounds while you
+		// keep dragging (runaway rotation). In local mode the delta is
+		// post-multiplied (local frame), so it must be built on the
+		// CANONICAL node axis: reusing the transformed basis column would
+		// apply the orientation twice. View ring (6) always uses _g.dir.
+		var _axis = _g.dir;
+		if (_g.drag != 6 && _ed.giz.orient == 1) {
+			if (_ax2 == 2) {
+				_axis = GM3D_Vec3.forward();
+			} else if (_ax2 == 1) {
+				_axis = GM3D_Vec3.up();
+			} else {
+				_axis = new GM3D_Vec3(1, 0, 0);
+			}
+		}
 		_g.total_ang += _dd;
 		var _deg = radtodeg(_g.total_ang);
 		var _sr = _ed.snap_on || keyboard_check(vk_control) ? _ed.snap_rot : 0;
