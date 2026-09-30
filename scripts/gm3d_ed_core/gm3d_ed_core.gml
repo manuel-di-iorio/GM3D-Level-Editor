@@ -391,32 +391,24 @@ function __gm3d_ed_confirm_do(_ed, _action) {
 	if (_action == "new") {
 		__gm3d_ed_new_scene(_ed);
 	} else if (_action == "load") {
-		gm3d_editor_load();
+		__gm3d_ed_load_ask(_ed);
 	} else if (_action == "close") {
 		__gm3d_ed_set_active(_ed, false);
 	}
 }
 
-// Loads scene from file.
-function gm3d_editor_load(_fname) {
-	var _e = gm3d_editor_inst();
-	if (_e == undefined) {
+// Loads scene through OS dialog.
+function __gm3d_ed_load_ask(_ed) {
+	var _f = get_open_filename("Scene JSON (*.json)|*.json", "scene.json");
+	if (_f == "") {
 		return false;
 	}
-	var _old = _e.scene_file;
-
-	if (_fname == undefined) {
-		_fname = get_open_filename("Scene JSON (*.json)|*.json", "scene.json");
-		if (_fname == "") {
-			return false;
-		}
-	}
-	_e.scene_file = _fname;
-	if (__gm3d_ed_load_scene(_e)) {
+	var _old = _ed.scene_file;
+	_ed.scene_file = _f;
+	if (__gm3d_ed_load_scene(_ed)) {
 		return true;
 	}
-
-	_e.scene_file = _old;
+	_ed.scene_file = _old;
 	return false;
 }
 

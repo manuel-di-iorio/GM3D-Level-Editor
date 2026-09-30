@@ -28,7 +28,6 @@ ed = gm3d_editor_init(id, {
 gm3d_editor_asset_add(ed, "Tree", my_load_model("models/tree.glb"));
 gm3d_editor_track(ed, "asset", "Tree", my_tree_node, "Tree");
 gm3d_editor_track(ed, "light", "", my_sun_node, "Sun");
-// ... or gm3d_editor_load("myscene.json")
 
 // Step
 gm3d_editor_step(ed);
@@ -59,9 +58,7 @@ While the editor is open it owns the camera and the scene: pause your own simula
 | `gm3d_editor_enable/disable/toggle/is_active()` | Open/close the editor (gateway steps the live world while closed) |
 | `gm3d_editor_asset_add(ed, name, model)` / `gm3d_editor_asset_clear(ed)` | Models library (names should be unique) |
 | `gm3d_editor_track(ed, kind, asset, node, label?)` | Adopt a code-spawned node into Scene/Inspector/save/undo (`kind` is `"asset"`, `"light"`, `"camera"` or `"environment"`) |
-| `gm3d_editor_track_node(ed, asset, node, label?)` | Adopt a code-spawned instance (asset shortcut for the above) |
 | `gm3d_editor_light_add(ed, node, label?)` / `gm3d_editor_camera_add(ed, node, label?)` / `gm3d_editor_environment_add(ed, node, label?)` | Adopt a code-spawned light, camera or environment node |
-| `gm3d_editor_load(fname)` | Load a scene file into the editor |
 | `gm3d_load(scene, fname, models)` | Load a saved scene into a live game scene (no editor); `models` is `{ asset: loadedModel }`, returns `{ placed, failed }` |
 
 ## Scene file format

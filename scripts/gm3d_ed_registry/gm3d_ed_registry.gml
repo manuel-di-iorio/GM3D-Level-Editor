@@ -148,15 +148,6 @@ function __gm3d_ed_place(_ed, _asset, _model, _pos3, _rot, _scale3, _label = und
 	return _node;
 }
 
-// Registers existing node for tracking.
-function gm3d_editor_track_node(_ed, _asset, _node, _label = undefined) {
-	if (_ed == undefined || _node == undefined) {
-		return;
-	}
-	var _pp = _node.getLocalPosition();
-	__gm3d_ed_spawn_register(_ed, _node, _asset, [_pp.x, _pp.y, _pp.z], _label);
-}
-
 // Tracks any node kind for editor editing.
 function gm3d_editor_track(_ed, _kind, _asset, _node, _label = undefined) {
 	if (_kind == "light") {
@@ -168,7 +159,11 @@ function gm3d_editor_track(_ed, _kind, _asset, _node, _label = undefined) {
 	if (_kind == "environment") {
 		return gm3d_editor_environment_add(_ed, _node, _label);
 	}
-	gm3d_editor_track_node(_ed, _asset, _node, _label);
+	if (_ed == undefined || _node == undefined) {
+		return undefined;
+	}
+	var _pp = _node.getLocalPosition();
+	__gm3d_ed_spawn_register(_ed, _node, _asset, [_pp.x, _pp.y, _pp.z], _label);
 	return _node;
 }
 

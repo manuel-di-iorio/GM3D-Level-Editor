@@ -80,7 +80,6 @@ ed = gm3d_editor_init(id, {
 gm3d_editor_asset_add(ed, "Tree", my_load_model("models/tree.glb"));
 gm3d_editor_track(ed, "asset", "Tree", my_tree_node, "Tree");
 gm3d_editor_track(ed, "light", "", my_sun_node, "Sun");
-// ... or gm3d_editor_load("myscene.json")
 
 // Step
 gm3d_editor_step(ed);
@@ -112,9 +111,7 @@ gm3d_editor_cleanup(ed);</code></pre>
         <tr><td><code>gm3d_editor_enable / disable / toggle / is_active()</code></td><td>Open/close the editor</td></tr>
         <tr><td><code>gm3d_editor_asset_add(ed, name, model)</code> / <code>gm3d_editor_asset_clear(ed)</code></td><td>Models library (names should be unique)</td></tr>
         <tr><td><code>gm3d_editor_track(ed, kind, asset, node, label?)</code></td><td>Adopt a code-spawned node (<code>kind</code> is <code>"asset"</code>, <code>"light"</code>, <code>"camera"</code> or <code>"environment"</code>) into Scene/Inspector/save/undo</td></tr>
-        <tr><td><code>gm3d_editor_track_node(ed, asset, node, label?)</code></td><td>Adopt a code-spawned instance (asset shortcut)</td></tr>
         <tr><td><code>gm3d_editor_light_add(ed, node, label?)</code> / <code>gm3d_editor_camera_add(ed, node, label?)</code> / <code>gm3d_editor_environment_add(ed, node, label?)</code></td><td>Adopt a code-spawned light, camera or environment node</td></tr>
-        <tr><td><code>gm3d_editor_load(fname)</code></td><td>Load a scene file into the editor</td></tr>
         <tr><td><code>gm3d_load(scene, fname, models)</code></td><td>Load a saved scene into a live game scene (no editor); <code>models</code> is <code>{ asset: loadedModel }</code>, returns <code>{ placed, failed }</code></td></tr>
       </tbody>
     </table>
