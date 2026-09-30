@@ -23,7 +23,10 @@ varying float vHasTangent;
 varying vec4 vColor;
 varying vec2 vTexCoord;
 varying vec3 vWorldPosition;
+varying vec3 vShadowWorldPosition;
 varying float vFogFactor;
+
+uniform float gm_ShadowNormalOffset;
 
 // Computes world-space tangent and normal.
 void buildTBN(
@@ -49,6 +52,7 @@ void main()
 	// Output
 	vec4 worldPos = gm_Matrices[MATRIX_WORLD] * p;
 	vWorldPosition = worldPos.xyz;
+	vShadowWorldPosition = vWorldPosition + vN * gm_ShadowNormalOffset;
 
 	gl_Position = gm_Matrices[MATRIX_WORLD_VIEW_PROJECTION] * p;
 	float fogEnable = gm_VS_FogEnabled ? 1.0 : 0.0;

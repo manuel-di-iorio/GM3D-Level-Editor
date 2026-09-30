@@ -26,9 +26,7 @@ function __gm3d_ed_gizmo_dirs(_ed) {
 		} catch (_e) {
 			_wq = undefined;
 		}
-		if (_wq == undefined) {
-			_wq = _last.getLocalRotation();
-		}
+        _wq ??= _last.getLocalRotation();
 		return __gm3d_ed_quat_basis(_wq);
 	}
 	return [new GM3D_Vec3(1, 0, 0), GM3D_Vec3.up(), GM3D_Vec3.forward()];
@@ -47,7 +45,7 @@ function __gm3d_ed_gizmo_world_size(_vp, _pivot, _pixels) {
 	}
 	var _b = __gm3d_ed_world_to_screen(
 		_vp,
-		new GM3D_Vec3(_pivot.x + _vp.camRight.x, _pivot.y + _vp.camRight.y, _pivot.z + _vp.camRight.z),
+		new GM3D_Vec3(_pivot.x + _vp.camRight.x, _pivot.y + _vp.camRight.y, _pivot.z + _vp.camRight.z)
 	);
 	if (_b == undefined) {
 		return 1;
@@ -339,7 +337,7 @@ function __gm3d_ed_gizmo_hover(_ed, _vp, _mx, _my) {
 		} else {
 			var _e = __gm3d_ed_world_to_screen(
 				_vp,
-				new GM3D_Vec3(_pivot.x + _dirs[_a].x * _ws, _pivot.y + _dirs[_a].y * _ws, _pivot.z + _dirs[_a].z * _ws),
+				new GM3D_Vec3(_pivot.x + _dirs[_a].x * _ws, _pivot.y + _dirs[_a].y * _ws, _pivot.z + _dirs[_a].z * _ws)
 			);
 			if (_e == undefined) {
 				continue;
@@ -444,9 +442,7 @@ function __gm3d_ed_gizmo_begin(_ed, _vp, _mx, _my) {
 	_g.mx0 = _mx;
 	_g.my0 = _my;
 	var _ps = __gm3d_ed_world_to_screen(_vp, _pivot);
-	if (_ps == undefined) {
-		_ps = [_mx, _my];
-	}
+    _ps ??= [_mx, _my];
 	_g.piv_sx = _ps[0];
 	_g.piv_sy = _ps[1];
 	_g.rot_mx = _mx;
@@ -464,7 +460,7 @@ function __gm3d_ed_gizmo_begin(_ed, _vp, _mx, _my) {
 			var _sample_t = (_sample / _sample_count) * 2 * pi;
 			var _sample_s = __gm3d_ed_world_to_screen(
 				_vp,
-				__gm3d_ed_gizmo_ring_point(_pivot, _g.dir, _ring_ws, _sample_t),
+				__gm3d_ed_gizmo_ring_point(_pivot, _g.dir, _ring_ws, _sample_t)
 			);
 			if (_sample_s == undefined) {
 				continue;
@@ -484,7 +480,7 @@ function __gm3d_ed_gizmo_begin(_ed, _vp, _mx, _my) {
 				var _candidate_t = _g.sector_t0 + _offset * _refine_step;
 				var _candidate_s = __gm3d_ed_world_to_screen(
 					_vp,
-					__gm3d_ed_gizmo_ring_point(_pivot, _g.dir, _ring_ws, _candidate_t),
+					__gm3d_ed_gizmo_ring_point(_pivot, _g.dir, _ring_ws, _candidate_t)
 				);
 				if (_candidate_s == undefined) {
 					continue;
@@ -503,11 +499,11 @@ function __gm3d_ed_gizmo_begin(_ed, _vp, _mx, _my) {
 		var _tangent_step = 0.01;
 		var _tangent_a = __gm3d_ed_world_to_screen(
 			_vp,
-			__gm3d_ed_gizmo_ring_point(_pivot, _g.dir, _ring_ws, _g.sector_t0 - _tangent_step),
+			__gm3d_ed_gizmo_ring_point(_pivot, _g.dir, _ring_ws, _g.sector_t0 - _tangent_step)
 		);
 		var _tangent_b = __gm3d_ed_world_to_screen(
 			_vp,
-			__gm3d_ed_gizmo_ring_point(_pivot, _g.dir, _ring_ws, _g.sector_t0 + _tangent_step),
+			__gm3d_ed_gizmo_ring_point(_pivot, _g.dir, _ring_ws, _g.sector_t0 + _tangent_step)
 		);
 		if (_tangent_a != undefined && _tangent_b != undefined) {
 			var _tangent_x = _tangent_b[0] - _tangent_a[0];
@@ -770,7 +766,7 @@ function __gm3d_ed_gizmo_draw_axes(_ed, _vp, _pivot, _ps, _dirs, _ws, _cols, _hl
 		if (_ed.giz.tool == Gm3dEdTool.Translate) {
 			var _e = __gm3d_ed_world_to_screen(
 				_vp,
-				new GM3D_Vec3(_pivot.x + _dirs[_a].x * _ws, _pivot.y + _dirs[_a].y * _ws, _pivot.z + _dirs[_a].z * _ws),
+				new GM3D_Vec3(_pivot.x + _dirs[_a].x * _ws, _pivot.y + _dirs[_a].y * _ws, _pivot.z + _dirs[_a].z * _ws)
 			);
 			if (_e == undefined) {
 				continue;
@@ -780,7 +776,7 @@ function __gm3d_ed_gizmo_draw_axes(_ed, _vp, _pivot, _ps, _dirs, _ws, _cols, _hl
 		} else if (_ed.giz.tool == Gm3dEdTool.Scale) {
 			var _e2 = __gm3d_ed_world_to_screen(
 				_vp,
-				new GM3D_Vec3(_pivot.x + _dirs[_a].x * _ws, _pivot.y + _dirs[_a].y * _ws, _pivot.z + _dirs[_a].z * _ws),
+				new GM3D_Vec3(_pivot.x + _dirs[_a].x * _ws, _pivot.y + _dirs[_a].y * _ws, _pivot.z + _dirs[_a].z * _ws)
 			);
 			if (_e2 == undefined) {
 				continue;
@@ -880,7 +876,7 @@ function __gm3d_ed_gizmo_draw_center(_ed, _ps) {
 				_ps[0] + cos(_bt1) * _br,
 				_ps[1] + sin(_bt1) * _br,
 				1,
-				_brim,
+				_brim
 			);
 		}
 		draw_set_alpha(1);

@@ -30,6 +30,85 @@ function __gm3d_ed_walk_collect_comps(_node, _out) {
 	}
 }
 
+// Collects mesh components across a node subtree.
+function __gm3d_ed_walk_collect_tree(_node, _out) {
+	var _stack = [_node];
+	while (array_length(_stack) > 0) {
+		var _cur = array_pop(_stack);
+		if (_cur == undefined) {
+			continue;
+		}
+		__gm3d_ed_walk_collect_comps(_cur, _out);
+		var _kids = [];
+		try {
+			_kids = _cur.getChildren();
+		} catch (_e) {
+			_kids = [];
+		}
+		for (var _k = 0; _k < array_length(_kids); _k++) {
+			array_push(_stack, _kids[_k]);
+		}
+	}
+}
+
+// Reads shadow flags across a node subtree.
+function __gm3d_ed_flags_read(_node) {
+	var _cast = true;
+	var _recv = true;
+	var _found = false;
+	var _cb = 1;
+	var _rb = 2;
+	try {
+		_cb = GM3D_EMeshComponentFlags.CastShadows;
+		_rb = GM3D_EMeshComponentFlags.ReceiveShadows;
+	} catch (_e) {
+	}
+	var _list = [];
+	__gm3d_ed_walk_collect_tree(_node, _list);
+	for (var _i = 0; _i < array_length(_list); _i++) {
+		var _f = undefined;
+		try {
+			_f = _list[_i].comp.getFlags();
+		} catch (_e2) {
+			_f = undefined;
+		}
+		if (!is_real(_f)) {
+			continue;
+		}
+		_found = true;
+		if ((_f & _cb) == 0) {
+			_cast = false;
+		}
+		if ((_f & _rb) == 0) {
+			_recv = false;
+		}
+	}
+	if (!_found) {
+		return { castShadows: true, receiveShadows: true };
+	}
+	return { castShadows: _cast, receiveShadows: _recv };
+}
+
+// Pushes shadow flags across a node subtree.
+function __gm3d_ed_flags_apply(_node, _cast, _receive) {
+	var _cb = 1;
+	var _rb = 2;
+	try {
+		_cb = GM3D_EMeshComponentFlags.CastShadows;
+		_rb = GM3D_EMeshComponentFlags.ReceiveShadows;
+	} catch (_e) {
+	}
+	var _bits = (_cast == true ? _cb : 0) | (_receive == true ? _rb : 0);
+	var _list = [];
+	__gm3d_ed_walk_collect_tree(_node, _list);
+	for (var _i = 0; _i < array_length(_list); _i++) {
+		try {
+			_list[_i].comp.setFlags(_bits);
+		} catch (_e2) {
+		}
+	}
+}
+
 // Disables node meshes and records state.
 function __gm3d_ed_walk_mute_node(_node, _muted) {
 	var _list = [];

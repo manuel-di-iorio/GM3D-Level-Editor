@@ -223,6 +223,11 @@ function __gm3d_ed_imgui_toolbar(_ed) {
 	ImGui.SameLine();
 	ImGui.TextDisabled("|");
 	ImGui.SameLine();
+	if (__gm3d_ed_imgui_tool_btn("Preview shadows (on/off)", "Shadows", _ed.show_shadows != false)) {
+		_ed.show_shadows = (_ed.show_shadows == false);
+		__gm3d_ed_shadowpreview_apply(_ed);
+	}
+	ImGui.SameLine();
 	if (__gm3d_ed_imgui_tool_btn("Reset camera to the initial view", "Home", false)) {
 		__gm3d_ed_cam_home(_ed, true);
 	}

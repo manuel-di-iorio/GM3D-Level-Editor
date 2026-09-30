@@ -26,6 +26,10 @@ function demo_create(_self) {
 	_lightComp.setType(GM3D_ELightType.Directional);
 	_lightComp.setColor(c_white);
 	_lightComp.setIntensity(1.0);
+	_lightComp.setShadowEnabled(true);
+	_lightComp.setShadowResolution(2048);
+	_lightComp.setShadowDistance(30.0);
+	_lightComp.setShadowNormalOffset(0.05);
 	demo_align_node(_lightNode, new GM3D_Vec3(0.35, 0.8, 0.45));
 
 	var _camNode = _self.scene.createNode("MainCamera");
@@ -162,11 +166,64 @@ function demo_assign_shaders(_scene) {
 	}
 }
 
+// Assigns lighting shaders across a live node subtree.
+function demo_assign_instance_shaders(_node) {
+	var _stack = [_node];
+	while (array_length(_stack) > 0) {
+		var _cur = array_pop(_stack);
+		if (_cur == undefined) {
+			continue;
+		}
+		try {
+			var _mc = _cur.getMeshComponent();
+			if (_mc != undefined) {
+				var _mm = undefined;
+				try {
+					_mm = _mc.getMaterial();
+				} catch (_eM) {
+					_mm = undefined;
+				}
+				if (_mm != undefined) {
+					_mm.setShader(GM3D_ERenderPass.Forward, sStatic);
+					_mm.setShader(GM3D_ERenderPass.Shadow, sStaticShadow);
+				}
+			}
+		} catch (_e) {
+		}
+		try {
+			var _sk = _cur.getSkinnedMeshComponent();
+			if (_sk != undefined) {
+				var _sm = undefined;
+				try {
+					_sm = _sk.getMaterial();
+				} catch (_eSM) {
+					_sm = undefined;
+				}
+				if (_sm != undefined) {
+					_sm.setShader(GM3D_ERenderPass.Forward, sAnimated);
+					_sm.setShader(GM3D_ERenderPass.Shadow, sAnimatedShadow);
+				}
+			}
+		} catch (_e2) {
+		}
+		var _kids = [];
+		try {
+			_kids = _cur.getChildren();
+		} catch (_e3) {
+			_kids = [];
+		}
+		for (var _k = 0; _k < array_length(_kids); _k++) {
+			array_push(_stack, _kids[_k]);
+		}
+	}
+}
+
 // Starts idle animation on spawned node.
 function demo_on_spawn(_self, _node, _asset, _src) {
 	if (_node == undefined || _src == undefined) {
 		return;
 	}
+	demo_assign_instance_shaders(_node);
 
 	if (_src.animationCount > 0) {
 		var _anim = demo_find_anim(_node);

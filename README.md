@@ -2,7 +2,7 @@
 
 <img src="docs/icon.png" width="300px" />
 
-Embeddable 3D level editor for GameMaker on the GM3D runtime, using the built-in ImGUI interface. The game owns its runtime (scene, camera, models); the editor only drives it through a small adapter. Drop it into a project, edit levels in-game, save them as a JSON file and you will be able it to load it later.
+Embeddable 3D level editor for GameMaker on the GM3D runtime, using the built-in ImGUI interface. Drop it into a project, edit levels in-game, save them as a JSON file and you will be able it to load it later.
 
 ## Requirements
 
@@ -22,8 +22,6 @@ Embeddable 3D level editor for GameMaker on the GM3D runtime, using the built-in
 ed = gm3d_editor_init(id, {
     scene: global.my_scene, // your live GM3D_Scene
     cam: global.my_camera,  // your camera node (the editor flies it while open)
-    on_spawn: my_on_spawn,  // optional per-instance setup, or undefined
-    on_close: my_on_close,  // optional resume hook, or undefined
 });
 gm3d_editor_asset_add(ed, "Tree", my_load_model("models/tree.glb"));
 gm3d_editor_track(ed, "asset", "Tree", my_tree_node, "Tree");
@@ -58,7 +56,6 @@ While the editor is open it owns the camera and the scene: pause your own simula
 | `gm3d_editor_enable/disable/toggle/is_active()` | Open/close the editor (gateway steps the live world while closed) |
 | `gm3d_editor_asset_add(ed, name, model)` / `gm3d_editor_asset_clear(ed)` | Models library (names should be unique) |
 | `gm3d_editor_track(ed, kind, asset, node, label?)` | Adopt a code-spawned node into Scene/Inspector/save/undo (`kind` is `"asset"`, `"light"`, `"camera"` or `"environment"`) |
-| `gm3d_editor_light_add(ed, node, label?)` / `gm3d_editor_camera_add(ed, node, label?)` / `gm3d_editor_environment_add(ed, node, label?)` | Adopt a code-spawned light, camera or environment node |
 | `gm3d_load(scene, fname, models)` | Load a saved scene into a live game scene (no editor); `models` is `{ asset: loadedModel }`, returns `{ placed, failed }` |
 
 ## Scene file format
@@ -72,11 +69,18 @@ While the editor is open it owns the camera and the scene: pause your own simula
   "name": "Tree 2",
   "position": [1.0, 0.0, 2.0],
   "rotation": [0.0, 0.0, 0.0, 1.0],
-  "scale": [1.0, 1.0, 1.0]
+  "scale": [1.0, 1.0, 1.0],
+  "flags": { "castShadows": true, "receiveShadows": true }
 }
 ```
 
-Lights, cameras and the environment carry a `light` / `camera` / `environment` sub-struct (angles in degrees, colors as `[r, g, b]` 0-255).
+Lights, cameras and the environment carry a `light` / `camera` / `environment` sub-struct (angles in degrees, colors as `[r, g, b]` 0-255). Directional lights can also carry `shadow: { enabled, resolution, distance, normalOffset }`.
+
+## Shadows
+
+Directional lights support shadow mapping, editable in the Inspector under Shadows; selecting a shadowed light draws its coverage box, and the toolbar Shadows button toggles preview without touching saved values.
+
+Every material needs both a Forward and a Shadow shader, assigned **per live instance** — `spawnInto` clones do not inherit source assignments, so assign them in your spawn hook (the demo does it in `demo_on_spawn`). Use the `sStatic` / `sAnimated` (+`Shadow`) shaders from this project, synced with upstream GM3D-Samples. The editor grid never casts shadows.
 
 ## Loading scenes in-game (no editor)
 
@@ -89,6 +93,7 @@ var _models = {
 };
 var _rep = gm3d_load(my_scene, "level1.json", _models);
 // _rep = { placed: 9, failed: 0 } — unknown assets count as failed, the rest still loads
+// After loading, assign Forward+Shadow shaders per spawned node (see Shadows above).
 ```
 
 ## Controls

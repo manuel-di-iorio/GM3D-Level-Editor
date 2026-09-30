@@ -93,6 +93,12 @@ function __gm3d_ed_prop_desc(_ed, _node, _kind) {
 			innerCone: _pd.inner,
 			outerCone: _pd.outer,
 			enabled: _pd.enabled == true,
+			shadow: {
+				enabled: _pd.shadow == true,
+				resolution: _pd.shadowRes,
+				distance: _pd.shadowDist,
+				normalOffset: _pd.shadowNormal,
+			},
 		};
 	} else if (_kind == "camera") {
 		_d.camera = {
@@ -184,6 +190,17 @@ function __gm3d_ed_validate_descs(_nodes) {
 			if (variable_struct_exists(_d, "asset") && !is_string(_d.asset)) {
 				return false;
 			}
+			if (variable_struct_exists(_d, "flags")) {
+				if (!is_struct(_d.flags)) {
+					return false;
+				}
+				if (!variable_struct_exists(_d.flags, "castShadows") || !is_bool(_d.flags.castShadows)) {
+					return false;
+				}
+				if (!variable_struct_exists(_d.flags, "receiveShadows") || !is_bool(_d.flags.receiveShadows)) {
+					return false;
+				}
+			}
 		} else if (_kind == "light") {
 			if (!__gm3d_ed_is_light_struct(_d)) {
 				return false;
@@ -229,6 +246,24 @@ function __gm3d_ed_is_light_struct(_d) {
 	}
 	if (!variable_struct_exists(_l, "outerCone") || !is_real(_l.outerCone)) {
 		return false;
+	}
+	if (variable_struct_exists(_l, "shadow")) {
+		if (!is_struct(_l.shadow)) {
+			return false;
+		}
+		var _s = _l.shadow;
+		if (!variable_struct_exists(_s, "enabled") || !is_bool(_s.enabled)) {
+			return false;
+		}
+		if (!variable_struct_exists(_s, "resolution") || !is_real(_s.resolution)) {
+			return false;
+		}
+		if (!variable_struct_exists(_s, "distance") || !is_real(_s.distance)) {
+			return false;
+		}
+		if (!variable_struct_exists(_s, "normalOffset") || !is_real(_s.normalOffset)) {
+			return false;
+		}
 	}
 	return true;
 }
@@ -369,10 +404,19 @@ function __gm3d_ed_rebuild(_ed, _nodes) {
 			_p.position,
 			_rq.normalizeSafe(0.000001),
 			_p.scale,
-			_p.name,
+			_p.name
 		);
 		if (_root == undefined) {
 			throw "place failed for '" + string(_akey) + "'";
+		}
+		if (variable_struct_exists(_p, "flags") && is_struct(_p.flags)) {
+			var _pfc = _p.flags.castShadows == true;
+			var _pfr = _p.flags.receiveShadows == true;
+			var _pne = __gm3d_ed_registry_find(_ed, _root);
+			if (_pne != undefined) {
+				_pne.data = { castShadows: _pfc, receiveShadows: _pfr };
+			}
+			__gm3d_ed_flags_apply(_root, _pfc, _pfr);
 		}
 		_rep.placed++;
 	}
@@ -417,6 +461,23 @@ function __gm3d_ed_rebuild_prop(_ed, _p, _kind) {
 		_data.inner = _l.innerCone;
 		_data.outer = _l.outerCone;
 		_data.enabled = variable_struct_exists(_l, "enabled") ? _l.enabled == true : true;
+		_data.shadow = false;
+		_data.shadowRes = 2048;
+		_data.shadowDist = 20.0;
+		_data.shadowNormal = 0.05;
+		if (variable_struct_exists(_l, "shadow") && is_struct(_l.shadow)) {
+			var _s = _l.shadow;
+			_data.shadow = variable_struct_exists(_s, "enabled") ? _s.enabled == true : false;
+			if (variable_struct_exists(_s, "resolution") && is_real(_s.resolution) && _s.resolution > 0) {
+				_data.shadowRes = _s.resolution;
+			}
+			if (variable_struct_exists(_s, "distance") && is_real(_s.distance) && _s.distance > 0) {
+				_data.shadowDist = _s.distance;
+			}
+			if (variable_struct_exists(_s, "normalOffset") && is_real(_s.normalOffset) && _s.normalOffset >= 0) {
+				_data.shadowNormal = _s.normalOffset;
+			}
+		}
 		__gm3d_ed_light_apply(_node, _data);
 	} else if (_kind == "camera") {
 		var _cc = new GM3D_CameraComponent();
@@ -619,6 +680,9 @@ function __gm3d_load_node(_scene, _models, _p) {
 	_node.setLocalPosition(__gm3d_load_vec3(_p, "position", 0, 0, 0));
 	_node.setLocalScale(__gm3d_load_vec3(_p, "scale", 1, 1, 1));
 	_node.setLocalRotation(__gm3d_load_quat(_p));
+	if (variable_struct_exists(_p, "flags") && is_struct(_p.flags)) {
+		__gm3d_ed_flags_apply(_node, _p.flags.castShadows == true, _p.flags.receiveShadows == true);
+	}
 	return _node;
 }
 
@@ -672,6 +736,31 @@ function __gm3d_load_prop(_scene, _p, _kind, _name) {
 		try {
 			_lc.setEnabled(!variable_struct_exists(_l, "enabled") || _l.enabled == true);
 		} catch (_e7) {
+		}
+		if (variable_struct_exists(_l, "shadow") && is_struct(_l.shadow)) {
+			var _sh = _l.shadow;
+			try {
+				_lc.setShadowEnabled(!variable_struct_exists(_sh, "enabled") || _sh.enabled == true);
+			} catch (_es1) {
+			}
+			if (variable_struct_exists(_sh, "resolution") && is_real(_sh.resolution) && _sh.resolution > 0) {
+				try {
+					_lc.setShadowResolution(clamp(round(_sh.resolution), 128, 4096));
+				} catch (_es2) {
+				}
+			}
+			if (variable_struct_exists(_sh, "distance") && is_real(_sh.distance) && _sh.distance > 0) {
+				try {
+					_lc.setShadowDistance(max(_sh.distance, 1));
+				} catch (_es3) {
+				}
+			}
+			if (variable_struct_exists(_sh, "normalOffset") && is_real(_sh.normalOffset) && _sh.normalOffset >= 0) {
+				try {
+					_lc.setShadowNormalOffset(clamp(_sh.normalOffset, 0, 1));
+				} catch (_es4) {
+				}
+			}
 		}
 	} else if (_kind == "camera" && is_struct(_p.camera)) {
 		var _cc = new GM3D_CameraComponent();

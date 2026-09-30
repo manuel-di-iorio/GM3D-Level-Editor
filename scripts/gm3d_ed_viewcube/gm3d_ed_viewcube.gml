@@ -241,7 +241,7 @@ function __gm3d_ed_viewcube_cone(_ed, _c, _hov) {
 				_c.c[0] + cos(_t1) * 6,
 				_c.c[1] + sin(_t1) * 6,
 				1,
-				_c.dcol,
+				_c.dcol
 			);
 		}
 		return;
@@ -260,11 +260,11 @@ function __gm3d_ed_viewcube_cone(_ed, _c, _hov) {
 		draw_vertex_colour(_c.fc[0], _c.fc[1], _cap, _al);
 		for (var _h = 0; _h <= _seg; _h++) {
 			var _ha = (_h / _seg) * _a1;
-			draw_vertex_colour(
+			draw_vertex_colour( 
 				_c.fc[0] + cos(_ha) * _ux + sin(_ha) * _vx,
 				_c.fc[1] + cos(_ha) * _uy + sin(_ha) * _vy,
 				_cap,
-				_al,
+				_al
 			);
 		}
 		draw_primitive_end();

@@ -134,6 +134,8 @@ function gm3d_editor_cleanup(_ed) {
 	__gm3d_ed_bg_restore(_ed);
 	__gm3d_ed_cameras_restore(_ed);
 	__gm3d_ed_grid_remove(_ed);
+	_ed.show_shadows = true;
+	__gm3d_ed_shadowpreview_apply(_ed);
 	_ed.grid_mat = undefined;
 	if (_ed != undefined && variable_struct_exists(_ed, "grid_src") && _ed.grid_src != undefined) {
 		_ed.grid_src.destroy();
@@ -286,6 +288,8 @@ function __gm3d_ed_set_active(_ed, _on) {
 		__gm3d_ed_grid_remove(_ed);
 		__gm3d_ed_cameras_restore(_ed);
 		__gm3d_ed_cam_home(_ed);
+		_ed.show_shadows = true;
+		__gm3d_ed_shadowpreview_apply(_ed);
 		if (variable_struct_exists(_ed.rt, "on_close")) {
 			_ed.rt.on_close(_ed.inst);
 		}
@@ -529,6 +533,7 @@ function __gm3d_ed_create(_inst, _rt) {
 		snap_pos: 0.5,
 		snap_rot: 15,
 		show_grid: true,
+		show_shadows: true,
 		grid_step: 1,
 		grid_node: undefined,
 		grid_src: undefined,

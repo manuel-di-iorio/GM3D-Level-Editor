@@ -288,7 +288,7 @@ function __gm3d_ed_step_libdrop(_ed, _input) {
 						[_drop.x, _drop.y, _drop.z],
 						undefined,
 						[1, 1, 1],
-						__gm3d_ed_fresh_label(_ed, _asset.name),
+						__gm3d_ed_fresh_label(_ed, _asset.name)
 					);
 					if (_n != undefined) {
 						_ed.sel = [_n];

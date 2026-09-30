@@ -60,6 +60,7 @@ function __gm3d_ed_grid_ensure(_ed) {
 		return;
 	}
 	_ed.grid_node = _n;
+	__gm3d_ed_flags_apply(_n, false, true);
 	var _gmats = _ed.grid_src.getMaterials();
 	_ed.grid_mat = array_length(_gmats) > 0 ? _gmats[0] : undefined;
 	__gm3d_ed_grid_bg_sync(_ed);
@@ -267,10 +268,20 @@ function __gm3d_ed_duplicate_sel(_ed) {
 			[_nx, _sp.y, _nz],
 			_s.getLocalRotation().clone(),
 			[_ss.x, _ss.y, _ss.z],
-			__gm3d_ed_fresh_label(_ed, __gm3d_ed_label_get(_ed, _s)),
+			__gm3d_ed_fresh_label(_ed, __gm3d_ed_label_get(_ed, _s))
 		);
 		if (_c == undefined) {
 			continue;
+		}
+		var _se = __gm3d_ed_registry_find(_ed, _s);
+		if (_se != undefined && is_struct(_se.data)) {
+			var _sfc = _se.data.castShadows == true;
+			var _sfr = _se.data.receiveShadows == true;
+			var _cne = __gm3d_ed_registry_find(_ed, _c);
+			if (_cne != undefined) {
+				_cne.data = { castShadows: _sfc, receiveShadows: _sfr };
+			}
+			__gm3d_ed_flags_apply(_c, _sfc, _sfr);
 		}
 		array_push(_out, _c);
 	}
@@ -309,6 +320,10 @@ function __gm3d_ed_duplicate_prop(_ed, _src, _kind, _off) {
 			inner: _en.data.inner,
 			outer: _en.data.outer,
 			enabled: _en.data.enabled == true,
+			shadow: _en.data.shadow == true,
+			shadowRes: _en.data.shadowRes,
+			shadowDist: _en.data.shadowDist,
+			shadowNormal: _en.data.shadowNormal,
 		};
 		__gm3d_ed_light_apply(_node, _data);
 	} else if (_kind == "camera") {

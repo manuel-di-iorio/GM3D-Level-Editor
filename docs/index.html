@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GM3D Level Editor - in-game 3D level editor for GameMaker</title>
+<title>GM3D Level Editor - In-Game 3D Level Editor for GameMaker</title>
 <meta name="description" content="Embeddable 3D level editor for GameMaker (GML) on the GM3D runtime. Edit levels in-game, save them as JSON.">
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -51,6 +51,7 @@
       <li><strong>Outliner + Inspector</strong><br>Filter, rename (F2), focus (F), per-axis transform rows.</li>
       <li><strong>Undo / redo</strong><br>Snapshot history with selection restore.</li>
       <li><strong>JSON scenes</strong><br>One descriptor per placement. Save, load, new.</li>
+      <li><strong>Directional shadows</strong><br>Per-light setup, preview and global toggle.</li>
       <li><strong>Snap + nudge</strong><br>Position/rotation snap and arrow-key nudge, all undoable.</li>
     </ul>
   </section>
@@ -74,8 +75,6 @@
 ed = gm3d_editor_init(id, {
     scene: global.my_scene, // your live GM3D_Scene
     cam: global.my_camera,  // your camera node (the editor flies it while open)
-    on_spawn: my_on_spawn,  // optional per-instance setup, or undefined
-    on_close: my_on_close,  // optional resume hook, or undefined
 });
 gm3d_editor_asset_add(ed, "Tree", my_load_model("models/tree.glb"));
 gm3d_editor_track(ed, "asset", "Tree", my_tree_node, "Tree");
@@ -111,7 +110,6 @@ gm3d_editor_cleanup(ed);</code></pre>
         <tr><td><code>gm3d_editor_enable / disable / toggle / is_active()</code></td><td>Open/close the editor</td></tr>
         <tr><td><code>gm3d_editor_asset_add(ed, name, model)</code> / <code>gm3d_editor_asset_clear(ed)</code></td><td>Models library (names should be unique)</td></tr>
         <tr><td><code>gm3d_editor_track(ed, kind, asset, node, label?)</code></td><td>Adopt a code-spawned node (<code>kind</code> is <code>"asset"</code>, <code>"light"</code>, <code>"camera"</code> or <code>"environment"</code>) into Scene/Inspector/save/undo</td></tr>
-        <tr><td><code>gm3d_editor_light_add(ed, node, label?)</code> / <code>gm3d_editor_camera_add(ed, node, label?)</code> / <code>gm3d_editor_environment_add(ed, node, label?)</code></td><td>Adopt a code-spawned light, camera or environment node</td></tr>
         <tr><td><code>gm3d_load(scene, fname, models)</code></td><td>Load a saved scene into a live game scene (no editor); <code>models</code> is <code>{ asset: loadedModel }</code>, returns <code>{ placed, failed }</code></td></tr>
       </tbody>
     </table>
@@ -128,10 +126,13 @@ gm3d_editor_cleanup(ed);</code></pre>
   "name": "Tree 2",
   "position": [1.0, 0.0, 2.0],
   "rotation": [0.0, 0.0, 0.0, 1.0],
-  "scale": [1.0, 1.0, 1.0]
+  "scale": [1.0, 1.0, 1.0],
+  "flags": { "castShadows": true, "receiveShadows": true }
 }</code></pre>
     </div>
-    <p class="sub">Lights, cameras and the environment carry a <code>light</code> / <code>camera</code> / <code>environment</code> sub-struct (angles in degrees, colors as <code>[r, g, b]</code> 0-255).</p>
+    <p class="sub">Lights, cameras and the environment carry a <code>light</code> / <code>camera</code> / <code>environment</code> sub-struct (angles in degrees, colors as <code>[r, g, b]</code> 0-255). Directional lights can also carry <code>shadow: { enabled, resolution, distance, normalOffset }</code>.</p>
+    <h3>Shadows</h3>
+    <p class="sub">Directional lights support shadow mapping, editable in the Inspector under Shadows; selecting a shadowed light draws its coverage box, and the toolbar Shadows button toggles preview without touching saved values. Every material needs both a Forward and a Shadow shader, assigned <strong>per live instance</strong> — <code>spawnInto</code> clones do not inherit source assignments, so assign them in your spawn hook. Use the <code>sStatic</code> / <code>sAnimated</code> (+<code>Shadow</code>) shaders from this project.</p>
     <h3>In-game loading (no editor)</h3>
     <p class="sub"><code>gm3d_load(scene, fname, models)</code> spawns a saved scene into any live <code>GM3D_Scene</code>. Load and freeze each model once, then pass them as <code>{ asset: model }</code> — the <code>asset</code> field is the key into this struct, <code>name</code> is just the instance label:</p>
     <div class="codeblock terminal">
@@ -141,7 +142,8 @@ gm3d_editor_cleanup(ed);</code></pre>
     Rock: my_load_model("models/rock.glb"),
 };
 var _rep = gm3d_load(my_scene, "level1.json", _models);
-// _rep = { placed: 9, failed: 0 }</code></pre>
+// _rep = { placed: 9, failed: 0 }
+// After loading, assign Forward+Shadow shaders per spawned node (see Shadows above).</code></pre>
     </div>
   </section>
 

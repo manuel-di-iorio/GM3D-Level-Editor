@@ -90,7 +90,7 @@ function __gm3d_ed_imgui_inspector(_ed) {
 		if (_show_s) {
 			__gm3d_ed_imgui_axis_row(_ed, 2, "Scale");
 		}
-		if (_n == 1 && _skind != undefined && _skind != "asset") {
+		if (_n == 1 && _skind != undefined) {
 			var _sen = __gm3d_ed_registry_find(_ed, _ed.sel[0]);
 			if (_sen != undefined && is_struct(_sen.data)) {
 				if (_skind == "light") {
@@ -99,6 +99,12 @@ function __gm3d_ed_imgui_inspector(_ed) {
 					__gm3d_ed_imgui_camera_sec(_ed, _ed.sel[0], _sen);
 				} else if (_skind == "environment") {
 					__gm3d_ed_imgui_env_sec(_ed, _ed.sel[0], _sen);
+				}
+			}
+			if (_skind == "asset") {
+				var _aen = __gm3d_ed_registry_find(_ed, _ed.sel[0]);
+				if (_aen != undefined && is_struct(_aen.data)) {
+					__gm3d_ed_imgui_asset_sec(_ed, _ed.sel[0], _aen);
 				}
 			}
 		}
@@ -259,6 +265,27 @@ function __gm3d_ed_imgui_color_edit(_ed, _key, _label, _packed) {
 	return undefined;
 }
 
+// Edits asset shadow flags in Inspector.
+function __gm3d_ed_imgui_asset_sec(_ed, _node, _en) {
+	var _d = _en.data;
+	ImGui.Separator();
+	ImGui.Text("Shadows");
+	var _nc = ImGui.Checkbox("Cast shadows", _d.castShadows == true);
+	if (_nc != (_d.castShadows == true)) {
+		var _hb = __gm3d_ed_history_snap(_ed);
+		_d.castShadows = _nc;
+		__gm3d_ed_flags_apply(_node, _d.castShadows == true, _d.receiveShadows == true);
+		__gm3d_ed_props_end(_ed, _hb);
+	}
+	var _nr = ImGui.Checkbox("Receive shadows", _d.receiveShadows == true);
+	if (_nr != (_d.receiveShadows == true)) {
+		var _hb2 = __gm3d_ed_history_snap(_ed);
+		_d.receiveShadows = _nr;
+		__gm3d_ed_flags_apply(_node, _d.castShadows == true, _d.receiveShadows == true);
+		__gm3d_ed_props_end(_ed, _hb2);
+	}
+}
+
 // Edits light properties in Inspector.
 function __gm3d_ed_imgui_light_sec(_ed, _node, _en) {
 	var _d = _en.data;
@@ -325,6 +352,40 @@ function __gm3d_ed_imgui_light_sec(_ed, _node, _en) {
 			_d.outer = clamp(_no, 1, 89);
 			__gm3d_ed_light_apply(_node, _d);
 			__gm3d_ed_props_end(_ed, _hb7);
+		}
+	}
+	if (_d.type == "directional") {
+		ImGui.Separator();
+		ImGui.Text("Shadows");
+		var _nsh = ImGui.Checkbox("Cast shadows", _d.shadow == true);
+		if (_nsh != (_d.shadow == true)) {
+			var _hb8 = __gm3d_ed_history_snap(_ed);
+			_d.shadow = _nsh;
+			__gm3d_ed_light_apply(_node, _d);
+			__gm3d_ed_props_end(_ed, _hb8);
+		}
+		if (_d.shadow == true) {
+			var _nsr = __gm3d_ed_imgui_prop_float(_ed, "light_shadow_res", "Resolution", _d.shadowRes, 120);
+			if (_nsr != undefined) {
+				var _hb9 = __gm3d_ed_history_snap(_ed);
+				_d.shadowRes = clamp(round(_nsr), 128, 4096);
+				__gm3d_ed_light_apply(_node, _d);
+				__gm3d_ed_props_end(_ed, _hb9);
+			}
+			var _nsd = __gm3d_ed_imgui_prop_float(_ed, "light_shadow_dist", "Distance", _d.shadowDist, 120);
+			if (_nsd != undefined) {
+				var _hb10 = __gm3d_ed_history_snap(_ed);
+				_d.shadowDist = max(_nsd, 1);
+				__gm3d_ed_light_apply(_node, _d);
+				__gm3d_ed_props_end(_ed, _hb10);
+			}
+			var _nsn = __gm3d_ed_imgui_prop_float(_ed, "light_shadow_normal", "Normal bias", _d.shadowNormal, 120);
+			if (_nsn != undefined) {
+				var _hb11 = __gm3d_ed_history_snap(_ed);
+				_d.shadowNormal = clamp(_nsn, 0, 1);
+				__gm3d_ed_light_apply(_node, _d);
+				__gm3d_ed_props_end(_ed, _hb11);
+			}
 		}
 	}
 }

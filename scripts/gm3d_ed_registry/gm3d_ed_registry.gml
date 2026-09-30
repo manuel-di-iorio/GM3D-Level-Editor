@@ -93,7 +93,7 @@ function __gm3d_ed_asset_find(_ed, _name) {
 
 // Registers spawned asset node for tracking.
 function __gm3d_ed_spawn_register(_ed, _node, _asset, _pos3, _label = undefined) {
-	__gm3d_ed_kind_register(_ed, _node, "asset", _asset, _pos3, _label, undefined);
+	__gm3d_ed_kind_register(_ed, _node, "asset", _asset, _pos3, _label, __gm3d_ed_flags_read(_node));
 }
 
 // Registers node with kind and metadata.
@@ -151,13 +151,13 @@ function __gm3d_ed_place(_ed, _asset, _model, _pos3, _rot, _scale3, _label = und
 // Tracks any node kind for editor editing.
 function gm3d_editor_track(_ed, _kind, _asset, _node, _label = undefined) {
 	if (_kind == "light") {
-		return gm3d_editor_light_add(_ed, _node, _label);
+		return __gm3d_ed_track_light(_ed, _node, _label);
 	}
 	if (_kind == "camera") {
-		return gm3d_editor_camera_add(_ed, _node, _label);
+		return __gm3d_ed_track_camera(_ed, _node, _label);
 	}
 	if (_kind == "environment") {
-		return gm3d_editor_environment_add(_ed, _node, _label);
+		return __gm3d_ed_track_env(_ed, _node, _label);
 	}
 	if (_ed == undefined || _node == undefined) {
 		return undefined;
@@ -343,12 +343,19 @@ function __gm3d_ed_asset_desc(_ed, _node) {
 	var _p = _node.getLocalPosition();
 	var _q = _node.getLocalRotation();
 	var _s = _node.getLocalScale();
+	var _fc = true;
+	var _fr = true;
+	if (is_struct(_en.data)) {
+		_fc = _en.data.castShadows == true;
+		_fr = _en.data.receiveShadows == true;
+	}
 	return {
 		asset: _en.asset,
 		name: _label,
 		position: [_p.x, _p.y, _p.z],
 		rotation: [_q.x, _q.y, _q.z, _q.w],
 		scale: [_s.x, _s.y, _s.z],
+		flags: { castShadows: _fc, receiveShadows: _fr },
 	};
 }
 
@@ -436,7 +443,7 @@ function __gm3d_ed_tracked_nodes(_ed) {
 
 // Returns default light property values.
 function __gm3d_ed_light_defaults() {
-	return { type: "directional", color: [255, 255, 255], intensity: 1.0, range: 50.0, inner: 30.0, outer: 45.0, enabled: true };
+	return { type: "directional", color: [255, 255, 255], intensity: 1.0, range: 50.0, inner: 30.0, outer: 45.0, enabled: true, shadow: false, shadowRes: 2048, shadowDist: 20.0, shadowNormal: 0.05 };
 }
 
 // Returns default camera property values.
@@ -457,7 +464,7 @@ function __gm3d_ed_env_defaults() {
 	};
 }
 
-// Safely calls component getter with fallback.
+// Safely calls bound component getter with fallback.
 function __gm3d_ed_comp_get(_comp, _m, _fb) {
 	if (_comp == undefined || !is_string(_m) || _m == "") {
 		return _fb;
@@ -467,7 +474,7 @@ function __gm3d_ed_comp_get(_comp, _m, _fb) {
 		if (_f == undefined) {
 			return _fb;
 		}
-		return _f();
+		return method(_comp, _f)();
 	} catch (_e) {
 		return _fb;
 	}
@@ -560,8 +567,24 @@ function __gm3d_ed_light_read(_node) {
 		_d.outer = radtodeg(_v);
 	}
 	_v = __gm3d_ed_comp_get(_lc, "getEnabled", undefined);
-	if (is_bool(_v)) {
-		_d.enabled = _v;
+	if (_v != undefined) {
+		_d.enabled = (_v == true || _v == 1);
+	}
+	_v = __gm3d_ed_comp_get(_lc, "getShadowEnabled", undefined);
+	if (_v != undefined) {
+		_d.shadow = (_v == true || _v == 1);
+	}
+	_v = __gm3d_ed_comp_get(_lc, "getShadowResolution", undefined);
+	if (is_real(_v) && _v > 0) {
+		_d.shadowRes = _v;
+	}
+	_v = __gm3d_ed_comp_get(_lc, "getShadowDistance", undefined);
+	if (is_real(_v) && _v > 0) {
+		_d.shadowDist = _v;
+	}
+	_v = __gm3d_ed_comp_get(_lc, "getShadowNormalOffset", undefined);
+	if (is_real(_v) && _v >= 0) {
+		_d.shadowNormal = _v;
 	}
 	return _d;
 }
@@ -613,6 +636,72 @@ function __gm3d_ed_light_apply(_node, _d) {
 		_lc.setEnabled(_d.enabled == true);
 	} catch (_e) {
 	}
+	if (_d.type == "directional") {
+		try {
+			_lc.setShadowEnabled(_d.shadow == true);
+		} catch (_e) {
+			__gm3d_ed_shadow_warn();
+		}
+		try {
+			_lc.setShadowResolution(clamp(round(_d.shadowRes), 128, 4096));
+		} catch (_e) {
+			__gm3d_ed_shadow_warn();
+		}
+		try {
+			_lc.setShadowDistance(max(_d.shadowDist, 1));
+		} catch (_e) {
+			__gm3d_ed_shadow_warn();
+		}
+		try {
+			_lc.setShadowNormalOffset(clamp(_d.shadowNormal, 0, 1));
+		} catch (_e) {
+			__gm3d_ed_shadow_warn();
+		}
+	}
+	var _pv = gm3d_editor_inst();
+	if (_pv != undefined && _pv.show_shadows == false) {
+		try {
+			_lc.setShadowEnabled(false);
+		} catch (_e) {
+		}
+	}
+}
+
+// Warns once when the runtime shadow API is missing.
+function __gm3d_ed_shadow_warn() {
+	if (variable_global_exists("gm3d_ed_shadow_warned") && global.gm3d_ed_shadow_warned == true) {
+		return;
+	}
+	global.gm3d_ed_shadow_warned = true;
+	try {
+		show_debug_message("[gm3d_editor] shadow API unavailable on GM3D_LightComponent");
+	} catch (_e) {
+	}
+}
+
+// Applies shadow preview override to tracked directionals.
+function __gm3d_ed_shadowpreview_apply(_ed) {
+	if (_ed == undefined) {
+		return;
+	}
+	var _roots = __gm3d_ed_root_tracked(_ed);
+	for (var _i = 0; _i < array_length(_roots); _i++) {
+		if (__gm3d_ed_kind_of(_ed, _roots[_i]) != "light") {
+			continue;
+		}
+		var _en = __gm3d_ed_registry_find(_ed, _roots[_i]);
+		if (_en == undefined || !is_struct(_en.data) || _en.data.type != "directional") {
+			continue;
+		}
+		try {
+			var _lc = _roots[_i].getLightComponent();
+			if (_lc == undefined) {
+				continue;
+			}
+			_lc.setShadowEnabled(_ed.show_shadows != false && _en.data.shadow == true);
+		} catch (_e) {
+		}
+	}
 }
 
 // Reads camera properties from node.
@@ -652,8 +741,8 @@ function __gm3d_ed_camera_read(_node) {
 		_d.far = _v;
 	}
 	_v = __gm3d_ed_comp_get(_cc, "getEnabled", undefined);
-	if (is_bool(_v)) {
-		_d.enabled = _v;
+	if (_v != undefined) {
+		_d.enabled = (_v == true || _v == 1);
 	}
 	return _d;
 }
@@ -727,9 +816,9 @@ function __gm3d_ed_env_read(_node) {
 	if (is_real(_c)) {
 		_d.ambient = [colour_get_red(_c), colour_get_green(_c), colour_get_blue(_c)];
 	}
-	var _v = __gm3d_ed_comp_get(_ec, "getFogEnabled", undefined);
-	if (is_bool(_v)) {
-		_d.fog = _v;
+	var 	_v = __gm3d_ed_comp_get(_ec, "getFogEnabled", undefined);
+	if (_v != undefined) {
+		_d.fog = (_v == true || _v == 1);
 	}
 	_c = __gm3d_ed_comp_get(_ec, "getFogColor", undefined);
 	if (is_real(_c)) {
@@ -744,8 +833,8 @@ function __gm3d_ed_env_read(_node) {
 		_d.fogend = _v;
 	}
 	_v = __gm3d_ed_comp_get(_ec, "getEnabled", undefined);
-	if (is_bool(_v)) {
-		_d.enabled = _v;
+	if (_v != undefined) {
+		_d.enabled = (_v == true || _v == 1);
 	}
 	return _d;
 }
@@ -830,7 +919,7 @@ function __gm3d_ed_kind_of(_ed, _node) {
 }
 
 // Registers existing light node for editing.
-function gm3d_editor_light_add(_ed, _node, _label = undefined) {
+function __gm3d_ed_track_light(_ed, _node, _label = undefined) {
 	if (_ed == undefined || _node == undefined) {
 		return undefined;
 	}
@@ -847,7 +936,7 @@ function gm3d_editor_light_add(_ed, _node, _label = undefined) {
 }
 
 // Registers existing camera node for editing.
-function gm3d_editor_camera_add(_ed, _node, _label = undefined) {
+function __gm3d_ed_track_camera(_ed, _node, _label = undefined) {
 	if (_ed == undefined || _node == undefined) {
 		return undefined;
 	}
@@ -862,7 +951,7 @@ function gm3d_editor_camera_add(_ed, _node, _label = undefined) {
 }
 
 // Registers existing environment node for editing.
-function gm3d_editor_environment_add(_ed, _node, _label = undefined) {
+function __gm3d_ed_track_env(_ed, _node, _label = undefined) {
 	if (_ed == undefined || _node == undefined) {
 		return undefined;
 	}
