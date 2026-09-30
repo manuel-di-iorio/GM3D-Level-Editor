@@ -1,9 +1,4 @@
-/// @module gm3d_ed_registry
-/// Asset library, tracked placements, selection and labels.
-
-/// Adds a loaded model handle to the Models library.
-/// @param _model loaded handle spawned by the editor via spawnInto (caller owns loading)
-/// @param _thumb card thumbnail sprite (caller-owned, never deleted), or -1.
+// Adds model asset to editor library.
 function gm3d_editor_asset_add(_ed, _name, _model, _thumb = -1) {
 	if (_ed == undefined) {
 		return;
@@ -24,8 +19,7 @@ function gm3d_editor_asset_add(_ed, _name, _model, _thumb = -1) {
 	array_push(_ed.assets, _entry);
 }
 
-/// Clears the Models library. Thumb sprites stay owned by the caller (like
-/// models) and are never deleted here.
+// Clears all editor library assets.
 function gm3d_editor_asset_clear(_ed) {
 	if (_ed == undefined) {
 		return;
@@ -33,17 +27,14 @@ function gm3d_editor_asset_clear(_ed) {
 	_ed.assets = [];
 }
 
-
-/// Clears the selection and any gizmo hover/drag state.
+// Clears current node selection.
 function __gm3d_ed_sel_clear(_ed) {
 	_ed.sel = [];
 	_ed.giz.drag = -1;
 	_ed.giz.hover = -1;
 }
 
-/// True when _node refers to a selected node. Compares wrapper references
-/// first, then tracked registry entries: getNodes() wrappers are not stable
-/// across calls, but entries are (same struct from ed.tracked).
+// Checks if node is selected.
 function __gm3d_ed_sel_has(_ed, _node) {
 	if (_node == undefined) {
 		return false;
@@ -63,8 +54,7 @@ function __gm3d_ed_sel_has(_ed, _node) {
 	return false;
 }
 
-/// Adds _node to the selection, or removes it when already selected.
-/// Same entry-aware comparison as sel_has.
+// Toggles node in selection set.
 function __gm3d_ed_sel_toggle(_ed, _node) {
 	if (_node == undefined) {
 		return;
@@ -86,8 +76,7 @@ function __gm3d_ed_sel_toggle(_ed, _node) {
 	array_push(_ed.sel, _node);
 }
 
-/// Finds a library model by name.
-/// @return Model handle or undefined when missing.
+// Finds library model by name.
 function __gm3d_ed_asset_find(_ed, _name) {
 	var _lib = _ed.assets;
 	if (!is_array(_lib)) {
@@ -102,19 +91,12 @@ function __gm3d_ed_asset_find(_ed, _name) {
 	return undefined;
 }
 
-/// Records a spawned placement by live name and position.
-/// @param _pos3 [x, y, z] spawn position used for matching.
-/// @param _label Display name, defaults to the live node name.
+// Registers spawned asset node for tracking.
 function __gm3d_ed_spawn_register(_ed, _node, _asset, _pos3, _label = undefined) {
 	__gm3d_ed_kind_register(_ed, _node, "asset", _asset, _pos3, _label, undefined);
 }
 
-/// Records any tracked node (asset, light, camera, environment).
-/// @param _kind "asset", "light", "camera" or "environment".
-/// @param _asset library name for assets, "" otherwise.
-/// @param _pos3 [x, y, z] spawn position used for matching.
-/// @param _label Display name, defaults to the live node name.
-/// @param _data kind props (light/camera/environment structs), undefined for assets.
+// Registers node with kind and metadata.
 function __gm3d_ed_kind_register(_ed, _node, _kind, _asset, _pos3, _label = undefined, _data = undefined) {
 	if (_ed == undefined || _node == undefined) {
 		return;
@@ -144,19 +126,7 @@ function __gm3d_ed_kind_register(_ed, _node, _kind, _asset, _pos3, _label = unde
 	});
 }
 
-/// Spawns one library model into the live scene and tracks the placement.
-/// Single funnel for every editor creation path (drop, duplicate, load):
-/// the editor owns placement (spawnInto, TRS, registry entry). When the
-/// adapter defines on_spawn(inst, node, asset, model), it runs after TRS so
-/// the game can finish the instance (animation state, AI, ...) without
-/// owning placement.
-/// @param _asset library name for tracking.
-/// @param _model loaded handle from gm3d_editor_asset_add.
-/// @param _pos3 [x, y, z] spawn position.
-/// @param _rot rotation quat or undefined for the spawn default.
-/// @param _scale3 [sx, sy, sz] spawn scale.
-/// @param _label display name, defaults to the live node name.
-/// @return Spawned root node or undefined.
+// Spawns model and registers it.
 function __gm3d_ed_place(_ed, _asset, _model, _pos3, _rot, _scale3, _label = undefined) {
 	if (_ed == undefined || _model == undefined) {
 		return undefined;
@@ -178,7 +148,7 @@ function __gm3d_ed_place(_ed, _asset, _model, _pos3, _rot, _scale3, _label = und
 	return _node;
 }
 
-/// Tracks a game-spawned node so it appears in Scene, Inspector, save and undo.
+// Registers existing node for tracking.
 function gm3d_editor_track_node(_ed, _asset, _node, _label = undefined) {
 	if (_ed == undefined || _node == undefined) {
 		return;
@@ -187,8 +157,22 @@ function gm3d_editor_track_node(_ed, _asset, _node, _label = undefined) {
 	__gm3d_ed_spawn_register(_ed, _node, _asset, [_pp.x, _pp.y, _pp.z], _label);
 }
 
-/// Returns a unique display label based on _base.
-/// @return Free label (appends " 2", " 3", ...).
+// Tracks any node kind for editor editing.
+function gm3d_editor_track(_ed, _kind, _asset, _node, _label = undefined) {
+	if (_kind == "light") {
+		return gm3d_editor_light_add(_ed, _node, _label);
+	}
+	if (_kind == "camera") {
+		return gm3d_editor_camera_add(_ed, _node, _label);
+	}
+	if (_kind == "environment") {
+		return gm3d_editor_environment_add(_ed, _node, _label);
+	}
+	gm3d_editor_track_node(_ed, _asset, _node, _label);
+	return _node;
+}
+
+// Generates unique nonconflicting node label.
 function __gm3d_ed_fresh_label(_ed, _base) {
 	if (_base == undefined || !is_string(_base) || _base == "") {
 		_base = "node";
@@ -216,13 +200,7 @@ function __gm3d_ed_fresh_label(_ed, _base) {
 	return _lbl;
 }
 
-/// Re-points tracked rows at the live positions of moved nodes.
-/// Entries are matched by live name + nearest position, but two placements
-/// spawned from the same asset share the same live name: matching each node
-/// independently can map both live nodes to the SAME entry when they are
-/// dragged close together, permanently swapping/corrupting identities
-/// (wrong outline, wrong pick, wrong unregister). Claim entries 1-to-1
-/// within this call so simultaneous moves never double-claim.
+// Updates registry positions from scene nodes.
 function __gm3d_ed_rows_follow(_ed, _nodes) {
 	if (!is_array(_nodes)) {
 		return;
@@ -278,7 +256,7 @@ function __gm3d_ed_rows_follow(_ed, _nodes) {
 	}
 }
 
-/// Drops the tracked entry nearest to a node.
+// Removes node from tracking registry.
 function __gm3d_ed_spawn_unregister(_ed, _node) {
 	var _reg = _ed.tracked;
 	if (!is_array(_reg)) {
@@ -307,8 +285,7 @@ function __gm3d_ed_spawn_unregister(_ed, _node) {
 	}
 }
 
-/// Finds the tracked entry for a node by live name and nearest position.
-/// @return Tracked entry or undefined.
+// Finds closest registry entry for node.
 function __gm3d_ed_registry_find(_ed, _node) {
 	var _reg = [];
 	_reg = _ed.tracked;
@@ -338,7 +315,7 @@ function __gm3d_ed_registry_find(_ed, _node) {
 	return _best;
 }
 
-/// Returns the library name for a node.
+// Returns asset name for node.
 function __gm3d_ed_asset_name(_ed, _node) {
 	var _en = __gm3d_ed_registry_find(_ed, _node);
 	if (_en == undefined) {
@@ -347,7 +324,7 @@ function __gm3d_ed_asset_name(_ed, _node) {
 	return _en.asset;
 }
 
-/// Returns the display label for a node, or the live node name when untracked.
+// Returns display label for node.
 function __gm3d_ed_label_get(_ed, _node) {
 	var _en = __gm3d_ed_registry_find(_ed, _node);
 	if (_en != undefined && is_string(_en.label) && _en.label != "") {
@@ -358,8 +335,7 @@ function __gm3d_ed_label_get(_ed, _node) {
 	return _nm;
 }
 
-/// Builds a serializable asset descriptor for a live node.
-/// @return Descriptor or undefined when the library entry is missing.
+// Builds asset descriptor with transform.
 function __gm3d_ed_asset_desc(_ed, _node) {
 	var _en = __gm3d_ed_registry_find(_ed, _node);
 	if (_en == undefined) {
@@ -381,7 +357,7 @@ function __gm3d_ed_asset_desc(_ed, _node) {
 	};
 }
 
-/// Returns root nodes that have a tracked registry entry.
+// Lists tracked root scene nodes.
 function __gm3d_ed_root_tracked(_ed) {
 	var _out = [];
 	var _roots = _ed.rt.scene.getNodes();
@@ -390,8 +366,7 @@ function __gm3d_ed_root_tracked(_ed) {
 		if (_nd.parent != undefined) {
 			continue;
 		}
-		// Viewport camera is never a tracked scene node, even if registered
-		// by mistake: rebuild/new-scene must never destroy it.
+
 		if (_ed != undefined && variable_struct_exists(_ed, "rt") && is_struct(_ed.rt)) {
 			if (variable_struct_exists(_ed.rt, "cam") && _nd == _ed.rt.cam) {
 				continue;
@@ -405,12 +380,7 @@ function __gm3d_ed_root_tracked(_ed) {
 	return _out;
 }
 
-/// Returns live root nodes in tracked-registration order, skipping stale
-/// entries and structural nodes (grid, viewport camera, drop preview).
-/// Native scene order does not survive destroy/recreate (undo rebuild flips
-/// it), so save/undo snapshots and the Scene list follow ed.tracked order
-/// instead: every creation path appends and rebuild re-appends in descriptor
-/// order, keeping row order stable across undo/redo/load.
+// Resolves registry entries to scene nodes.
 function __gm3d_ed_tracked_nodes(_ed) {
 	var _out = [];
 	if (_ed == undefined || _ed.rt == undefined || _ed.rt.scene == undefined) {
@@ -469,22 +439,17 @@ function __gm3d_ed_tracked_nodes(_ed) {
 	return _out;
 }
 
-/// ---- Light / camera / environment kinds ----
-/// Tracked/file/UI props use degrees for angles and [r, g, b] 0-255 for
-/// colors; conversion to GM3D units (radians, packed color) happens in the
-/// apply functions below.
-
-/// Default light props.
+// Returns default light property values.
 function __gm3d_ed_light_defaults() {
 	return { type: "directional", color: [255, 255, 255], intensity: 1.0, range: 50.0, inner: 30.0, outer: 45.0, enabled: true };
 }
 
-/// Default camera props.
+// Returns default camera property values.
 function __gm3d_ed_camera_defaults() {
 	return { projection: "perspective", fov: 60.0, ow: 10.0, oh: 10.0, near: 0.1, far: 500.0, enabled: true };
 }
 
-/// Default environment props.
+// Returns default environment property values.
 function __gm3d_ed_env_defaults() {
 	return {
 		size: [20000.0, 20000.0, 20000.0],
@@ -497,9 +462,7 @@ function __gm3d_ed_env_defaults() {
 	};
 }
 
-/// Safe zero-arg component getter: returns _fb when missing or failing.
-/// Some GM3D getters may not exist on every runtime; editor props then fall
-/// back to the tracked data / defaults instead of crashing.
+// Safely calls component getter with fallback.
 function __gm3d_ed_comp_get(_comp, _m, _fb) {
 	if (_comp == undefined || !is_string(_m) || _m == "") {
 		return _fb;
@@ -515,7 +478,7 @@ function __gm3d_ed_comp_get(_comp, _m, _fb) {
 	}
 }
 
-/// Maps a GM3D light type enum to its editor string.
+// Converts light enum to string.
 function __gm3d_ed_light_type_to_str(_v) {
 	try {
 		if (_v == GM3D_ELightType.Point) {
@@ -532,7 +495,7 @@ function __gm3d_ed_light_type_to_str(_v) {
 	return undefined;
 }
 
-/// Maps an editor light type string to the GM3D enum.
+// Converts light string to enum.
 function __gm3d_ed_light_type_to_enum(_s) {
 	if (_s == "point") {
 		return GM3D_ELightType.Point;
@@ -543,7 +506,7 @@ function __gm3d_ed_light_type_to_enum(_s) {
 	return GM3D_ELightType.Directional;
 }
 
-/// Maps a GM3D projection enum to its editor string.
+// Converts projection enum to string.
 function __gm3d_ed_cam_proj_to_str(_v) {
 	try {
 		if (_v == GM3D_ECameraProjection.Orthographic) {
@@ -557,7 +520,7 @@ function __gm3d_ed_cam_proj_to_str(_v) {
 	return undefined;
 }
 
-/// Maps an editor projection string to the GM3D enum.
+// Converts projection string to enum.
 function __gm3d_ed_cam_proj_to_enum(_s) {
 	if (_s == "ortho") {
 		return GM3D_ECameraProjection.Orthographic;
@@ -565,7 +528,7 @@ function __gm3d_ed_cam_proj_to_enum(_s) {
 	return GM3D_ECameraProjection.Perspective;
 }
 
-/// Reads live light props into an editor struct (tracked-data shape).
+// Reads light properties from node.
 function __gm3d_ed_light_read(_node) {
 	var _d = __gm3d_ed_light_defaults();
 	var _lc = undefined;
@@ -608,7 +571,7 @@ function __gm3d_ed_light_read(_node) {
 	return _d;
 }
 
-/// Pushes editor light props into the live component.
+// Applies light properties to node.
 function __gm3d_ed_light_apply(_node, _d) {
 	if (_node == undefined || _d == undefined) {
 		return;
@@ -657,7 +620,7 @@ function __gm3d_ed_light_apply(_node, _d) {
 	}
 }
 
-/// Reads live camera props into an editor struct (tracked-data shape).
+// Reads camera properties from node.
 function __gm3d_ed_camera_read(_node) {
 	var _d = __gm3d_ed_camera_defaults();
 	var _cc = undefined;
@@ -700,7 +663,7 @@ function __gm3d_ed_camera_read(_node) {
 	return _d;
 }
 
-/// Pushes editor camera props into the live component.
+// Applies camera properties to node.
 function __gm3d_ed_camera_apply(_node, _d) {
 	if (_node == undefined || _d == undefined) {
 		return;
@@ -747,7 +710,7 @@ function __gm3d_ed_camera_apply(_node, _d) {
 	}
 }
 
-/// Reads live environment props into an editor struct (tracked-data shape).
+// Reads environment properties from node.
 function __gm3d_ed_env_read(_node) {
 	var _d = __gm3d_ed_env_defaults();
 	var _ec = undefined;
@@ -792,7 +755,7 @@ function __gm3d_ed_env_read(_node) {
 	return _d;
 }
 
-/// Pushes editor environment props into the live component.
+// Applies environment properties to node.
 function __gm3d_ed_env_apply(_node, _d) {
 	if (_node == undefined || _d == undefined) {
 		return;
@@ -838,9 +801,7 @@ function __gm3d_ed_env_apply(_node, _d) {
 	}
 }
 
-/// Returns the tracked kind of a node ("asset", "light", "camera",
-/// "environment"), detecting untracked component nodes as fallback.
-/// @return Kind string or undefined.
+// Determines node kind from registry.
 function __gm3d_ed_kind_of(_ed, _node) {
 	if (_node == undefined) {
 		return undefined;
@@ -873,7 +834,7 @@ function __gm3d_ed_kind_of(_ed, _node) {
 	return undefined;
 }
 
-/// Tracks a game-created light node so it appears in Scene, Inspector, save and undo.
+// Registers existing light node for editing.
 function gm3d_editor_light_add(_ed, _node, _label = undefined) {
 	if (_ed == undefined || _node == undefined) {
 		return undefined;
@@ -890,7 +851,7 @@ function gm3d_editor_light_add(_ed, _node, _label = undefined) {
 	return _node;
 }
 
-/// Tracks a game-created camera node so it appears in Scene, Inspector, save and undo.
+// Registers existing camera node for editing.
 function gm3d_editor_camera_add(_ed, _node, _label = undefined) {
 	if (_ed == undefined || _node == undefined) {
 		return undefined;
@@ -905,7 +866,7 @@ function gm3d_editor_camera_add(_ed, _node, _label = undefined) {
 	return _node;
 }
 
-/// Tracks a game-created environment node so it appears in Scene, Inspector, save and undo.
+// Registers existing environment node for editing.
 function gm3d_editor_environment_add(_ed, _node, _label = undefined) {
 	if (_ed == undefined || _node == undefined) {
 		return undefined;
@@ -920,9 +881,7 @@ function gm3d_editor_environment_add(_ed, _node, _label = undefined) {
 	return _node;
 }
 
-/// Creates a light node with default props, tracks it and selects it; undoable.
-/// @param _type "directional", "point" or "spot".
-/// @return New node or undefined.
+// Creates new light node in scene.
 function __gm3d_ed_create_light(_ed, _type) {
 	if (_ed == undefined || _ed.rt == undefined) {
 		return undefined;
@@ -961,9 +920,7 @@ function __gm3d_ed_create_light(_ed, _type) {
 	return _node;
 }
 
-/// Creates a camera node with default props, tracks it and selects it; undoable.
-/// @param _proj "perspective" or "ortho".
-/// @return New node or undefined.
+// Creates new camera node in scene.
 function __gm3d_ed_create_camera(_ed, _proj) {
 	if (_ed == undefined || _ed.rt == undefined) {
 		return undefined;
@@ -993,8 +950,7 @@ function __gm3d_ed_create_camera(_ed, _proj) {
 	return _node;
 }
 
-/// Creates the environment node with default props; undoable. No-op when one exists.
-/// @return New node or undefined.
+// Creates new environment node in scene.
 function __gm3d_ed_create_env(_ed) {
 	if (_ed == undefined || _ed.rt == undefined) {
 		return undefined;
@@ -1021,7 +977,7 @@ function __gm3d_ed_create_env(_ed) {
 	return _node;
 }
 
-/// Returns the tracked environment node, or undefined.
+// Finds tracked environment node.
 function __gm3d_ed_env_node(_ed) {
 	var _roots = __gm3d_ed_root_tracked(_ed);
 	for (var _i = 0; _i < array_length(_roots); _i++) {
@@ -1032,10 +988,7 @@ function __gm3d_ed_env_node(_ed) {
 	return undefined;
 }
 
-/// Disables rendering of every tracked camera on the live scene.
-/// While the editor is open only the viewport camera (ed.rt.cam, never
-/// tracked) renders: editor cameras are manipulated, never previewed.
-/// Tracked data keeps the game-side enabled flag untouched.
+// Disables all tracked scene cameras.
 function __gm3d_ed_cameras_mute(_ed) {
 	if (_ed == undefined || _ed.rt == undefined) {
 		return;
@@ -1055,8 +1008,7 @@ function __gm3d_ed_cameras_mute(_ed) {
 	}
 }
 
-/// Restores live camera rendering from the tracked enabled flags.
-/// Call when the editor closes so the game resumes its own cameras.
+// Restores tracked cameras enabled state.
 function __gm3d_ed_cameras_restore(_ed) {
 	if (_ed == undefined || _ed.rt == undefined) {
 		return;
@@ -1080,10 +1032,7 @@ function __gm3d_ed_cameras_restore(_ed) {
 	}
 }
 
-/// True when a gizmo tool can meaningfully edit a node.
-/// Directional lights aim with rotation (position unused); point lights place
-/// with position (rotation unused); scale never affects lights or cameras;
-/// the environment ignores TRS entirely.
+// Checks if gizmo tool applies.
 function __gm3d_ed_tool_allowed(_ed, _node, _tool) {
 	if (_node == undefined) {
 		return false;
@@ -1115,7 +1064,7 @@ function __gm3d_ed_tool_allowed(_ed, _node, _tool) {
 	return true;
 }
 
-/// True when the current gizmo tool applies to at least one selected node.
+// Checks if gizmo can manipulate selection.
 function __gm3d_ed_gizmo_allowed(_ed) {
 	if (_ed == undefined || !is_array(_ed.sel) || array_length(_ed.sel) == 0) {
 		return false;
@@ -1132,9 +1081,7 @@ function __gm3d_ed_gizmo_allowed(_ed) {
 	return false;
 }
 
-/// Preselects the meaningful gizmo tool when a single light is selected:
-/// directional aims with rotate, point places with move. Anything else
-/// (spots, cameras, models, multi-selections) keeps the current tool.
+// Auto selects gizmo tool for light.
 function __gm3d_ed_sel_apply_tool(_ed) {
 	if (_ed == undefined || !is_array(_ed.sel) || array_length(_ed.sel) != 1) {
 		return;
@@ -1155,8 +1102,7 @@ function __gm3d_ed_sel_apply_tool(_ed) {
 	}
 }
 
-/// True when a tracked node is hidden from viewport, picking and gizmo.
-/// Editor-only: never serialized, toggled from the Scene context menu.
+// Checks if node is hidden.
 function __gm3d_ed_hidden_get(_ed, _node) {
 	if (_ed == undefined || _node == undefined) {
 		return false;
@@ -1165,9 +1111,7 @@ function __gm3d_ed_hidden_get(_ed, _node) {
 	return _en != undefined && _en.hidden == true;
 }
 
-/// Hides or shows a tracked node in the editor (mesh components off, helpers
-/// off, unpickable, no gizmo). Game props and the save file are untouched.
-/// @return True when the node is tracked.
+// Hides or unhides node meshes.
 function __gm3d_ed_hidden_set(_ed, _node, _hide) {
 	if (_ed == undefined || _node == undefined) {
 		return false;

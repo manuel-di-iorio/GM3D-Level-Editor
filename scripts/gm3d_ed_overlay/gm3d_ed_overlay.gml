@@ -1,7 +1,4 @@
-/// ---- 2D overlay for lights / cameras / environment ----
-
-/// Draws one world segment, clipped to the near plane and the screen rect so
-/// its screen direction stays exact even when the ends leave the view.
+// Draws clipped 3D line segment overlay.
 function __gm3d_ed_overlay_seg(_ed, _vp, _a, _b, _wd, _col) {
 	var _eps = 0.001;
 	var _ca = new GM3D_Vec4(_a.x, _a.y, _a.z, 1.0);
@@ -10,14 +7,14 @@ function __gm3d_ed_overlay_seg(_ed, _vp, _a, _b, _wd, _col) {
 	_cb.applyMatrix4(_vp.viewProj);
 	var _ain = _ca.w >= _eps;
 	var _bin = _cb.w >= _eps;
-	// Fully behind the camera: nothing correct to draw.
+
 	if (!_ain && !_bin) {
 		return;
 	}
 	var _pa = _a;
 	var _pb = _b;
 	if (!_ain || !_bin) {
-		// Clip against the near plane: cross parameter from A toward B.
+
 		var _t = (_eps - _ca.w) / (_cb.w - _ca.w);
 		var _cross = new GM3D_Vec3(_a.x + (_b.x - _a.x) * _t, _a.y + (_b.y - _a.y) * _t, _a.z + (_b.z - _a.z) * _t);
 		if (!_ain) {
@@ -38,8 +35,7 @@ function __gm3d_ed_overlay_seg(_ed, _vp, _a, _b, _wd, _col) {
 	__gm3d_ed_vp_line(_ed, _cl[0], _cl[1], _cl[2], _cl[3], _wd, _col);
 }
 
-/// Projects a world point to screen without frustum culling, so clipped lines
-/// keep their true direction. Returns undefined only behind the camera.
+// Projects 3D point to screen coordinates.
 function __gm3d_ed_overlay_project(_vp, _p) {
 	var _v = new GM3D_Vec4(_p.x, _p.y, _p.z, 1.0);
 	_v.applyMatrix4(_vp.viewProj);
@@ -58,8 +54,7 @@ function __gm3d_ed_overlay_project(_vp, _p) {
 	return [_sx, _sy];
 }
 
-/// Outcode of a screen point against [0, _w] x [0, _h]: 1 left, 2 right,
-//  4 top, 8 bottom.
+// Computes Cohen-Sutherland outcode for point.
 function __gm3d_ed_outcode(_x, _y, _w, _h) {
 	var _c = 0;
 	if (_x < 0) {
@@ -75,8 +70,7 @@ function __gm3d_ed_outcode(_x, _y, _w, _h) {
 	return _c;
 }
 
-/// Cohen-Sutherland clip of a 2D segment against [0, _w] x [0, _h].
-/// @return [x0, y0, x1, y1] or undefined when fully outside.
+// Clips 2D segment to window rectangle.
 function __gm3d_ed_clip_seg(_x0, _y0, _x1, _y1, _w, _h) {
 	var _c0 = __gm3d_ed_outcode(_x0, _y0, _w, _h);
 	var _c1 = __gm3d_ed_outcode(_x1, _y1, _w, _h);
@@ -121,8 +115,7 @@ function __gm3d_ed_clip_seg(_x0, _y0, _x1, _y1, _w, _h) {
 	return [_x0, _y0, _x1, _y1];
 }
 
-/// Draws a sprite billboard centered on _sp, tinted. Falls back gracefully.
-/// @return True when drawn.
+// Draws cached overlay sprite tinted.
 function __gm3d_ed_overlay_sprite(_sp, _sprname, _tint) {
 	static _smap = {};
 	if (!variable_struct_exists(_smap, _sprname)) {
@@ -138,8 +131,7 @@ function __gm3d_ed_overlay_sprite(_sp, _sprname, _tint) {
 	if (_spr == -1) {
 		return false;
 	}
-	// Center the sprite image on _sp for any origin at 1.5x scale: the drawn
-	// rect spans [x-ox*s, x-ox*s+w*s], so x = _sp[0] + s*(ox-w/2).
+
 	var _sc = 2.5;
 	var _w = 0;
 	var _h = 0;
@@ -161,9 +153,7 @@ function __gm3d_ed_overlay_sprite(_sp, _sprname, _tint) {
 	return true;
 }
 
-/// Draws a sprite icon (or fallback diamond) for a prop node. No label: names
-/// live in the Scene list.
-/// @param _sprname sprite for the billboard, "" for the diamond.
+// Draws object icon or diamond marker.
 function __gm3d_ed_overlay_icon(_ed, _sp, _label, _col, _sel, _sprname) {
 	var _c = _sel ? make_colour_rgb(255, 220, 80) : _col;
 	var _r = 9;
@@ -187,7 +177,7 @@ function __gm3d_ed_overlay_icon(_ed, _sp, _label, _col, _sel, _sprname) {
 	}
 }
 
-/// Draws an arrowhead at screen tip _e along screen dir (_dx, _dy) normalized.
+// Draws arrowhead at segment end.
 function __gm3d_ed_overlay_head(_e, _dx, _dy, _col) {
 	var _hl = 10;
 	var _cs = 0.906;
@@ -200,7 +190,7 @@ function __gm3d_ed_overlay_head(_e, _dx, _dy, _col) {
 	draw_line_width_color(_e[0], _e[1], _rx, _ry, 2, _col, _col);
 }
 
-/// Overlay pass for every tracked light, camera and environment node.
+// Draws overlays for lights, cameras, environments.
 function __gm3d_ed_overlay_draw(_ed, _vp) {
 	var _roots = __gm3d_ed_root_tracked(_ed);
 	for (var _i = 0; _i < array_length(_roots); _i++) {
@@ -213,9 +203,7 @@ function __gm3d_ed_overlay_draw(_ed, _vp) {
 			continue;
 		}
 		var _wp = _nd.getWorldPosition();
-		// The icon needs the center on screen, but the frustum/cone/box
-		// edges clip on their own: draw them even when the center is out of
-		// view (e.g. viewport camera right next to the node).
+
 		var _sp = __gm3d_ed_world_to_screen(_vp, _wp);
 		var _sel = __gm3d_ed_sel_has(_ed, _nd);
 		var _en = __gm3d_ed_registry_find(_ed, _nd);
@@ -234,9 +222,7 @@ function __gm3d_ed_overlay_draw(_ed, _vp) {
 	draw_set_valign(fa_top);
 }
 
-/// Overlay for one light node: icon, direction arrow, range circle, spot cone.
-/// GM3D lights emit along -Z of the node (opposite getWorldForward), so every
-/// direction glyph extends along minus forward.
+// Draws light gizmos and range indicators.
 function __gm3d_ed_overlay_light(_ed, _vp, _nd, _en, _wp, _sp, _lb, _sel) {
 	var _col = c_white;
 	if (_sel) {
@@ -318,17 +304,14 @@ function __gm3d_ed_overlay_light(_ed, _vp, _nd, _en, _wp, _sp, _lb, _sel) {
 	}
 }
 
-/// Overlay for one camera node: icon plus frustum wireframe.
-/// GM3D cameras view along -Z of the node (opposite getWorldForward), like
-/// the editor fly camera in __gm3d_ed_view_forward usage.
+// Draws camera frustum and icon.
 function __gm3d_ed_overlay_camera(_ed, _vp, _nd, _en, _wp, _sp, _lb, _sel) {
 	var _col = c_white;
 	if (_sel) {
 		_col = make_colour_rgb(255, 220, 80);
 	}
 	var _d = (_en != undefined && is_struct(_en.data)) ? _en.data : __gm3d_ed_camera_defaults();
-	// Frustum and glyphs only for the selected camera; unselected nodes show
-	// just the icon (click target).
+
 	if (!_sel) {
 		if (_sp != undefined) {
 			__gm3d_ed_overlay_icon(_ed, _sp, _lb, _col, _sel, "sprGM3DIconCamera");
@@ -344,8 +327,7 @@ function __gm3d_ed_overlay_camera(_ed, _vp, _nd, _en, _wp, _sp, _lb, _sel) {
 	var _rt = _nd.getWorldRight();
 	var _up = _nd.getWorldUp();
 	var _nd0 = max(_d.near, 0.05);
-	// Far plane drawn at the real far distance so the Inspector value is
-	// visible: huge values just run the edges off-screen (clipped exactly).
+
 	var _ld = max(_d.far, _nd0 + 0.01);
 	var _hw0 = 0.5;
 	var _hh0 = 0.5;
@@ -393,7 +375,7 @@ function __gm3d_ed_overlay_camera(_ed, _vp, _nd, _en, _wp, _sp, _lb, _sel) {
 	}
 }
 
-/// Overlay for the environment node: icon, plus size box when selected.
+// Draws environment volume box and icon.
 function __gm3d_ed_overlay_env(_ed, _vp, _nd, _en, _wp, _sp, _lb, _sel) {
 	var _col = c_white;
 	if (_sel) {

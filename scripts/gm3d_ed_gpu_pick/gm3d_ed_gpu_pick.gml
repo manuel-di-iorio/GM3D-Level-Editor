@@ -1,22 +1,4 @@
-/// @module gm3d_ed_gpu_pick
-/// GPU ID picking: pickable roots are rendered with flat
-/// ID colours into a dedicated surface (depth ON, occluders kept, unlike the
-/// outline mask), then read back through a persistent buffer.
-///
-/// Cost model: exactly ONE render + ONE buffer_get_surface per gesture (click
-/// or rect end), never per frame, never surface_getpixel in a loop. The
-/// download helper is the single swap point if GameMaker ever exposes region
-/// readback (copy 1px / rect instead of full surface).
-///
-/// ID encoding is R==B redundant (low byte in R and B, high byte in G), so
-/// decode is immune to BGRA/RGBA readback order (G sits at offset 1 in both)
-/// and to edge blending against the black background (R and B scale
-/// together; a small tolerance absorbs rounding). Black (id 0) is miss.
-///
-/// Boundless tracked nodes (lights, cameras, environment) carry no mesh and
-/// render nothing: they keep the CPU overlay-icon path (16px) in execute.
-
-/// Lazily creates the gpu-pick state on the editor struct.
+// Gets or creates GPU picking state.
 function __gm3d_ed_gpupick_cfg(_ed) {
 	if (_ed == undefined) {
 		return undefined;
@@ -43,7 +25,7 @@ function __gm3d_ed_gpupick_cfg(_ed) {
 	return _ed.gpupick;
 }
 
-/// Marks the pass as failed with a visible error (no silent AABB fallback).
+// Marks GPU picking as failed.
 function __gm3d_ed_gpupick_fail(_ed, _g, _msg) {
 	if (_g != undefined) {
 		_g.failed = true;
@@ -56,7 +38,7 @@ function __gm3d_ed_gpupick_fail(_ed, _g, _msg) {
 	}
 }
 
-/// Encodes a 1-based id (1..65025) as [r, g, b, a] floats for u_id.
+// Encodes pick ID into color.
 function __gm3d_ed_gpupick_id_encode(_id) {
 	var _lo = _id mod 255;
 	var _hi = _id div 255;
@@ -64,7 +46,7 @@ function __gm3d_ed_gpupick_id_encode(_id) {
 	return [_v, _hi / 255, _v, 1.0];
 }
 
-/// Decodes raw bytes to an id; 0 is miss (background or blended edge).
+// Decodes pick ID from color.
 function __gm3d_ed_gpupick_id_decode(_b0, _b1, _b2) {
 	var _d = _b0 - _b2;
 	if (_d < 0) {
@@ -77,8 +59,7 @@ function __gm3d_ed_gpupick_id_decode(_b0, _b1, _b2) {
 	return _b1 * 255 + _lo;
 }
 
-/// Returns (creating on demand) the pooled flat material for _id.
-/// @param _skinned false for static meshes, true for skinned meshes.
+// Gets or creates pick ID material.
 function __gm3d_ed_gpupick_mat(_ed, _g, _id, _skinned) {
 	if (_g.mats_ok == false) {
 		return undefined;
@@ -105,8 +86,7 @@ function __gm3d_ed_gpupick_mat(_ed, _g, _id, _skinned) {
 	}
 }
 
-/// Ensures the pick surface and the persistent readback buffer match _w x _h.
-/// @return True when both are ready.
+// Ensures pick surface and buffer sizes.
 function __gm3d_ed_gpupick_surf(_ed, _g, _w, _h) {
 	if (_w <= 0 || _h <= 0) {
 		return false;
@@ -164,8 +144,7 @@ function __gm3d_ed_gpupick_surf(_ed, _g, _w, _h) {
 	return true;
 }
 
-/// Paints one subtree with the flat materials of one id (or mutes it).
-/// @param _mute True to disable comps (cycling ignore list) instead of painting.
+// Replaces subtree materials with ID materials.
 function __gm3d_ed_gpupick_paint_tree(_ed, _g, _node, _id, _swapped, _muted, _mute) {
 	if (_mute) {
 		__gm3d_ed_walk_mute_node(_node, _muted);
@@ -176,8 +155,7 @@ function __gm3d_ed_gpupick_paint_tree(_ed, _g, _node, _id, _swapped, _muted, _mu
 			var _comp = _list[_c].comp;
 			var _mat = __gm3d_ed_gpupick_mat(_ed, _g, _id, _list[_c].skinned);
 			if (_mat == undefined) {
-				// Variant unavailable: mute so shaded pixels never leak
-				// garbage ids into the pick surface.
+
 				__gm3d_ed_walk_mute_node(_node, _muted);
 				break;
 			}
@@ -215,13 +193,7 @@ function __gm3d_ed_gpupick_paint_tree(_ed, _g, _node, _id, _swapped, _muted, _mu
 	}
 }
 
-/// Renders all pickable roots with distinct ids (depth ON, occluders kept).
-/// @param _all Live nodes from ONE getNodes() call shared by the whole stack
-/// walk, so reference ignore (_ignore entries are roots from _all) stays
-/// stable. getNodes() wrappers are NOT stable across calls: never match
-/// ignore entries against a freshly fetched array.
-/// @param _ignore Array of live roots from _all to mute, or undefined.
-/// @return { nodes, w, h } with nodes[id-1] = root, or undefined on failure.
+// Renders ID pass and maps nodes.
 function __gm3d_ed_gpupick_render(_ed, _g, _all, _ignore) {
 	var _renderer = undefined;
 	try {
@@ -325,11 +297,7 @@ function __gm3d_ed_gpupick_render(_ed, _g, _all, _ignore) {
 	return { nodes: _nodes, w: _g.sw, h: _g.sh };
 }
 
-/// True when two live roots are the same placement (name + exact position).
-/// Used only as a cycle-intent hint (did the click land on the selected
-/// node?); nothing moves between clicks, so exact match is reliable without
-/// wrapper identity. Never used to mute: muting uses reference ignore inside
-/// one shared getNodes() array (see render).
+// Compares nodes by name and position.
 function __gm3d_ed_gpupick_same_node(_a, _b) {
 	if (_a == undefined || _b == undefined) {
 		return false;
@@ -358,9 +326,7 @@ function __gm3d_ed_gpupick_same_node(_a, _b) {
 	return _dx * _dx + _dy * _dy + _dz * _dz < 0.000001;
 }
 
-/// Ensures the pick surface + readback buffer and fetches ONE shared live
-/// nodes array for the whole gesture (all probes of a stack walk reuse it).
-/// @return Live nodes array, or undefined on failure.
+// Prepares pick surface and scene nodes.
 function __gm3d_ed_gpupick_begin(_ed, _g) {
 	var _aw = 0;
 	var _ah = 0;
@@ -383,9 +349,7 @@ function __gm3d_ed_gpupick_begin(_ed, _g) {
 	}
 }
 
-/// One probe: ID render (muting _ignore refs from _all) + one download +
-/// one peek at surface pixel (_sx, _sy).
-/// @return { node, nodes } (node undefined = miss), or undefined on failure.
+// Renders and reads picked node.
 function __gm3d_ed_gpupick_probe(_ed, _g, _all, _ignore, _sx, _sy) {
 	var _pass = __gm3d_ed_gpupick_render(_ed, _g, _all, _ignore);
 	if (_pass == undefined) {
@@ -401,9 +365,7 @@ function __gm3d_ed_gpupick_probe(_ed, _g, _all, _ignore, _sx, _sy) {
 	return { node: _pass.nodes[_id - 1], nodes: _pass.nodes };
 }
 
-/// Single download of the pick surface into the persistent buffer.
-/// Swap point for a future region-readback API (copy 1px/rect instead).
-/// @return True on success.
+// Copies pick surface into buffer.
 function __gm3d_ed_gpupick_download(_ed, _g) {
 	try {
 		buffer_get_surface(_g.buf, _g.surf, 0);
@@ -414,7 +376,7 @@ function __gm3d_ed_gpupick_download(_ed, _g) {
 	}
 }
 
-/// Maps GUI coords to pick-surface pixels.
+// Converts GUI coordinates to surface coordinates.
 function __gm3d_ed_gpupick_to_surf(_ed, _g, _mx, _my) {
 	var _gw = 0;
 	var _gh = 0;
@@ -432,7 +394,7 @@ function __gm3d_ed_gpupick_to_surf(_ed, _g, _mx, _my) {
 	return [_sx, _sy];
 }
 
-/// Peeks one downloaded pixel and decodes the id (0 = miss).
+// Reads pick ID at pixel.
 function __gm3d_ed_gpupick_peek(_g, _sx, _sy) {
 	var _off = (_sy * _g.sw + _sx) * 4;
 	var _b0 = 0;
@@ -448,8 +410,7 @@ function __gm3d_ed_gpupick_peek(_g, _sx, _sy) {
 	return __gm3d_ed_gpupick_id_decode(_b0, _b1, _b2);
 }
 
-/// Single topmost pick: one ID render + one download + one peek.
-/// @return Root node, undefined on miss OR failure (check _g.failed).
+// Picks node under mouse click.
 function __gm3d_ed_gpupick_click(_ed, _g, _mx, _my) {
 	var _all = __gm3d_ed_gpupick_begin(_ed, _g);
 	if (_all == undefined) {
@@ -466,9 +427,7 @@ function __gm3d_ed_gpupick_click(_ed, _g, _mx, _my) {
 	return _res.node;
 }
 
-/// Full rect sequence: render + one download + region scan (deduped).
-/// @param _r Normalized rect { x0, y0, x1, y1 } in GUI pixels.
-/// @return Array of root nodes (mesh hits only; icons unioned by caller).
+// Picks nodes inside screen rectangle.
 function __gm3d_ed_gpupick_rect(_ed, _g, _r) {
 	var _all = __gm3d_ed_gpupick_begin(_ed, _g);
 	if (_all == undefined) {
@@ -528,7 +487,7 @@ function __gm3d_ed_gpupick_rect(_ed, _g, _r) {
 	return _out;
 }
 
-/// Queues a click pick from Step input (executed in Draw, valid render context).
+// Queues deferred click picking request.
 function __gm3d_ed_gpupick_request_click(_ed, _mx, _my, _shift) {
 	var _g = __gm3d_ed_gpupick_cfg(_ed);
 	if (_g == undefined || _g.failed) {
@@ -537,7 +496,7 @@ function __gm3d_ed_gpupick_request_click(_ed, _mx, _my, _shift) {
 	_g.pending = { kind: "click", x: _mx, y: _my, shift: _shift };
 }
 
-/// Queues a rect pick from Step input (executed in Draw, valid render context).
+// Queues deferred rectangle picking request.
 function __gm3d_ed_gpupick_request_rect(_ed, _r, _shift) {
 	var _g = __gm3d_ed_gpupick_cfg(_ed);
 	if (_g == undefined || _g.failed) {
@@ -546,9 +505,7 @@ function __gm3d_ed_gpupick_request_rect(_ed, _r, _shift) {
 	_g.pending = { kind: "rect", x0: _r.x0, y0: _r.y0, x1: _r.x1, y1: _r.y1, shift: _shift };
 }
 
-/// CPU overlay-icon test for boundless tracked nodes (lights, cameras,
-/// environment): screen-space 14-16px radius, nearest first. Unchanged
-/// semantics from the old pick-all icon branch.
+// Finds icon node near cursor.
 function __gm3d_ed_gpupick_icon_at(_ed, _vp, _mx, _my) {
 	var _best = undefined;
 	var _bestd = 16;
@@ -592,7 +549,7 @@ function __gm3d_ed_gpupick_icon_at(_ed, _vp, _mx, _my) {
 	return _best;
 }
 
-/// CPU icon test for rect: boundless tracked centers inside the rect.
+// Finds icon nodes inside rectangle.
 function __gm3d_ed_gpupick_icons_in_rect(_ed, _vp, _r) {
 	var _out = [];
 	var _nodes = [];
@@ -630,11 +587,7 @@ function __gm3d_ed_gpupick_icons_in_rect(_ed, _vp, _r) {
 	return _out;
 }
 
-/// Executes the queued pick in Draw (valid 3D render context, same frame as
-/// the Step that queued it) and writes the selection with the old semantics:
-/// click (icons win over mesh, shift-toggle, miss clears), cycling through
-/// overlapping meshes on repeated clicks (ignore + re-render),
-/// rect (replace vs shift-add, mesh GPU hits union boundless icon hits).
+// Executes pending pick and updates selection.
 function __gm3d_ed_gpupick_execute(_ed) {
 	if (_ed == undefined || _ed.active != true) {
 		return;
@@ -680,11 +633,7 @@ function __gm3d_ed_gpupick_execute(_ed) {
 			_g.cycle_index = -1;
 			return;
 		}
-		// Mesh path: one shared getNodes() array for the whole gesture, so
-		// the cycling ignore list (live references) stays stable. A single
-		// probe serves fresh clicks; repeated clicks on the same spot — or
-		// on the already selected node — walk the full front-to-back stack
-		// (ignore + re-render) and advance one step.
+
 		var _all = __gm3d_ed_gpupick_begin(_ed, _g);
 		if (_all == undefined) {
 			return;
@@ -764,22 +713,7 @@ function __gm3d_ed_gpupick_execute(_ed) {
 	}
 }
 
-/// Draws the visible failure banner (no silent fallback by design).
-function __gm3d_ed_gpupick_draw_fault(_ed) {
-	if (_ed == undefined || !variable_struct_exists(_ed, "gpupick") || !is_struct(_ed.gpupick)) {
-		return;
-	}
-	if (!_ed.gpupick.failed) {
-		return;
-	}
-	draw_set_halign(fa_left);
-	draw_set_valign(fa_top);
-	draw_set_color(c_red);
-	draw_text(16, 48, "GPU picking OFF: " + string(_ed.gpupick.failed_msg));
-	draw_set_color(c_white);
-}
-
-/// Frees pick surface, readback buffer and pooled ID materials.
+// Frees picking surfaces and materials.
 function __gm3d_ed_gpupick_cleanup(_ed) {
 	if (_ed == undefined || !variable_struct_exists(_ed, "gpupick") || !is_struct(_ed.gpupick)) {
 		return;

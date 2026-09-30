@@ -1,7 +1,4 @@
-/// @module gm3d_ed_serialize
-/// Scene JSON save/load, rebuild and descriptor validation.
-
-/// Resolves the scene file path against working_directory when relative.
+// Resolves scene path to absolute path.
 function __gm3d_ed_scene_path(_ed) {
 	var _f = _ed.scene_file;
 	if (_f == undefined || _f == "") {
@@ -13,13 +10,12 @@ function __gm3d_ed_scene_path(_ed) {
 	return working_directory + _f;
 }
 
-/// Converts a live tracked node to a descriptor, or undefined for structural nodes.
+// Converts node to serializable descriptor skipping system.
 function __gm3d_ed_node_to_descriptor(_ed, _node) {
 	if (__gm3d_ed_is_grid(_ed, _node)) {
 		return undefined;
 	}
-	// Viewport camera and drop preview are live scene nodes but never part of
-	// save/undo: the viewport is editor chrome, the preview is transient.
+
 	if (_ed != undefined && variable_struct_exists(_ed, "rt") && is_struct(_ed.rt)) {
 		if (variable_struct_exists(_ed.rt, "cam") && _node == _ed.rt.cam) {
 			return undefined;
@@ -31,12 +27,9 @@ function __gm3d_ed_node_to_descriptor(_ed, _node) {
 	return __gm3d_ed_node_desc(_ed, _node);
 }
 
-/// Builds a serializable descriptor for any tracked live node.
-/// @return Descriptor with kind, or undefined when untracked.
+// Converts tracked node to descriptor.
 function __gm3d_ed_node_desc(_ed, _node) {
-	// Only tracked nodes serialize: untracked game nodes (including the
-	// viewport camera, which carries a camera component) must never enter
-	// save/undo snapshots, or undo would rebuild them as new tracked nodes.
+
 	if (__gm3d_ed_registry_find(_ed, _node) == undefined) {
 		return undefined;
 	}
@@ -62,7 +55,7 @@ function __gm3d_ed_node_desc(_ed, _node) {
 	return undefined;
 }
 
-/// Builds a light/camera/environment descriptor from live TRS plus tracked props.
+// Builds light camera environment descriptor.
 function __gm3d_ed_prop_desc(_ed, _node, _kind) {
 	var _en = __gm3d_ed_registry_find(_ed, _node);
 	var _label = undefined;
@@ -125,8 +118,7 @@ function __gm3d_ed_prop_desc(_ed, _node, _kind) {
 	return _d;
 }
 
-/// Serializes the live scene into a descriptor list, in tracked order (stable
-/// across undo rebuilds; native scene order is not).
+// Serializes tracked nodes to descriptor array.
 function __gm3d_ed_serialize_scene(_ed) {
 	var _nodes = __gm3d_ed_tracked_nodes(_ed);
 	var _out = [];
@@ -139,7 +131,7 @@ function __gm3d_ed_serialize_scene(_ed) {
 	return _out;
 }
 
-/// Creates the parent folder of _path when missing (best effort).
+// Creates parent directory for path.
 function __gm3d_ed_ensure_dir(_path) {
 	var _bs = string_last_pos("\\", _path);
 	var _fs = string_last_pos("/", _path);
@@ -149,8 +141,7 @@ function __gm3d_ed_ensure_dir(_path) {
 	}
 }
 
-/// Saves the current scene to disk as JSON via a temp file and rename.
-/// @return True on success.
+// Writes serialized scene to JSON file.
 function __gm3d_ed_save_scene(_ed) {
 	var _nodes = __gm3d_ed_serialize_scene(_ed);
 	var _json = json_stringify({ version: 1, nodes: _nodes });
@@ -166,10 +157,7 @@ function __gm3d_ed_save_scene(_ed) {
 	return true;
 }
 
-/// Validates a descriptor list without touching the live scene.
-/// Missing kind means legacy asset descriptor. Only "asset" is rejected when
-/// unknown: light/camera/environment entries are validated structurally.
-/// @return True when every entry is usable.
+// Validates scene descriptor array structure.
 function __gm3d_ed_validate_descs(_nodes) {
 	if (!is_array(_nodes)) {
 		return false;
@@ -215,7 +203,7 @@ function __gm3d_ed_validate_descs(_nodes) {
 	return true;
 }
 
-/// True when _d.light holds a usable light struct.
+// Validates light descriptor structure.
 function __gm3d_ed_is_light_struct(_d) {
 	if (!variable_struct_exists(_d, "light") || !is_struct(_d.light)) {
 		return false;
@@ -245,7 +233,7 @@ function __gm3d_ed_is_light_struct(_d) {
 	return true;
 }
 
-/// True when _d.camera holds a usable camera struct.
+// Validates camera descriptor structure.
 function __gm3d_ed_is_camera_struct(_d) {
 	if (!variable_struct_exists(_d, "camera") || !is_struct(_d.camera)) {
 		return false;
@@ -275,7 +263,7 @@ function __gm3d_ed_is_camera_struct(_d) {
 	return true;
 }
 
-/// True when _d.environment holds a usable environment struct.
+// Validates environment descriptor structure.
 function __gm3d_ed_is_env_struct(_d) {
 	if (!variable_struct_exists(_d, "environment") || !is_struct(_d.environment)) {
 		return false;
@@ -299,7 +287,7 @@ function __gm3d_ed_is_env_struct(_d) {
 	return true;
 }
 
-/// True when _d[_key] is a numeric 3-array.
+// Checks for three number array.
 function __gm3d_ed_is_num3(_d, _key) {
 	if (!variable_struct_exists(_d, _key)) {
 		return false;
@@ -308,7 +296,7 @@ function __gm3d_ed_is_num3(_d, _key) {
 	return is_array(_a) && array_length(_a) == 3 && is_real(_a[0]) && is_real(_a[1]) && is_real(_a[2]);
 }
 
-/// True when _d[_key] is a numeric 4-array.
+// Checks for four number array.
 function __gm3d_ed_is_num4(_d, _key) {
 	if (!variable_struct_exists(_d, _key)) {
 		return false;
@@ -317,8 +305,7 @@ function __gm3d_ed_is_num4(_d, _key) {
 	return is_array(_a) && array_length(_a) == 4 && is_real(_a[0]) && is_real(_a[1]) && is_real(_a[2]) && is_real(_a[3]);
 }
 
-/// Rebuilds asset placements from a descriptor list.
-/// @return Placement report { placed, failed, err }.
+// Clears scene and rebuilds from descriptors.
 function __gm3d_ed_rebuild(_ed, _nodes) {
 	var _rep = { placed: 0, failed: 0, err: "" };
 	if (!is_array(_nodes)) {
@@ -330,8 +317,7 @@ function __gm3d_ed_rebuild(_ed, _nodes) {
 
 	__gm3d_ed_drop_preview_clear(_ed);
 	var _tracked = __gm3d_ed_root_tracked(_ed);
-	// Editor-only hidden flags are never serialized: carry them over by label
-	// so load/undo keep the viewport state of same-named nodes.
+
 	var _hidden_labels = [];
 	for (var _i = 0; _i < array_length(_tracked); _i++) {
 		var _he = __gm3d_ed_registry_find(_ed, _tracked[_i]);
@@ -352,7 +338,7 @@ function __gm3d_ed_rebuild(_ed, _nodes) {
 	}
 	for (var _i = 0; _i < array_length(_placementData); ++_i) {
 		var _p = _placementData[_i];
-		// Legacy files have no kind: treat missing kind as "asset".
+
 		var _kind = "asset";
 		if (variable_struct_exists(_p, "kind")) {
 			_kind = _p.kind;
@@ -408,8 +394,7 @@ function __gm3d_ed_rebuild(_ed, _nodes) {
 	return _rep;
 }
 
-/// Rebuilds one light/camera/environment node from a descriptor.
-/// @return New node or undefined.
+// Rebuilds light camera environment node.
 function __gm3d_ed_rebuild_prop(_ed, _p, _kind) {
 	var _rq = __gm3d_ed_quat_from_array(_p.rotation);
 	var _node = _ed.rt.scene.createNode(_p.name);
@@ -472,8 +457,7 @@ function __gm3d_ed_rebuild_prop(_ed, _p, _kind) {
 	return _node;
 }
 
-/// Loads a scene JSON file and rebuilds the runtime scene.
-/// @return True on success.
+// Loads scene JSON into editor.
 function __gm3d_ed_load_scene(_ed) {
 	var _path = __gm3d_ed_scene_path(_ed);
 	if (_path == "") {
@@ -501,8 +485,7 @@ function __gm3d_ed_load_scene(_ed) {
 	return true;
 }
 
-/// Reads a whole text file, including multi-line JSON.
-/// @return File text or "" when missing or unreadable.
+// Reads whole text file contents.
 function __gm3d_ed_read_text_file(_path) {
 	if (_path == "" || !file_exists(_path)) {
 		return "";
@@ -520,8 +503,7 @@ function __gm3d_ed_read_text_file(_path) {
 	return _out;
 }
 
-/// Writes text to a file.
-/// @return False when writing fails.
+// Writes text to file.
 function __gm3d_ed_write_text_file(_path, _txt) {
 	var _f = file_text_open_write(_path);
 	if (_f < 0) {
@@ -532,7 +514,7 @@ function __gm3d_ed_write_text_file(_path, _txt) {
 	return file_exists(_path);
 }
 
-/// Writes text atomically via temp file and rename.
+// Atomically writes text via temporary file.
 function __gm3d_ed_write_text_file_atomic(_path, _txt) {
 	var _tmp = _path + ".tmp";
 	if (!__gm3d_ed_write_text_file(_tmp, _txt)) {
@@ -548,12 +530,7 @@ function __gm3d_ed_write_text_file_atomic(_path, _txt) {
 	return file_exists(_path);
 }
 
-/// Loads an editor-saved scene JSON into a live game scene (no editor).
-/// @param {Any} _scene live GM3D_Scene to spawn into
-/// @param {String} _fname scene JSON path
-/// @param {Struct} _models { assetName: loadedModel, ... }; models must be
-/// loaded and frozen by the caller
-/// @return {Struct} { placed, failed } counts
+// Loads scene file into runtime scene.
 function gm3d_load(_scene, _fname, _models) {
 	var _rep = { placed: 0, failed: 0 };
 	if (_scene == undefined || _fname == undefined || _fname == "" || !is_struct(_models)) {
@@ -605,8 +582,7 @@ function gm3d_load(_scene, _fname, _models) {
 	return _rep;
 }
 
-/// Spawns one scene descriptor into a live scene.
-/// @return Spawned node or undefined.
+// Spawns single node from descriptor.
 function __gm3d_load_node(_scene, _models, _p) {
 	if (_scene == undefined || !is_struct(_p)) {
 		return undefined;
@@ -646,8 +622,7 @@ function __gm3d_load_node(_scene, _models, _p) {
 	return _node;
 }
 
-/// Creates one light/camera/environment node from a descriptor.
-/// @return New node or undefined.
+// Creates light camera environment from descriptor.
 function __gm3d_load_prop(_scene, _p, _kind, _name) {
 	var _node = _scene.createNode(_name);
 	if (_node == undefined) {
@@ -790,7 +765,7 @@ function __gm3d_load_prop(_scene, _p, _kind, _name) {
 	return _node;
 }
 
-/// Reads a [x, y, z] array from a descriptor field, with fallback.
+// Parses vector from descriptor with fallback.
 function __gm3d_load_vec3(_p, _field, _fx, _fy, _fz) {
 	try {
 		var _a = _p[$ _field];
@@ -802,7 +777,7 @@ function __gm3d_load_vec3(_p, _field, _fx, _fy, _fz) {
 	return new GM3D_Vec3(_fx, _fy, _fz);
 }
 
-/// Reads an [x, y, z, w] quaternion from a descriptor, with fallback.
+// Parses quaternion from descriptor with fallback.
 function __gm3d_load_quat(_p) {
 	try {
 		var _a = _p.rotation;

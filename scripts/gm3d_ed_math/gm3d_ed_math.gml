@@ -1,9 +1,4 @@
-/// @module gm3d_ed_math
-/// Stateless math: quaternions, distances, snap and 2D hit tests.
-
-/// Builds a forward vector from yaw and pitch.
-/// @param {Real} _yaw Angle in degrees
-/// @param {Real} _pitch Angle in degrees
+// Computes forward vector from yaw and pitch.
 function __gm3d_ed_cam_forward(_yaw, _pitch) {
 	var _y = degtorad(_yaw);
 	var _p = degtorad(_pitch);
@@ -11,8 +6,7 @@ function __gm3d_ed_cam_forward(_yaw, _pitch) {
 	return new GM3D_Vec3(sin(_y) * _cp, sin(_p), -cos(_y) * _cp);
 }
 
-/// Corner indices of the cube face on one axis.
-/// @return {Array} 4 indices, bitmask x+2y+4z
+// Computes cube face corner indices for axis.
 function __gm3d_ed_cube_face_idx(_a, _s) {
 	var _b = (_a + 1) mod 3;
 	var _c = (_a + 2) mod 3;
@@ -33,7 +27,7 @@ function __gm3d_ed_cube_face_idx(_a, _s) {
 	return _out;
 }
 
-/// Interpolates quaternions on plain [x, y, z, w] arrays.
+// Interpolates between two quaternions spherically.
 function __gm3d_ed_quat_slerp(_a, _b, _t) {
 	var _dot = _a[0] * _b[0] + _a[1] * _b[1] + _a[2] * _b[2] + _a[3] * _b[3];
 	var _b0 = _b[0];
@@ -63,7 +57,7 @@ function __gm3d_ed_quat_slerp(_a, _b, _t) {
 	return _q.normalizeSafe(0.000001);
 }
 
-/// Builds a quaternion from an [x, y, z, w] array.
+// Creates quaternion from four-element array.
 function __gm3d_ed_quat_from_array(_a) {
 	var _q = new GM3D_Quaternion();
 	_q.x = _a[0];
@@ -73,7 +67,7 @@ function __gm3d_ed_quat_from_array(_a) {
 	return _q;
 }
 
-/// Squared distance from a point to a line segment.
+// Computes squared distance point to segment.
 function __gm3d_ed_point_seg_dist2(_px, _py, _ax, _ay, _bx, _by) {
 	var _dx = _bx - _ax;
 	var _dy = _by - _ay;
@@ -90,7 +84,7 @@ function __gm3d_ed_point_seg_dist2(_px, _py, _ax, _ay, _bx, _by) {
 	return _qx * _qx + _qy * _qy;
 }
 
-/// Minimum distance from a screen point to a polyline of screen points.
+// Finds closest squared distance to polyline.
 function __gm3d_ed_point_polyline_dist2(_px, _py, _pts) {
 	var _n = array_length(_pts);
 	if (_n < 2) {
@@ -108,7 +102,7 @@ function __gm3d_ed_point_polyline_dist2(_px, _py, _pts) {
 	return _best;
 }
 
-/// Local frame axes of a rotation quaternion.
+// Converts quaternion to three basis vectors.
 function __gm3d_ed_quat_basis(_q) {
 	var _x = _q.x;
 	var _y = _q.y;
@@ -130,13 +124,13 @@ function __gm3d_ed_quat_basis(_q) {
 	];
 }
 
-/// Clips a segment to the w plane in clip space.
+// Interpolates vectors at near clip plane.
 function __gm3d_ed_clip_lerp(_a, _b, _eps) {
 	var _t = (_a.w - _eps) / (_a.w - _b.w);
 	return new GM3D_Vec4(_a.x + (_b.x - _a.x) * _t, _a.y + (_b.y - _a.y) * _t, _a.z + (_b.z - _a.z) * _t, _eps);
 }
 
-/// True when screen point (_px,_py) falls inside triangle a/b/c.
+// Tests if point lies inside triangle.
 function __gm3d_ed_tri_hit(_px, _py, _ax, _ay, _bx, _by, _cx, _cy) {
 	var _d1 = (_px - _bx) * (_ay - _by) - (_ax - _bx) * (_py - _by);
 	var _d2 = (_px - _cx) * (_by - _cy) - (_bx - _cx) * (_py - _cy);
@@ -146,7 +140,7 @@ function __gm3d_ed_tri_hit(_px, _py, _ax, _ay, _bx, _by, _cx, _cy) {
 	return !(_neg && _pos);
 }
 
-/// Snaps _v to _step (no-op when the step is not positive).
+// Snaps value to nearest step increment.
 function __gm3d_ed_snap(_v, _step) {
 	if (_step <= 0) {
 		return _v;
@@ -154,8 +148,7 @@ function __gm3d_ed_snap(_v, _step) {
 	return round(_v / _step) * _step;
 }
 
-/// Converts a quaternion to euler angles in radians, ZYX order.
-/// Normalizes first (drift-proof) and never throws on bad input.
+// Converts quaternion to Euler angles.
 function __gm3d_ed_quat_to_euler(_q) {
 	var _qx = _q.x;
 	var _qy = _q.y;
@@ -183,7 +176,7 @@ function __gm3d_ed_quat_to_euler(_q) {
 	return [_ex, _ey, _ez];
 }
 
-/// Converts euler angles in radians, ZYX order, to a quaternion.
+// Converts Euler angles to quaternion.
 function __gm3d_ed_euler_to_quat(_ex, _ey, _ez) {
 	var _c1 = cos(_ex * 0.5);
 	var _c2 = cos(_ey * 0.5);
@@ -199,8 +192,7 @@ function __gm3d_ed_euler_to_quat(_ex, _ey, _ez) {
 	return _q.normalizeSafe(0.000001);
 }
 
-/// Sorts structs in place by a numeric field.
-/// @param {Bool} _asc True for ascending
+// Sorts array of structs by field.
 function __gm3d_ed_sort_by_field(_arr, _field, _asc) {
 	for (var _a = 1; _a < array_length(_arr); _a++) {
 		var _it = _arr[_a];

@@ -1,8 +1,4 @@
-/// @module gm3d_ed_imgui_inspector
-
-/// Reads one mixed-value aware axis over the selection.
-/// @param _mode 0 position, 1 rotation (deg), 2 scale.
-/// @param _idx 0 X, 1 Y, 2 Z.
+// Gets shared axis value detecting mixed selection.
 function __gm3d_ed_axis_val(_ed, _mode, _idx) {
 	var _v = 0;
 	var _mixed = false;
@@ -27,7 +23,7 @@ function __gm3d_ed_axis_val(_ed, _mode, _idx) {
 	return { mixed: _mixed, val: _v };
 }
 
-/// Draws the inspector with selection title and transform fields.
+// Draws Inspector window for current selection.
 function __gm3d_ed_imgui_inspector(_ed) {
 	var _ui = _ed.imgui;
 	if (!_ui.win_insp.open) {
@@ -62,9 +58,7 @@ function __gm3d_ed_imgui_inspector(_ed) {
 				}
 			}
 		}
-		// Transform rows that cannot affect the node are hidden entirely:
-		// directional shows rotation only, point shows position only,
-		// cameras and spots show position + rotation, environment none.
+
 		var _show_p = true;
 		var _show_r = true;
 		var _show_s = true;
@@ -112,8 +106,7 @@ function __gm3d_ed_imgui_inspector(_ed) {
 	ImGui.End();
 }
 
-/// Draws one transform row with X/Y/Z textboxes.
-/// @param _mode 0 position, 1 rotation (deg), 2 scale.
+// Edits Position Rotation or Scale axis row.
 function __gm3d_ed_imgui_axis_row(_ed, _mode, _label) {
 	var _names = ["X", "Y", "Z"];
 	if (_ed.imgui == undefined) {
@@ -126,8 +119,7 @@ function __gm3d_ed_imgui_axis_row(_ed, _mode, _label) {
 	ImGui.PushID(_mode);
 	ImGui.AlignTextToFramePadding();
 	ImGui.Text(_label);
-	// Drag speed per mode: rotation is in degrees, so it needs a faster
-	// step than position/scale to feel the same under the mouse.
+
 	var _speed = _mode == 1 ? 0.1 : 0.01;
 	for (var _a = 0; _a < 3; _a++) {
 		var _av = __gm3d_ed_axis_val(_ed, _mode, _a);
@@ -140,10 +132,7 @@ function __gm3d_ed_imgui_axis_row(_ed, _mode, _label) {
 		var _fkey = "ax" + string(_mode) + "_" + _label + "_" + _names[_a];
 		var _was = false;
 		_was = _ed.imgui.ax_active[$ _fkey] == true;
-		// Draft cache while the widget is active: DragFloat only accumulates
-		// correctly when each frame feeds back the previous frame output.
-		// Passing the committed node value every frame resets the drag, so
-		// it feels insensitive and the blur frame only keeps the last pixel.
+
 		if (!variable_struct_exists(_ed.imgui, "ax_draft")) {
 			_ed.imgui.ax_draft = {};
 		}
@@ -175,10 +164,7 @@ function __gm3d_ed_imgui_axis_row(_ed, _mode, _label) {
 	ImGui.PopID();
 }
 
-/// Float field with commit-on-defocus for prop sections.
-/// While active, the in-progress drag is kept in a per-key draft so the
-/// widget accumulates correctly (same stale-value issue as the axis rows).
-/// @return Committed value, or undefined when untouched.
+// Edits float property with edit tracking.
 function __gm3d_ed_imgui_prop_float(_ed, _key, _label, _val, _w) {
 	if (_ed.imgui == undefined) {
 		__gm3d_ed_imgui_ensure(_ed);
@@ -214,8 +200,7 @@ function __gm3d_ed_imgui_prop_float(_ed, _key, _label, _val, _w) {
 	return undefined;
 }
 
-/// Finishes a prop edit: re-points tracked rows and commits undo.
-/// @param _hb before-snapshot from __gm3d_ed_history_snap.
+// Updates rows and commits history snapshot.
 function __gm3d_ed_props_end(_ed, _hb) {
 	__gm3d_ed_rows_follow(_ed, _ed.sel);
 	if (_hb != undefined) {
@@ -223,9 +208,7 @@ function __gm3d_ed_props_end(_ed, _hb) {
 	}
 }
 
-/// True when the ImGui binding exposes a widget (probed once, then cached).
-/// Guards widgets that exist in docs but may miss from the GMRT binding
-/// (e.g. SeparatorText): never call an unprobed widget directly.
+// Checks cached ImGui widget availability.
 function __gm3d_ed_imgui_has_widget(_ed, _name) {
 	if (_ed.imgui == undefined) {
 		__gm3d_ed_imgui_ensure(_ed);
@@ -247,9 +230,7 @@ function __gm3d_ed_imgui_has_widget(_ed, _name) {
 	return _ok;
 }
 
-/// Color picker bound to a packed GM color, with one undo entry per gesture.
-/// Applies live while dragging; commits history once on release.
-/// @return New packed color, or undefined when untouched this frame.
+// Edits color with undo history grouping.
 function __gm3d_ed_imgui_color_edit(_ed, _key, _label, _packed) {
 	if (_ed.imgui == undefined) {
 		__gm3d_ed_imgui_ensure(_ed);
@@ -278,7 +259,7 @@ function __gm3d_ed_imgui_color_edit(_ed, _key, _label, _packed) {
 	return undefined;
 }
 
-/// Light section of the inspector (single selection).
+// Edits light properties in Inspector.
 function __gm3d_ed_imgui_light_sec(_ed, _node, _en) {
 	var _d = _en.data;
 	ImGui.Separator();
@@ -300,17 +281,7 @@ function __gm3d_ed_imgui_light_sec(_ed, _node, _en) {
 		__gm3d_ed_props_end(_ed, _hb9);
 		__gm3d_ed_sel_apply_tool(_ed);
 	}
-	// SPOT DISABLED: same reason as the Create menu (no cone uniforms in the
-	// pipeline). Loaded spot entries still show below with their cone fields.
-	// if (ImGui.RadioButton("Spot", _d.type == "spot")) {
-	// 	var _hb0 = __gm3d_ed_history_snap(_ed);
-	// 	_d.type = "spot";
-	// 	if (_d.range < 0.5) {
-	// 		_d.range = 50.0;
-	// 	}
-	// 	__gm3d_ed_light_apply(_node, _d);
-	// 	__gm3d_ed_props_end(_ed, _hb0);
-	// }
+
 	var _nen = ImGui.Checkbox("Enabled", _d.enabled == true);
 	if (_nen != (_d.enabled == true)) {
 		var _hb2 = __gm3d_ed_history_snap(_ed);
@@ -358,7 +329,7 @@ function __gm3d_ed_imgui_light_sec(_ed, _node, _en) {
 	}
 }
 
-/// Camera section of the inspector (single selection).
+// Edits camera properties in Inspector.
 function __gm3d_ed_imgui_camera_sec(_ed, _node, _en) {
 	var _d = _en.data;
 	ImGui.Separator();
@@ -420,12 +391,11 @@ function __gm3d_ed_imgui_camera_sec(_ed, _node, _en) {
 		__gm3d_ed_camera_apply(_node, _d);
 		__gm3d_ed_props_end(_ed, _hb7);
 	}
-	// Live cameras stay muted while the editor is open (only the viewport
-	// camera renders); the Enabled flag above is the game-side file value.
+
 	__gm3d_ed_cameras_mute(_ed);
 }
 
-/// Environment section of the inspector (single selection).
+// Edits environment properties in Inspector.
 function __gm3d_ed_imgui_env_sec(_ed, _node, _en) {
 	var _d = _en.data;
 	ImGui.Separator();

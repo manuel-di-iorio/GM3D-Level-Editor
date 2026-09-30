@@ -1,15 +1,4 @@
-/// @module gm3d_ed_imgui
-/// ImGui shell with toolbar, menu, assets, scene, inspector and confirm dialog.
-/// Binding notes (GMRT ImGui, from ImGUI.yyb metadata + YoYoGames/ImGUI-Sample):
-/// image widgets take a sprite via asset_get_index (a bare asset constant crashes the runner),
-/// only raster sprites work (vector sprites crash), and the signatures are
-/// Image(sprite, subImage, colour, alpha, width, height, uvs) and
-/// ImageButton(strID, sprite, subImage, colour, alpha, colourBG, alphaBG,
-/// width, height, uvs). Width/height 0 means native sprite size; OMIT uvs for
-/// the full sprite (passing undefined throws; [0,0,1,1] samples the whole
-/// texture page).
-
-/// Returns a fixed-capacity padded buffer for stable text input.
+// Pads string with spaces to fixed length.
 function __gm3d_ed_imgui_pad(_base) {
 	if (!is_string(_base)) {
 		_base = "";
@@ -21,13 +10,7 @@ function __gm3d_ed_imgui_pad(_base) {
 	return _buf;
 }
 
-/// Fixed-length text input with a persistent per-key buffer.
-/// The buffer is reseeded from _val only while the widget is inactive;
-/// while editing, the in-progress text round-trips untouched, so the native
-/// side never sees a fresh allocation mid-edit and typing can never overflow
-/// the buffer ceiling.
-/// @param _key unique field id across frames.
-/// @return { text, active, was_active }.
+// Renders editable text input with focus tracking.
 function __gm3d_ed_imgui_text(_key, _label, _val) {
 	static _active = {};
 	static _bufs = {};
@@ -51,11 +34,7 @@ function __gm3d_ed_imgui_text(_key, _label, _val) {
 	return { text: string_trim(_out), active: _now, was_active: _was };
 }
 
-/// Drag-based float field (no typing needed): bypasses the broken char-input
-/// path of text widgets on runtimes where typed glyphs render as "????".
-/// Probes ImGui.DragFloat once; falls back to InputFloat when missing.
-/// @param _speed drag speed in units per pixel.
-/// @return Current value (old value when the binding misbehaves).
+// Edits float via drag control with fallback.
 function __gm3d_ed_imgui_dragfloat(_label, _val, _speed) {
 	static _has = undefined;
 	if (_has == undefined) {
@@ -81,9 +60,7 @@ function __gm3d_ed_imgui_dragfloat(_label, _val, _speed) {
 	return _out;
 }
 
-/// Text input with placeholder hint and hidden label id.
-/// Same persistent-buffer contract as imgui_text.
-/// @param _id_label hidden ImGui id (e.g. ##x).
+// Renders text input showing placeholder hint.
 function __gm3d_ed_imgui_text_hint(_id_label, _hint, _val) {
 	static _active = {};
 	static _bufs = {};
@@ -112,7 +89,7 @@ function __gm3d_ed_imgui_text_hint(_id_label, _hint, _val) {
 	return string_trim(_out);
 }
 
-/// Creates ImGui UI state (window flags and filters) if missing.
+// Initializes editor ImGui state if missing.
 function __gm3d_ed_imgui_ensure(_ed) {
 	if (_ed.imgui != undefined) {
 		return;
@@ -138,7 +115,7 @@ function __gm3d_ed_imgui_ensure(_ed) {
 	};
 }
 
-/// Draws all editor ImGui windows each Step while the editor is active.
+// Draws all editor ImGui windows and menus.
 function __gm3d_ed_imgui_draw(_ed) {
 	if (!_ed.active) {
 		return;
@@ -149,8 +126,7 @@ function __gm3d_ed_imgui_draw(_ed) {
 	__gm3d_ed_imgui_ensure(_ed);
 	__gm3d_ed_imgui_style_once(_ed);
 	ImGui.DockSpaceOverViewport(0, 0, ImGuiDockNodeFlags.PassthruCentralNode);
-	// Re-apply the default layout while the window size is changing (same
-	// mechanism as Reset Layout, one Always frame per resize step).
+
 	if (!variable_struct_exists(_ed.imgui, "_pw")) {
 		_ed.imgui._pw = 0;
 		_ed.imgui._ph = 0;
@@ -181,10 +157,7 @@ function __gm3d_ed_imgui_draw(_ed) {
 	}
 }
 
-/// Draws one toolbar tool button with a caption; highlighted while active.
-/// @param _tip tooltip text.
-/// @param _label visible caption.
-/// @return True when clicked.
+// Draws toolbar button with tooltip and highlight.
 function __gm3d_ed_imgui_tool_btn(_tip, _label, _active) {
 	var _pushed = 0;
 	if (_active) {
@@ -199,8 +172,7 @@ function __gm3d_ed_imgui_tool_btn(_tip, _label, _active) {
 	return _hit;
 }
 
-/// Floating scene toolbar: tool switch, axes space, snap/grid split
-/// controls (toggle button + increment dropdown, Unity-like) and home.
+// Draws gizmo tools and snap options toolbar.
 function __gm3d_ed_imgui_toolbar(_ed) {
 	if (!_ed.imgui.win_toolbar.open) {
 		return;
@@ -224,7 +196,7 @@ function __gm3d_ed_imgui_toolbar(_ed) {
 	}
 	ImGui.SameLine();
 	ImGui.TextDisabled("|");
-	// Gizmo space: single toggle button, Unity-like (Global/Local switch).
+
 	ImGui.SameLine();
 	var _olbl = _ed.giz.orient == 1 ? "Local" : "World";
 	if (__gm3d_ed_imgui_tool_btn("Gizmo axes space (" + _olbl + ", click to switch)", _olbl, false)) {
@@ -232,8 +204,7 @@ function __gm3d_ed_imgui_toolbar(_ed) {
 	}
 	ImGui.SameLine();
 	ImGui.TextDisabled("|");
-	// Snap split control: the button toggles, the combo edits increments
-	// without forcing a toggle.
+
 	ImGui.SameLine();
 	if (__gm3d_ed_imgui_tool_btn("Snap to increments (on/off)", "Snap", _ed.snap_on)) {
 		_ed.snap_on = !_ed.snap_on;
@@ -242,7 +213,7 @@ function __gm3d_ed_imgui_toolbar(_ed) {
 	__gm3d_ed_imgui_snap_combo(_ed);
 	ImGui.SameLine();
 	ImGui.TextDisabled("|");
-	// Grid split control: same pattern, toggle + cell size.
+
 	ImGui.SameLine();
 	if (__gm3d_ed_imgui_tool_btn("Show grid (on/off)", "Grid", _ed.show_grid)) {
 		_ed.show_grid = !_ed.show_grid;
@@ -258,8 +229,7 @@ function __gm3d_ed_imgui_toolbar(_ed) {
 	ImGui.End();
 }
 
-/// Toolbar snap increment dropdown: presets plus custom move/rotate steps.
-/// The on/off toggle lives on the Snap button; this only edits values.
+// Edits movement and rotation snap increments.
 function __gm3d_ed_imgui_snap_combo(_ed) {
 	if (!__gm3d_ed_imgui_has_widget(_ed, "BeginCombo")) {
 		_ed.snap_pos = max(0.01, __gm3d_ed_imgui_dragfloat("##snappos_fb", _ed.snap_pos, 0.005));
@@ -308,8 +278,7 @@ function __gm3d_ed_imgui_snap_combo(_ed) {
 	}
 }
 
-/// Toolbar grid cell-size dropdown: presets plus a custom step.
-/// Shows/hides via the Grid button; this only edits the pitch.
+// Edits grid cell size via presets.
 function __gm3d_ed_imgui_grid_combo(_ed) {
 	if (!variable_struct_exists(_ed, "grid_step") || !is_real(_ed.grid_step)) {
 		_ed.grid_step = 1;
@@ -362,12 +331,12 @@ function __gm3d_ed_imgui_grid_combo(_ed) {
 	}
 }
 
-/// Returns the UI prefs file path.
+// Returns UI settings file path.
 function __gm3d_ed_ui_path() {
 	return working_directory + "gm3d_editor_ui.json";
 }
 
-/// Saves UI prefs (viewcube offset) as JSON.
+// Saves view cube offset to file.
 function __gm3d_ed_ui_save(_ed) {
 	if (_ed == undefined) {
 		return;
@@ -375,7 +344,7 @@ function __gm3d_ed_ui_save(_ed) {
 	__gm3d_ed_write_text_file(__gm3d_ed_ui_path(), json_stringify({ cube_off: _ed.cube_off }));
 }
 
-/// Loads UI prefs if present, ignoring missing or malformed files.
+// Loads view cube offset from file.
 function __gm3d_ed_ui_load(_ed) {
 	if (_ed == undefined) {
 		return;
@@ -403,7 +372,7 @@ function __gm3d_ed_ui_load(_ed) {
 	_ed.cube_off = [clamp(_c[0], 0, 10000), clamp(_c[1], 0, 10000)];
 }
 
-/// Unsaved-changes confirm dialog for New, Load and Close.
+// Shows unsaved changes confirmation dialog.
 function __gm3d_ed_imgui_confirm(_ed) {
 	var _c = undefined;
 	_c = _ed.confirm;
@@ -462,16 +431,14 @@ function __gm3d_ed_imgui_confirm(_ed) {
 	__gm3d_ed_imgui_pop(_pushed);
 }
 
-/// Pops _n ImGui style colors.
-/// @param _n color count to pop.
+// Pops specified number of style colors.
 function __gm3d_ed_imgui_pop(_n) {
 	for (var _i = 0; _i < _n; _i++) {
 		ImGui.PopStyleColor();
 	}
 }
 
-/// Returns default floating rects: Scene top-left, Models under it,
-/// Inspector bottom-right, viewcube top-right.
+// Computes default panel positions and sizes.
 function __gm3d_ed_imgui_place(_ed) {
 	var _gw = max(640, _ed.gw);
 	var _gh = max(400, _ed.gh);
@@ -488,7 +455,7 @@ function __gm3d_ed_imgui_place(_ed) {
 	};
 }
 
-/// Applies the dark navy ImGui theme once.
+// Applies editor ImGui theme once.
 function __gm3d_ed_imgui_style_once(_ed) {
 	if (_ed.imgui.style_init) {
 		return;
@@ -500,8 +467,7 @@ function __gm3d_ed_imgui_style_once(_ed) {
 	var _accent_hi = make_colour_rgb(45, 60, 95);
 	__gm3d_ed_imgui_style_color(ImGuiCol.Text, make_colour_rgb(229, 233, 240), 1);
 	__gm3d_ed_imgui_style_color(ImGuiCol.TextDisabled, make_colour_rgb(120, 130, 150), 1);
-	// Window surfaces stay opaque in style (alpha 1): the final 0.95 comes
-	// from SetNextWindowBgAlpha alone, so it lands exactly.
+
 	__gm3d_ed_imgui_style_color(ImGuiCol.WindowBg, _bg, 1);
 	__gm3d_ed_imgui_style_color(ImGuiCol.ChildBg, _panel, 1);
 	__gm3d_ed_imgui_style_color(ImGuiCol.PopupBg, make_colour_rgb(24, 30, 48), 1);
@@ -526,19 +492,18 @@ function __gm3d_ed_imgui_style_once(_ed) {
 	__gm3d_ed_imgui_style_color(ImGuiCol.DockingEmptyBg, c_black, 0);
 }
 
-/// Sets transparency for the next window.
-/// @param _a 0 invisible, 1 opaque.
+// Sets next window background transparency.
 function __gm3d_ed_imgui_bg_alpha(_a) {
 	ImGui.SetNextWindowBgAlpha(_a);
 }
 
-/// Applies one ImGui style color.
+// Sets ImGui style color value.
 function __gm3d_ed_imgui_style_color(_col, _rgb, _alpha) {
 	ImGui.SetStyleColor(_col, _rgb, _alpha);
 	return true;
 }
 
-/// Draws the main menu bar (File, Tools, Windows).
+// Draws main menu bar with actions.
 function __gm3d_ed_imgui_menu(_ed) {
 	var _ui = _ed.imgui;
 	var _mbar = false;
@@ -579,11 +544,7 @@ function __gm3d_ed_imgui_menu(_ed) {
 		if (ImGui.MenuItem("Point Light")) {
 			__gm3d_ed_create_light(_ed, "point");
 		}
-		// SPOT DISABLED: the GMRT pipeline exposes no cone uniforms, so spot
-		// lights render as points. Re-enable when the runtime supports them.
-		// if (ImGui.MenuItem("Spot Light")) {
-		// 	__gm3d_ed_create_light(_ed, "spot");
-		// }
+
 		ImGui.Separator();
 		if (ImGui.MenuItem("Perspective Camera")) {
 			__gm3d_ed_create_camera(_ed, "perspective");
@@ -635,7 +596,7 @@ function __gm3d_ed_imgui_menu(_ed) {
 	__gm3d_ed_menu_do(_ed, _do_new, _do_load, _do_saveas, _do_close);
 }
 
-/// Draws the Models asset window.
+// Draws Models asset browser window.
 function __gm3d_ed_imgui_assets(_ed) {
 	var _ui = _ed.imgui;
 	if (!_ui.win_assets.open) {
@@ -656,12 +617,10 @@ function __gm3d_ed_imgui_assets(_ed) {
 	ImGui.End();
 }
 
-/// Draws the filterable droppable model list (list or cards view).
+// Lists filterable draggable model assets.
 function __gm3d_ed_imgui_asset_list(_ed) {
 	var _ui = _ed.imgui;
-	// TODO: cards view disabled until model previews work on GMRT
-	// (texture-target cameras capture nothing, sprite_create_from_surface
-	// throws, so there is no GPU path from render to card sprite).
+
 	_ui.models_view = "list";
 	ImGui.SetNextItemWidth(-1);
 	_ui.filter = __gm3d_ed_imgui_text_hint("##filter", "Filter models...", _ui.filter);
@@ -697,7 +656,7 @@ function __gm3d_ed_imgui_asset_list(_ed) {
 	}
 }
 
-/// Toggle button with explicit size for roomier padding, highlighted while active.
+// Draws small button with active highlight.
 function __gm3d_ed_imgui_small_btn(_ed, _label, _active) {
 	var _pushed = 0;
 	if (_active) {
@@ -709,9 +668,7 @@ function __gm3d_ed_imgui_small_btn(_ed, _label, _active) {
 	return _hit;
 }
 
-/// Card grid of models: thumbnail sprite when provided via asset_add, else a
-/// grey square. Runtime GPU baking is impossible on GMRT (renderTexture not
-/// sampleable, sprite_create_from_surface broken): thumbs are static art.
+// Draws assets in grid card layout.
 function __gm3d_ed_imgui_asset_cards(_ed, _flt) {
 	var _cs = 60;
 	var _gap = 12;
@@ -735,8 +692,7 @@ function __gm3d_ed_imgui_asset_cards(_ed, _flt) {
 	}
 }
 
-/// Truncates _text with ".." to fit _maxw px (UI font), cached per string.
-/// Falls back to the full text when measuring is unavailable.
+// Truncates text to fit pixel width.
 function __gm3d_ed_imgui_trunc_text(_text, _maxw) {
 	static _cache = {};
 	var _ck = _text + "|" + string(_maxw);
@@ -774,8 +730,7 @@ function __gm3d_ed_imgui_trunc_text(_text, _maxw) {
 	return _out;
 }
 
-/// One model card: square plus name with 4px padding on every side.
-/// Hit-test button covers the padded cell; hover highlights the square.
+// Draws draggable asset thumbnail card.
 function __gm3d_ed_imgui_asset_card(_ed, _a, _i, _cs) {
 	var _th = 16;
 	var _pad = 4;
@@ -838,7 +793,7 @@ function __gm3d_ed_imgui_asset_card(_ed, _a, _i, _cs) {
 	ImGui.PopID();
 }
 
-/// Returns true when the native ImGui module is available.
+// Checks whether ImGui extension is available.
 function __gm3d_ed_imgui_check(_ed) {
 	if (_ed.imgui_ok != undefined) {
 		return _ed.imgui_ok;
@@ -850,7 +805,7 @@ function __gm3d_ed_imgui_check(_ed) {
 	return _ed.imgui_ok;
 }
 
-/// Runs deferred File menu actions (new, load, save-as, close).
+// Executes pending menu bar actions.
 function __gm3d_ed_menu_do(_ed, _new, _load, _saveas, _close) {
 	if (_new) {
 		__gm3d_ed_confirm_ask(_ed, "new");

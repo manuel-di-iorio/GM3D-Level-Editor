@@ -1,6 +1,4 @@
-/// @module gm3d_ed_imgui_scene
-
-/// Draws the Scene hierarchy window.
+// Draws Scene hierarchy window.
 function __gm3d_ed_imgui_scene_win(_ed) {
 	var _ui = _ed.imgui;
 	if (!_ui.win_scene.open) {
@@ -21,10 +19,7 @@ function __gm3d_ed_imgui_scene_win(_ed) {
 	ImGui.End();
 }
 
-/// Eye toggle button for Scene rows: open eye when visible, closed eye when
-/// hidden (dimmed open eye if the closed sprite is missing), else text.
-/// Ghost mode renders it transparent for a stable layout (pair with disabled).
-/// @return True when clicked.
+// Draws visibility toggle eye button.
 function __gm3d_ed_imgui_eye(_ed, _hidden, _ghost) {
 	static _eye_open = -2;
 	static _eye_shut = -2;
@@ -50,7 +45,7 @@ function __gm3d_ed_imgui_eye(_ed, _hidden, _ghost) {
 	}
 	var _hit = false;
 	if (_eye_spr != -1) {
-		// Frameless icon: transparent button colors, sprite at native size.
+
 		ImGui.PushStyleColor(ImGuiCol.Button, c_black, 0);
 		ImGui.PushStyleColor(ImGuiCol.ButtonHovered, make_colour_rgb(47, 111, 237), 0.35);
 		ImGui.PushStyleColor(ImGuiCol.ButtonActive, make_colour_rgb(47, 111, 237), 0.5);
@@ -62,8 +57,7 @@ function __gm3d_ed_imgui_eye(_ed, _hidden, _ghost) {
 		} catch (_e1) {
 		}
 		try {
-			// 9 args: uvs omitted entirely (undefined throws in this
-			// binding); omitted uvs default to the full sprite.
+
 			_hit = ImGui.ImageButton("eye", _eye_spr, 0, _tint, _ghost ? 0 : 1, c_black, 0, _ew, _eh);
 		} catch (_e2) {
 			if (_hidden) {
@@ -90,8 +84,7 @@ function __gm3d_ed_imgui_eye(_ed, _hidden, _ghost) {
 	return _hit;
 }
 
-/// Begins renaming a tracked scene node into a textbox.
-/// @param _node tracked scene node to rename.
+// Starts in-place node rename mode.
 function __gm3d_ed_rename_begin(_ed, _node) {
 	if (_node == undefined) {
 		return;
@@ -114,22 +107,20 @@ function __gm3d_ed_rename_begin(_ed, _node) {
 	_ed.imgui.win_scene.open = true;
 }
 
-/// Cancels any open rename without applying.
+// Cancels active node rename.
 function __gm3d_ed_rename_cancel(_ed) {
 	_ed.rename_name = undefined;
 	_ed.rename_pos = undefined;
 }
 
-/// True when _node matches the rename snapshot position.
+// Checks node matches rename target position.
 function __gm3d_ed_rename_at(_ed, _node) {
 	var _rp = _ed.rename_pos;
 	var _pp = _node.getLocalPosition();
 	return _pp.x == _rp[0] && _pp.y == _rp[1] && _pp.z == _rp[2];
 }
 
-/// Draws a sprite reserving its layout box but rendering the pixels shifted
-/// down by _dy (CSS-absolute style: layout untouched, overlap allowed).
-/// @return True when drawn (false = caller falls back to Image).
+// Draws icon image with vertical offset.
 function __gm3d_ed_imgui_icon_shifted(_spr, _tint, _iw, _ih, _dy) {
 	var _sx = undefined;
 	var _sy = undefined;
@@ -152,8 +143,7 @@ function __gm3d_ed_imgui_icon_shifted(_spr, _tint, _iw, _ih, _dy) {
 	return true;
 }
 
-/// Kind filter cell: sprite icon (dimmed when off) plus a small checkbox.
-/// @return New flag value.
+// Draws node kind visibility filter toggle.
 function __gm3d_ed_imgui_kind_filter(_ed, _sprname, _id, _tip, _val) {
 	static _ok = {};
 	var _spr = -1;
@@ -197,9 +187,7 @@ function __gm3d_ed_imgui_kind_filter(_ed, _sprname, _id, _tip, _val) {
 	return ImGui.Checkbox("##kf" + _id, _val);
 }
 
-/// Kind icon for a Scene row (filter icon set, native size, dimmed when
-/// hidden). Point lights and the environment share the PointLight icon.
-/// Flags its row for the eye grace period on hover.
+// Draws node type icon with tooltip.
 function __gm3d_ed_imgui_kind_icon(_ed, _nd, _nk, _ishid, _i) {
 	var _sn = "sprGM3DIconObject";
 	var _tip = "Model";
@@ -248,7 +236,7 @@ function __gm3d_ed_imgui_kind_icon(_ed, _nd, _nk, _ishid, _i) {
 	}
 }
 
-/// Draws the filterable scene root list with selection, focus and rename.
+// Draws filterable scene list with selection actions.
 function __gm3d_ed_imgui_scene_list(_ed) {
 	var _ui = _ed.imgui;
 	ImGui.SetNextItemWidth(-1);
@@ -284,7 +272,7 @@ function __gm3d_ed_imgui_scene_list(_ed) {
 	}
 	var _flt = "";
 	_flt = string_lower(_ui.scene_filter);
-	// Tracked order, not native scene order: stays put across undo/redo/load.
+
 	_roots = __gm3d_ed_tracked_nodes(_ed);
 	for (var _i = 0; _i < array_length(_roots); _i++) {
 		var _nd = _roots[_i];
@@ -322,9 +310,7 @@ function __gm3d_ed_imgui_scene_list(_ed) {
 			}
 		} else {
 			var _ishid = __gm3d_ed_hidden_get(_ed, _nd);
-			// Eye far left, always the same widget (zero shift): transparent
-			// when concealed, clicks ignored unless visible. Hover works on
-			// the whole row including the invisible slot.
+
 			var _eye_show = _ishid || (_ui.scene_eye_idx == _i && current_time <= _ui.scene_eye_till);
 			if (__gm3d_ed_imgui_eye(_ed, _ishid, !_eye_show)) {
 				__gm3d_ed_hidden_set(_ed, _nd, !_ishid);

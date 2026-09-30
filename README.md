@@ -22,36 +22,44 @@ Embeddable 3D level editor for GameMaker on the GM3D runtime, using the built-in
 ed = gm3d_editor_init(id, {
     scene: global.my_scene, // your live GM3D_Scene
     cam: global.my_camera,  // your camera node (the editor flies it while open)
+    on_spawn: my_on_spawn,  // optional per-instance setup, or undefined
+    on_close: my_on_close,  // optional resume hook, or undefined
 });
 gm3d_editor_asset_add(ed, "Tree", my_load_model("models/tree.glb"));
-gm3d_editor_load("myscene.json"); // or start empty
+gm3d_editor_track(ed, "asset", "Tree", my_tree_node, "Tree");
+gm3d_editor_track(ed, "light", "", my_sun_node, "Sun");
+// ... or gm3d_editor_load("myscene.json")
 
 // Step
 gm3d_editor_step(ed);
 if (!gm3d_editor_is_active()) my_game_step(); // live world only while closed
 
 // Draw
+gm3d_editor_prerender(ed);
 my_game_render();
+gm3d_editor_postrender(ed);
 
 // Draw GUI
-if (gm3d_editor_is_active()) gm3d_editor_draw(ed);
+gm3d_editor_draw(ed);
 
 // Clean Up
 gm3d_editor_cleanup(ed);
 ```
 
-While the editor is open it owns the camera and the scene: pause your own simulation and resume it in `on_close`. Nodes your game spawns itself can join Scene/Inspector/save/undo via `gm3d_editor_track_node(ed, asset_name, node)`.
+While the editor is open it owns the camera and the scene: pause your own simulation and resume it in `on_close`. Nodes your game spawns itself can join Scene/Inspector/save/undo via `gm3d_editor_track(ed, kind, asset, node, label?)`, where `kind` is `"asset"`, `"light"`, `"camera"` or `"environment"` (for assets, `asset` is the library name).
 
 ## Public API
 
 | Function | Purpose |
 |---|---|
-| `gm3d_editor_init(self, opts)` | Boot editor state by passing some options like the camera and scene |
-| `gm3d_editor_step(ed)` / `gm3d_editor_draw(ed)` | Per-frame update + 3D overlay (gizmo, selection) |
+| `gm3d_editor_init(self, adapter)` | Boot editor state from `{ scene, cam, on_spawn?, on_close? }` |
+| `gm3d_editor_step(ed)` / `gm3d_editor_draw(ed)` | Per-frame update (Step) + 3D overlay in Draw GUI (gizmo, selection) |
+| `gm3d_editor_prerender(ed)` / `gm3d_editor_postrender(ed)` | Draw-event hooks around your render: shader warmup, then outline mask + GPU pick |
 | `gm3d_editor_cleanup(ed)` | Autosave-if-dirty, destroy, cleanup |
 | `gm3d_editor_enable/disable/toggle/is_active()` | Open/close the editor (gateway steps the live world while closed) |
 | `gm3d_editor_asset_add(ed, name, model)` / `gm3d_editor_asset_clear(ed)` | Models library (names should be unique) |
-| `gm3d_editor_track_node(ed, asset, node, label?)` | Adopt a code-spawned instance into Scene/Inspector/save/undo |
+| `gm3d_editor_track(ed, kind, asset, node, label?)` | Adopt a code-spawned node into Scene/Inspector/save/undo (`kind` is `"asset"`, `"light"`, `"camera"` or `"environment"`) |
+| `gm3d_editor_track_node(ed, asset, node, label?)` | Adopt a code-spawned instance (asset shortcut for the above) |
 | `gm3d_editor_light_add(ed, node, label?)` / `gm3d_editor_camera_add(ed, node, label?)` / `gm3d_editor_environment_add(ed, node, label?)` | Adopt a code-spawned light, camera or environment node |
 | `gm3d_editor_load(fname)` | Load a scene file into the editor |
 | `gm3d_load(scene, fname, models)` | Load a saved scene into a live game scene (no editor); `models` is `{ asset: loadedModel }`, returns `{ placed, failed }` |

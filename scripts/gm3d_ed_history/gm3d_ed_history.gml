@@ -1,7 +1,4 @@
-/// @module gm3d_ed_history
-/// Undo/redo via JSON snapshots with selection restore.
-
-/// Clears both undo and redo stacks (new scene, load).
+// Clears undo and redo history stacks.
 function __gm3d_ed_history_clear(_ed) {
 	if (_ed == undefined) {
 		return;
@@ -10,8 +7,7 @@ function __gm3d_ed_history_clear(_ed) {
 	_ed.redo = [];
 }
 
-/// Captures a full scene plus selection snapshot.
-/// @return { json, sel } snapshot data.
+// Captures current scene and selection as snapshot.
 function __gm3d_ed_history_snap(_ed) {
 	var _nodes = __gm3d_ed_serialize_scene(_ed);
 	var _sel = [];
@@ -24,7 +20,7 @@ function __gm3d_ed_history_snap(_ed) {
 	return { json: json_stringify(_nodes), sel: _sel };
 }
 
-/// Commits a before-snapshot after a gesture; no-op when unchanged.
+// Pushes prior snapshot onto undo stack.
 function __gm3d_ed_history_commit(_ed, _before) {
 	var _cur = undefined;
 	_cur = __gm3d_ed_history_snap(_ed);
@@ -45,7 +41,7 @@ function __gm3d_ed_history_commit(_ed, _before) {
 	_ed.dirty = true;
 }
 
-/// True when two placement descriptors match within float tolerance.
+// Compares node descriptors for approximate equality.
 function __gm3d_ed_desc_match(_a, _b) {
 	var _ka = variable_struct_exists(_a, "kind") ? _a.kind : "asset";
 	var _kb = variable_struct_exists(_b, "kind") ? _b.kind : "asset";
@@ -85,8 +81,7 @@ function __gm3d_ed_desc_match(_a, _b) {
 	return true;
 }
 
-/// Restores selection by descriptor match over the fresh scene.
-/// @param _sel_descs selection descriptors.
+// Restores selection from saved node descriptors.
 function __gm3d_ed_history_restore_sel(_ed, _sel_descs) {
 	var _out = [];
 	if (is_array(_sel_descs) && array_length(_sel_descs) > 0) {
@@ -117,7 +112,7 @@ function __gm3d_ed_history_restore_sel(_ed, _sel_descs) {
 	_ed.giz.drag = -1;
 }
 
-/// Undoes one snapshot via full scene rebuild.
+// Reverts scene to previous undo snapshot.
 function __gm3d_ed_history_undo(_ed) {
 	if (!is_array(_ed.undo) || array_length(_ed.undo) == 0) {
 		return false;
@@ -139,7 +134,7 @@ function __gm3d_ed_history_undo(_ed) {
 	return true;
 }
 
-/// Redoes one snapshot via full scene rebuild.
+// Reapplies scene from redo snapshot.
 function __gm3d_ed_history_redo(_ed) {
 	if (!is_array(_ed.redo) || array_length(_ed.redo) == 0) {
 		return false;
@@ -161,7 +156,7 @@ function __gm3d_ed_history_redo(_ed) {
 	return true;
 }
 
-/// Undoes the last editor gesture (Ctrl+Z).
+// Triggers undo on active editor instance.
 function gm3d_editor_undo() {
 	var _e = gm3d_editor_inst();
 	if (_e == undefined) {
@@ -170,7 +165,7 @@ function gm3d_editor_undo() {
 	return __gm3d_ed_history_undo(_e);
 }
 
-/// Redoes the last undone gesture (Ctrl+Y).
+// Triggers redo on active editor instance.
 function gm3d_editor_redo() {
 	var _e = gm3d_editor_inst();
 	if (_e == undefined) {

@@ -1,18 +1,4 @@
-/// @module gm3d_ed_outline
-/// Unique-style selection outline for models, GM3D-only (no vertex_* calls).
-///
-/// Pass 1 (Draw event, after the scene render): the selected asset subtrees get
-/// shared solid-white materials (static + skinned variants so animated poses
-/// are followed) while every other mesh component is temporarily disabled,
-/// then the scene is rendered into a mask surface cleared to black. With no
-/// occluders left, the mask always holds the full silhouette: the outline is
-/// drawn always on top, with no depth test against other models.
-/// Pass 2 (Draw GUI event, before the gizmo): a Sobel composite samples the
-/// mask and draws a constant-pixel orange border. Non-edge pixels output
-/// alpha 0, leaving the scene untouched. A border fade kills the false edge
-/// where a silhouette is clipped by the viewport.
-
-/// Lazily creates the outline state on the editor struct.
+// Gets or creates outline state.
 function __gm3d_ed_outline_cfg(_ed) {
 	if (_ed == undefined) {
 		return undefined;
@@ -38,7 +24,7 @@ function __gm3d_ed_outline_cfg(_ed) {
 	return _ed.outline;
 }
 
-/// Debug helper: warns once when the GM3D material override path is missing.
+// Logs outline warning once.
 function __gm3d_ed_outline_warn(_ed, _o, _msg) {
 	if (_o.warned) {
 		return;
@@ -50,9 +36,7 @@ function __gm3d_ed_outline_warn(_ed, _o, _msg) {
 	}
 }
 
-/// Lazily creates the shared solid-white mask materials (static + skinned).
-/// Uses only GM3D material calls; any failure disables the outline and keeps
-/// the legacy 2D selection box.
+// Ensures outline mask materials exist.
 function __gm3d_ed_outline_mats(_ed, _o) {
 	if (_o.mats_ok == true && _o.white != undefined && _o.whiteSkin != undefined) {
 		return true;
@@ -78,7 +62,7 @@ function __gm3d_ed_outline_mats(_ed, _o) {
 	}
 }
 
-/// True when _entry is one of the selected entries (stable registry structs).
+// Checks entry in selection list.
 function __gm3d_ed_outline_is_sel(_entry, _selEntries) {
 	if (_entry == undefined) {
 		return false;
@@ -91,7 +75,7 @@ function __gm3d_ed_outline_is_sel(_entry, _selEntries) {
 	return false;
 }
 
-/// Ensures the mask surface matches _w x _h. Returns true when ready.
+// Ensures outline mask surface size.
 function __gm3d_ed_outline_mask_surface(_o, _w, _h) {
 	if (_w <= 0 || _h <= 0) {
 		return false;
@@ -123,9 +107,7 @@ function __gm3d_ed_outline_mask_surface(_o, _w, _h) {
 	return true;
 }
 
-/// One-time warmup: pre-creates the mask materials and the mask surface so the
-/// first click on a model does not pay their allocation cost. Shader compile
-/// is handled centrally by __gm3d_ed_shaders_warmup.
+// Preinitializes outline materials and surface.
 function __gm3d_ed_outline_warmup(_ed, _o) {
 	if (variable_struct_exists(_o, "warmed") && _o.warmed == true) {
 		return;
@@ -145,13 +127,8 @@ function __gm3d_ed_outline_warmup(_ed, _o) {
 	}
 	__gm3d_ed_outline_mask_surface(_o, surface_get_width(_app), surface_get_height(_app));
 }
-/// Pass 1: renders the selection mask. Call from the Draw event, right after
-/// the scene render. Only the selected subtrees keep their components enabled
-/// (reassigned to shared white materials); everything else — including the
-/// grid and the drop preview — is muted for the mask pass and restored right
-/// after, so the mask always holds the full silhouette with no depth test.
-/// Hidden tracked subtrees are skipped so their disabled state is never
-/// touched.
+
+// Renders selection mask for outline.
 function __gm3d_ed_outline_capture(_ed) {
 	if (_ed == undefined || _ed.active != true) {
 		return;
@@ -301,8 +278,7 @@ function __gm3d_ed_outline_capture(_ed) {
 	}
 }
 
-/// Pass 2: composites the outline over the viewport. Call from the Draw GUI
-/// event, before the gizmo, so handles stay on top.
+// Draws outline glow from mask.
 function __gm3d_ed_outline_composite(_ed) {
 	if (_ed == undefined || _ed.active != true) {
 		return;
@@ -383,7 +359,7 @@ function __gm3d_ed_outline_composite(_ed) {
 	draw_set_color(c_white);
 }
 
-/// Frees outline resources. Call from editor cleanup.
+// Frees outline surfaces and materials.
 function __gm3d_ed_outline_cleanup(_ed) {
 	if (_ed == undefined || !variable_struct_exists(_ed, "outline") || !is_struct(_ed.outline)) {
 		return;

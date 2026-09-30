@@ -1,12 +1,9 @@
-/// @module gm3d_ed_viewcube
-/// Orientation cube: picking and drawing.
-
-/// Restores the default viewcube offset (top-right corner).
+// Resets viewcube screen offset position.
 function __gm3d_ed_cube_home(_ed) {
 	_ed.cube_off = [85, 100];
 }
 
-/// Builds orientation cube geometry in screen space.
+// Builds viewcube geometry and orientation data.
 function __gm3d_ed_viewcube(_ed) {
 	if (_ed.rt == undefined || _ed.rt.cam == undefined) {
 		return undefined;
@@ -164,8 +161,7 @@ function __gm3d_ed_viewcube(_ed) {
 	};
 }
 
-/// Finds the axis cone under a screen point.
-/// @return {Array} [axis, sign], or undefined on miss
+// Finds axis cone under mouse cursor.
 function __gm3d_ed_viewcube_cone_at(_vc, _mx, _my) {
 	if (_vc == undefined) {
 		return undefined;
@@ -211,7 +207,7 @@ function __gm3d_ed_viewcube_cone_at(_vc, _mx, _my) {
 	return undefined;
 }
 
-/// True when a screen point is inside the cube bounds.
+// Tests if point inside viewcube bounds.
 function __gm3d_ed_viewcube_box_at(_vc, _mx, _my) {
 	if (_vc == undefined) {
 		return false;
@@ -220,7 +216,7 @@ function __gm3d_ed_viewcube_box_at(_vc, _mx, _my) {
 	return _mx >= _b[0] && _mx <= _b[2] && _my >= _b[1] && _my <= _b[3];
 }
 
-/// Draws one axis cone.
+// Draws axis cone gizmo.
 function __gm3d_ed_viewcube_cone(_ed, _c, _hov) {
 	var _al = _c.muted ? (_hov ? 0.75 : 0.35) : 1;
 	var _lc = _hov ? merge_colour(_c.lcol, c_white, 0.45) : _c.lcol;
@@ -304,7 +300,7 @@ function __gm3d_ed_viewcube_cone(_ed, _c, _hov) {
 	__gm3d_ed_vp_line(_ed, _c.apex[0], _c.apex[1], _c.dc[0], _c.dc[1], 1, _c.dcol);
 }
 
-/// Draws the orientation cube with axis cones.
+// Renders interactive viewcube widget.
 function __gm3d_ed_viewcube_draw(_ed, _vp) {
 	if (_ed.imgui == undefined || !_ed.imgui.win_cube.open) {
 		return;

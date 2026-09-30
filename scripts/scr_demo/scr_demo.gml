@@ -1,5 +1,4 @@
-/// Create the runtime scene, renderer and default environment/light/camera.
-/// @param {Id.Instance} _self owning object instance
+// Creates demo scene with environment.
 function demo_create(_self) {
 	_self.scene = GM3D_Scene.createEmpty();
 
@@ -20,8 +19,6 @@ function demo_create(_self) {
 	_envNode.addComponent(_envComp);
 	_envComp.setSize(new GM3D_Vec3(20000.0, 20000.0, 20000.0));
 	_envComp.setAmbientColor(make_colour_rgb(70, 70, 85));
-	_self.envNode = _envNode;
-	_self.envComp = _envComp;
 
 	var _lightNode = _self.scene.createNode("Sun");
 	var _lightComp = new GM3D_LightComponent();
@@ -30,8 +27,6 @@ function demo_create(_self) {
 	_lightComp.setColor(c_white);
 	_lightComp.setIntensity(1.0);
 	demo_align_node(_lightNode, new GM3D_Vec3(0.35, 0.8, 0.45));
-	_self.lightNode = _lightNode;
-	_self.lightComp = _lightComp;
 
 	var _camNode = _self.scene.createNode("MainCamera");
 	var _camComp = new GM3D_CameraComponent();
@@ -42,10 +37,60 @@ function demo_create(_self) {
 	_self.camComp = _camComp;
 
 	demo_place_camera(_self);
+
+	_self.demo_track = [
+		["light", "", _lightNode, "Sun"],
+		["environment", "", _envNode, "Environment"],
+	];
+	var _def = [
+		["Platform", "kenney_platformer-kit/platform.glb", [0, -0.4, 0], undefined, [2.4, 2.4, 2.4]],
+		["Tree", "kenney_platformer-kit/tree.glb", [-3.2, 0, -3.6], undefined, [1.2, 1.2, 1.2]],
+		["Pine", "kenney_platformer-kit/tree-pine.glb", [3.4, 0, -3.2], undefined, [1.1, 1.1, 1.1]],
+		["Flowers", "kenney_platformer-kit/flowers.glb", [-1.6, 0, -1.8], undefined, [1, 1, 1]],
+		["Grass", "kenney_platformer-kit/grass.glb", [1.8, 0, -1.6], undefined, [1, 1, 1]],
+		["Rocks", "kenney_platformer-kit/rocks.glb", [0, 0, -2.8], [0, 0.1736481934785843, 0, 0.9848078489303589], [1.1, 1.1, 1.1]],
+		["Character", "kenney_mini-characters/character-female-b.glb", [-0.9, 0, 0], [0, 0.1736481934785843, 0, 0.9848078489303589], [1, 1, 1]],
+		["Fox", "kenney_cube-pets_1.0/animal-fox.glb", [0.95, 0, 0.55], [0, -0.2164396196603775, 0, 0.9762960076332092], [0.3, 0.3, 0.3]],
+	];
+	for (var i = 0; i < array_length(_def); ++i) {
+		var _d = _def[i];
+		var _node = demo_spawn_asset(_self, _d[0], _d[1], _d[2], _d[3], _d[4]);
+		if (_node != undefined) {
+			array_push(_self.demo_track, ["asset", _d[0], _node, _d[0]]);
+		}
+	}
+	_self.scene.update(0);
 }
 
-/// Tear down the runtime scene and release the renderer.
-/// @param {Id.Instance} _self owning object instance
+// Loads model and spawns scene node.
+function demo_spawn_asset(_self, _asset, _path, _pos, _rot = undefined, _scale = undefined) {
+	var _src = demo_load_model(_self, _path);
+	if (_src == undefined) {
+		return undefined;
+	}
+	var _node = _src.spawnInto(_self.scene, undefined);
+	if (_node == undefined) {
+		return undefined;
+	}
+	_node.setLocalPosition(new GM3D_Vec3(_pos[0], _pos[1], _pos[2]));
+	if (_scale != undefined) {
+		_node.setLocalScale(new GM3D_Vec3(_scale[0], _scale[1], _scale[2]));
+	} else {
+		_node.setLocalScale(new GM3D_Vec3(1, 1, 1));
+	}
+	if (_rot != undefined) {
+		var _q = new GM3D_Quaternion();
+		_q.x = _rot[0];
+		_q.y = _rot[1];
+		_q.z = _rot[2];
+		_q.w = _rot[3];
+		_node.setLocalRotation(_q.normalizeSafe(0.000001));
+	}
+	demo_on_spawn(_self, _node, _asset, _src);
+	return _node;
+}
+
+// Destroys demo scene and assets.
 function demo_destroy(_self) {
 	if (!is_undefined(_self.scene)) {
 		_self.scene.destroy();
@@ -53,6 +98,7 @@ function demo_destroy(_self) {
 	_self.scene = undefined;
 	_self.camNode = undefined;
 	_self.camComp = undefined;
+	_self.demo_track = undefined;
 
 	for (var i = 0; i < array_length(_self.assets); ++i) {
 		_self.assets[i].destroy();
@@ -62,28 +108,17 @@ function demo_destroy(_self) {
 	_self.renderer = undefined;
 }
 
-/// Advance the scene graph by an explicit delta. The gateway steps the live
-/// world only while the editor is closed; the editor itself advances with 0
-/// (frozen poses, fresh matrices) straight on the adapter scene.
-/// @param {Id.Instance} _self owning object instance
+// Updates demo scene animation.
 function demo_step(_self) {
 	_self.scene.update(delta_time * 0.000001);
 }
 
-/// Render the scene through the renderer.
-/// @param {Id.Instance} _self owning object instance
+// Renders demo scene.
 function demo_render(_self) {
 	_self.renderer.render(_self.scene);
 }
 
-/// Load a glTF file, freeze it and register it for cleanup. Dev-side loading
-/// example: a real game loads its models its own way and passes the handles
-/// to gm3d_editor_asset_add; the editor never sees paths.
-/// Frozen sources are cached by path: spawnInto reuses meshes, so repeated
-/// spawns of the same asset never re-parse the file.
-/// @param {Id.Instance} _self owning object instance
-/// @param {String} _path relative path under the working directory
-/// @return {Any} loaded scene or undefined
+// Loads cached GLTF model file.
 function demo_load_model(_self, _path) {
 	var _src = undefined;
 
@@ -104,10 +139,7 @@ function demo_load_model(_self, _path) {
 	return _src;
 }
 
-/// Assign the sample lighting shaders to every material in a frozen source
-/// scene. Skinned meshes need the animated shader (GPU bone skinning); the
-/// rest get the static shader. Without this, skinned geometry is not drawn.
-/// @param {Any} _scene source scene to assign shaders to
+// Assigns static and skinned shaders.
 function demo_assign_shaders(_scene) {
 	var _nodes = _scene.getNodes();
 	var _materials = _scene.getMaterials();
@@ -130,14 +162,7 @@ function demo_assign_shaders(_scene) {
 	}
 }
 
-/// Optional adapter hook: finish an editor-placed instance.
-/// Runs after the editor sets TRS, so the game can add per-instance setup
-/// (animation state, AI, ...) without owning placement. Static props need
-/// nothing here.
-/// @param {Id.Instance} _self owning object instance
-/// @param {Any} _node freshly placed root node
-/// @param {String} _asset library name
-/// @param {Any} _src loaded (frozen) source scene, as passed to gm3d_editor_asset_add
+// Starts idle animation on spawned node.
 function demo_on_spawn(_self, _node, _asset, _src) {
 	if (_node == undefined || _src == undefined) {
 		return;
@@ -155,9 +180,7 @@ function demo_on_spawn(_self, _node, _asset, _src) {
 	}
 }
 
-/// Find the first animation component in a node subtree.
-/// @param {Any} _node root node
-/// @return {Any} animation component or undefined
+// Finds animation component recursively.
 function demo_find_anim(_node) {
 	if (_node == undefined) {
 		return undefined;
@@ -183,10 +206,7 @@ function demo_find_anim(_node) {
 	return undefined;
 }
 
-/// Resolve an animation index by name with substring fallback.
-/// @param {Any} _src loaded scene
-/// @param {String} _name preferred animation name
-/// @return {Real} animation index
+// Finds animation index by name.
 function demo_find_anim_index(_src, _name) {
 	var _count = _src.animationCount;
 	var _target = string_lower(string(_name));
@@ -207,11 +227,7 @@ function demo_find_anim_index(_src, _name) {
 	return 0;
 }
 
-/// Build the forward direction vector from yaw and pitch, matching the
-/// GM3D sample camera convention.
-/// @param {Real} _yaw degrees
-/// @param {Real} _pitch degrees
-/// @return {Any} forward unit vector
+// Computes forward vector from angles.
 function demo_forward(_yaw, _pitch) {
 	var _y = degtorad(_yaw);
 	var _p = degtorad(_pitch);
@@ -219,9 +235,7 @@ function demo_forward(_yaw, _pitch) {
 	return new GM3D_Vec3(sin(_y) * _cp, sin(_p), -cos(_y) * _cp);
 }
 
-/// Rotate a node so its forward axis points toward _dir.
-/// @param {Any} _node scene node
-/// @param {Any} _dir direction vector
+// Orients node toward direction vector.
 function demo_align_node(_node, _dir) {
 	var _forward = _dir.clone();
 	_forward.normalize();
@@ -233,18 +247,7 @@ function demo_align_node(_node, _dir) {
 	_node.setLocalRotation(_rot.normalizeSafe(0.000001));
 }
 
-/// Adapter surface consumed by the editor (see gm3d_editor header).
-/// A real game provides the same shape on its own runtime: the live scene
-/// and camera node as data, plus optional hooks for the game-owned
-/// decisions. on_spawn runs after the editor places an instance so the game
-/// can finish it (animation state, AI); on_close is optional: the editor
-/// calls it once when the UI closes so the game can resume its own
-/// business. The editor always passes the game instance as the first
-/// function argument explicitly, so nothing depends on method-binding or
-/// closure scope rules. Rebuild the adapter if you ever recreate the
-/// scene or camera node.
-/// @param {Id.Instance} _self owning object instance
-/// @return {Struct} adapter { scene, cam, on_spawn?, on_close? }
+// Builds editor runtime adapter struct.
 function demo_adapter(_self) {
 	return {
 		scene: _self.scene,
@@ -254,13 +257,10 @@ function demo_adapter(_self) {
 	};
 }
 
-/// Editor-closed hook: game-side resume actions. The demo world simply
-/// keeps stepping from the editor camera, so nothing is needed here.
-/// @param {Id.Instance} _self owning object instance
+// Handles demo editor close callback.
 function demo_on_close(_self) {}
 
-/// Push the camera controller state into the camera node.
-/// @param {Id.Instance} _self owning object instance
+// Positions camera from stored settings.
 function demo_place_camera(_self) {
 	_self.camNode.setLocalPosition(_self.camPos);
 	demo_align_node(_self.camNode, demo_forward(_self.camYaw, _self.camPitch));

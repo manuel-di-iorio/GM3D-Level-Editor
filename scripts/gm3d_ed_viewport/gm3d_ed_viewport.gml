@@ -1,12 +1,8 @@
-/// @module gm3d_ed_viewport
-/// Viewport helpers, raycasts and node bounds.
-
-/// Builds a viewport helper for the editor camera.
+// Builds viewport matrices and camera data.
 function __gm3d_ed_viewport(_ed) {
 	var _camNode = _ed.rt.cam;
 	var _comp = _camNode.getCameraComponent();
-	// NOTE: camera FOV is radians on this runtime (getFovY ~1.05 for 60
-	// degrees); perspective() takes it as-is. Never wrap it in degtorad.
+
 	var _fov = pi / 3.0;
 	var _near = 0.1;
 	var _far = 10000.0;
@@ -57,8 +53,7 @@ function __gm3d_ed_viewport(_ed) {
 	};
 }
 
-/// Projects a world point to screen pixels.
-/// @return {Array} [x, y], or undefined outside the frustum
+// Converts world position to screen coordinates.
 function __gm3d_ed_world_to_screen(_vp, _p) {
 	var _v = new GM3D_Vec4(_p.x, _p.y, _p.z, 1.0);
 	_v.applyMatrix4(_vp.viewProj);
@@ -80,7 +75,7 @@ function __gm3d_ed_world_to_screen(_vp, _p) {
 	return [_sx, _sy];
 }
 
-/// Unprojects a device coordinate to a world point.
+// Unprojects NDC coordinates to world space.
 function __gm3d_ed_unproject(_inv, _nx, _ny, _nz) {
 	var _v = new GM3D_Vec4(_nx, _ny, _nz, 1.0);
 	_v.applyMatrix4(_inv);
@@ -90,7 +85,7 @@ function __gm3d_ed_unproject(_inv, _nx, _ny, _nz) {
 	return new GM3D_Vec3(_v.x / _v.w, _v.y / _v.w, _v.z / _v.w);
 }
 
-/// Builds a pick ray for a screen position.
+// Creates world ray from screen pixel.
 function __gm3d_ed_screen_ray(_vp, _mx, _my) {
 	var _nx = (2.0 * _mx) / _vp.winW - 1.0;
 	var _ny;
@@ -110,8 +105,7 @@ function __gm3d_ed_screen_ray(_vp, _mx, _my) {
 	return { origin: _nearW, dir: _dir };
 }
 
-/// Intersects a ray with an infinite plane.
-/// @return {Any} Hit point, or undefined on miss
+// Intersects ray with plane.
 function __gm3d_ed_ray_plane(_origin, _dir, _point, _normal) {
 	var _d = _dir.dot(_normal);
 	if (abs(_d) < 0.000001) {
@@ -129,8 +123,7 @@ function __gm3d_ed_ray_plane(_origin, _dir, _point, _normal) {
 	return _hit;
 }
 
-/// Tests a ray against an axis-aligned box.
-/// @return {Real} Hit distance, or -1 on miss
+// Intersects ray with axis-aligned bounding box.
 function __gm3d_ed_ray_aabb(_origin, _dir, _min, _max) {
 	var _tmin = 0.0;
 	var _tmax = 1000000000;
@@ -180,7 +173,7 @@ function __gm3d_ed_ray_aabb(_origin, _dir, _min, _max) {
 	return _tmin;
 }
 
-/// World-space bounds of a node and its subtree.
+// Computes world bounding box for subtree.
 function __gm3d_ed_node_aabb(_node) {
 	var _min = undefined;
 	var _max = undefined;
@@ -191,7 +184,7 @@ function __gm3d_ed_node_aabb(_node) {
 		var _wm = _cur.getWorldMatrix();
 		_wm = _wm.clone();
 		var _boxes = [];
-		// per-component meshes with single-call bounds.
+
 		var _comps = _cur.getMeshComponents();
 		for (var i = 0; i < array_length(_comps); ++i) {
 			var _cm = _comps[i].getMesh();
@@ -260,14 +253,12 @@ function __gm3d_ed_node_aabb(_node) {
 	return { min: _min, max: _max, valid: true };
 }
 
-/// Draws an unclipped viewport line.
+// Draws 2D line with width.
 function __gm3d_ed_vp_line(_ed, _x1, _y1, _x2, _y2, _wd, _col) {
 	draw_line_width_color(_x1, _y1, _x2, _y2, _wd, _col, _col);
 }
 
-/// Clips a world polygon to the near plane and maps it to screen.
-/// @param {Array} _corners Convex points in cyclic order
-/// @return {Array} Screen points, empty when fully behind
+// Clips polygon and projects to screen.
 function __gm3d_ed_clip_screen_poly(_vp, _corners) {
 	var _eps = 0.001;
 	var _clip = [];
@@ -319,7 +310,7 @@ function __gm3d_ed_clip_screen_poly(_vp, _corners) {
 	return _sp;
 }
 
-/// Maps world points to screen, preserving undefined.
+// Projects corner array to screen positions.
 function __gm3d_ed_world_corners_to_screen(_vp, _corners) {
 	var _out = [];
 	for (var _i = 0; _i < array_length(_corners); _i++) {

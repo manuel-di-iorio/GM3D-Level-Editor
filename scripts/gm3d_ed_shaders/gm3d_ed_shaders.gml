@@ -1,16 +1,9 @@
-/// @module gm3d_ed_shaders
-/// Centralized warmup of editor-owned shaders.
-///
-/// GameMaker compiles each shader on first use, which hitchs the first frame
-/// that needs it (e.g. first click on a skinned model). Warming them once at
-/// boot with trivial offscreen draws moves that cost away from interactions.
-
-/// Editor-owned shaders to precompile. Add new editor shaders here.
+// Returns list of editor shaders.
 function __gm3d_ed_editor_shaders() {
 	return [shGM3DGrid, shGM3DMask, shGM3DMaskSkin, shGM3DOutline, shGM3DId, shGM3DIdSkin];
 }
 
-/// Compiles all editor shaders once. Safe to call every frame; runs once.
+// Precompiles editor shaders using tiny surface.
 function __gm3d_ed_shaders_warmup(_ed) {
 	if (_ed == undefined) {
 		return;

@@ -1,7 +1,4 @@
-/// @module gm3d_ed_camera
-/// Camera fly, orbit, home, animation and view forward.
-
-/// Returns the camera forward in world space from its quaternion.
+// Computes normalized camera forward direction vector.
 function __gm3d_ed_view_forward(_ed) {
 	var _q = _ed.rt.cam.getLocalRotation();
 	var _x = _q.x;
@@ -13,7 +10,7 @@ function __gm3d_ed_view_forward(_ed) {
 	return _f;
 }
 
-/// Stores the boot camera pose as Home.
+// Stores current camera position and rotation as home.
 function __gm3d_ed_cam_remember(_ed) {
 	_ed.cam_home = undefined;
 	if (_ed == undefined || _ed.rt == undefined || _ed.rt.cam == undefined) {
@@ -24,8 +21,7 @@ function __gm3d_ed_cam_remember(_ed) {
 	_ed.cam_home = { pos: [_p.x, _p.y, _p.z], rot: [_q.x, _q.y, _q.z, _q.w] };
 }
 
-/// Restores the boot camera pose, instantly or gliding like viewcube snaps.
-/// @param {Bool} _smooth true glides over 0.5s via cam_anim, false snaps
+// Restores camera to remembered home position instantly or animated.
 function __gm3d_ed_cam_home(_ed, _smooth = false) {
 	if (_ed == undefined || _ed.cam_home == undefined || _ed.rt == undefined || _ed.rt.cam == undefined) {
 		return;
@@ -55,9 +51,7 @@ function __gm3d_ed_cam_home(_ed, _smooth = false) {
 	};
 }
 
-/// Applies orbit deltas to the camera node.
-/// @param {Real} _ddx/_ddy mouse deltas in pixels
-/// @return {Array} [yaw, pitch] in degrees
+// Rotates camera yaw and pitch from mouse deltas.
 function __gm3d_ed_orbit_apply(_ed, _ddx, _ddy) {
 	var _node = _ed.rt.cam;
 	var _vf = __gm3d_ed_view_forward(_ed);
@@ -72,9 +66,7 @@ function __gm3d_ed_orbit_apply(_ed, _ddx, _ddy) {
 	return [_yaw, _pitch];
 }
 
-/// Flies, pans, orbits and dollies the camera node.
-/// @param {Real} _dt seconds since last frame
-/// @param _input per-frame editor input snapshot
+// Handles orbit, pan, zoom, and fly camera controls.
 function __gm3d_ed_cam_fly(_ed, _input, _dt) {
 	var _vp = _input.vp;
 	var _allowKeys = _input.camera_keys;
@@ -226,18 +218,16 @@ function __gm3d_ed_cam_fly(_ed, _input, _dt) {
 		}
 	}
 	_node.setLocalPosition(new GM3D_Vec3(_nx, _ny, _nz));
-	// World up only; pitch clamp keeps inputs non-parallel.
+
 	var _upv = GM3D_Vec3.up();
 	_node.setLocalRotation(GM3D_Quaternion.fromLookRotation(_f, _upv).normalizeSafe(0.000001));
-	// Deltas already consumed above: safe to teleport at the edges, the jump
-	// never leaks into orbit/pan. Infinite RMB/MMB gestures.
+
 	if (_orbit || _pan || _zoom || _fly) {
 		__gm3d_ed_wrap_camera(_ed);
 	}
 }
 
-/// Snaps the camera to face a cube normal, keeping distance.
-/// @param {Any} _n face normal as world unit vector
+// Animates camera to align with selected viewcube direction.
 function __gm3d_ed_viewcube_snap(_ed, _n) {
 	if (_ed == undefined || _ed.rt == undefined || _ed.rt.cam == undefined) {
 		return;
@@ -293,7 +283,7 @@ function __gm3d_ed_viewcube_snap(_ed, _n) {
 	};
 }
 
-/// Advances the smooth camera rotation and glide.
+// Advances smooth camera transition toward target pose.
 function __gm3d_ed_cam_anim_step(_ed, _dt) {
 	var _an = _ed.cam_anim;
 	if (_an == undefined) {

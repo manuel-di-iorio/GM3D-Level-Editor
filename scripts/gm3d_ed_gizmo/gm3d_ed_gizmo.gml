@@ -1,7 +1,4 @@
-/// @module gm3d_ed_gizmo
-/// Translate/rotate/scale gizmo: hover, drag and draw.
-
-/// World centroid of the selection, or undefined when empty.
+// Calculates average world position of selected nodes.
 function __gm3d_ed_gizmo_pivot(_sel) {
 	var _n = array_length(_sel);
 	if (_n == 0) {
@@ -19,10 +16,7 @@ function __gm3d_ed_gizmo_pivot(_sel) {
 	return new GM3D_Vec3(_cx / _n, _cy / _n, _cz / _n);
 }
 
-/// Gizmo axes in world space, or active node frame in local mode.
-/// Local mode uses the WORLD rotation (identical to local for the flat
-/// editor hierarchies, correct under rotated parents too): the rings must
-/// match the visible orientation of the object.
+// Returns active gizmo axes in world or local orientation.
 function __gm3d_ed_gizmo_dirs(_ed) {
 	if (_ed.giz.orient == 1 && array_length(_ed.sel) > 0) {
 		var _last = _ed.sel[array_length(_ed.sel) - 1];
@@ -40,15 +34,12 @@ function __gm3d_ed_gizmo_dirs(_ed) {
 	return [new GM3D_Vec3(1, 0, 0), GM3D_Vec3.up(), GM3D_Vec3.forward()];
 }
 
-/// World handle length for the current selection.
-/// Recomputed every frame from the camera distance so the gizmo keeps a
-/// constant screen size (ed.giz.size pixels): it never looks smaller from
-/// far away or bigger from up close.
+// Computes pixel-constant gizmo handle length at pivot.
 function __gm3d_ed_gizmo_len(_ed, _vp, _pivot) {
 	return __gm3d_ed_gizmo_world_size(_vp, _pivot, _ed.giz.size);
 }
 
-/// World size matching a screen length in pixels.
+// Converts desired pixel size to world units.
 function __gm3d_ed_gizmo_world_size(_vp, _pivot, _pixels) {
 	var _a = __gm3d_ed_world_to_screen(_vp, _pivot);
 	if (_a == undefined) {
@@ -70,7 +61,7 @@ function __gm3d_ed_gizmo_world_size(_vp, _pivot, _pixels) {
 	return _pixels / _len;
 }
 
-/// Converts a world-space delta to node local space.
+// Converts world movement delta into node local space.
 function __gm3d_ed_gizmo_world_delta_to_local(_node, _delta) {
 	if (_node.parent == undefined) {
 		return _delta.clone();
@@ -91,7 +82,7 @@ function __gm3d_ed_gizmo_world_delta_to_local(_node, _delta) {
 	return _b;
 }
 
-/// World-space points of a rotation ring around _pivot on _axis.
+// Builds world-space circle points for rotation ring.
 function __gm3d_ed_gizmo_ring_world(_pivot, _axis, _ws) {
 	var _world = [];
 	var _seg = 36;
@@ -101,7 +92,7 @@ function __gm3d_ed_gizmo_ring_world(_pivot, _axis, _ws) {
 	return _world;
 }
 
-/// Exact world-space point on a rotation ring at parameter _t.
+// Computes single point on rotation ring circle.
 function __gm3d_ed_gizmo_ring_point(_pivot, _axis, _ws, _t) {
 	var _ref = GM3D_Vec3.up();
 	if (abs(_axis.dot(_ref)) >= 0.99) {
@@ -119,7 +110,7 @@ function __gm3d_ed_gizmo_ring_point(_pivot, _axis, _ws, _t) {
 	);
 }
 
-/// Screen-space polyline of a rotation ring around _pivot on _axis.
+// Projects rotation ring to screen pixel coordinates.
 function __gm3d_ed_gizmo_ring_pts(_vp, _pivot, _axis, _ws) {
 	var _mapped = __gm3d_ed_world_corners_to_screen(_vp, __gm3d_ed_gizmo_ring_world(_pivot, _axis, _ws));
 	var _pts = [];
@@ -131,7 +122,7 @@ function __gm3d_ed_gizmo_ring_pts(_vp, _pivot, _axis, _ws) {
 	return _pts;
 }
 
-/// Ring vertices with a front-facing flag each (camera hemisphere only): entries are { s: screen point or undefined, front: bool }.
+// Finds front-facing rotation ring segments for display.
 function __gm3d_ed_gizmo_ring_front(_vp, _pivot, _axis, _ws) {
 	var _world = __gm3d_ed_gizmo_ring_world(_pivot, _axis, _ws);
 	var _cp = _vp.camNode.getWorldPosition();
@@ -151,8 +142,7 @@ function __gm3d_ed_gizmo_ring_front(_vp, _pivot, _axis, _ws) {
 	return _out;
 }
 
-/// Nearest ray-sphere surface hit (front), or undefined on miss/behind.
-/// _dir must be normalized.
+// Intersects ray with sphere returning hit point.
 function __gm3d_ed_ray_sphere(_origin, _dir, _cx, _cy, _cz, _r) {
 	var _ox = _origin.x - _cx;
 	var _oy = _origin.y - _cy;
@@ -170,9 +160,7 @@ function __gm3d_ed_ray_sphere(_origin, _dir, _cx, _cy, _cz, _r) {
 	return new GM3D_Vec3(_origin.x + _dir.x * _t, _origin.y + _dir.y * _t, _origin.z + _dir.z * _t);
 }
 
-/// Nearest point on the sphere surface to a ray (closest approach projected
-/// onto the ball). Never misses unless the ray aims through the center:
-/// lets the trackball keep rotating outside the silhouette, continuously.
+// Finds nearest surface point on sphere to ray.
 function __gm3d_ed_sphere_nearest(_origin, _dir, _cx, _cy, _cz, _r) {
 	var _ox = _origin.x - _cx;
 	var _oy = _origin.y - _cy;
@@ -191,8 +179,7 @@ function __gm3d_ed_sphere_nearest(_origin, _dir, _cx, _cy, _cz, _r) {
 	return new GM3D_Vec3(_cx + _px / _l * _r, _cy + _py / _l * _r, _cz + _pz / _l * _r);
 }
 
-/// Rotation taking unit vector a to unit vector b (trackball arc).
-/// @return Quaternion, or undefined when the vectors coincide.
+// Creates rotation quaternion between two direction vectors.
 function __gm3d_ed_trackball_arc(_ax, _ay, _az, _bx, _by, _bz) {
 	var _cx = _ay * _bz - _az * _by;
 	var _cy = _az * _bx - _ax * _bz;
@@ -205,7 +192,7 @@ function __gm3d_ed_trackball_arc(_ax, _ay, _az, _bx, _by, _bz) {
 	return GM3D_Quaternion.fromAxisAngle(new GM3D_Vec3(_cx / _s, _cy / _s, _cz / _s), arccos(_d));
 }
 
-/// Min squared distance from a point to the front-facing ring segments.
+// Measures squared mouse distance to front ring segments.
 function __gm3d_ed_ring_front_dist2(_mx, _my, _ring) {
 	var _best = 1000000000;
 	for (var _i = 0; _i < array_length(_ring) - 1; _i++) {
@@ -222,7 +209,7 @@ function __gm3d_ed_ring_front_dist2(_mx, _my, _ring) {
 	return _best;
 }
 
-/// Normalized pivot-to-camera vector, or undefined when unavailable.
+// Computes normalized view direction from pivot to camera.
 function __gm3d_ed_gizmo_cam_view(_vp, _pivot) {
 	if (_vp == undefined || _vp.camNode == undefined || _pivot == undefined) {
 		return undefined;
@@ -233,9 +220,7 @@ function __gm3d_ed_gizmo_cam_view(_vp, _pivot) {
 	return _view;
 }
 
-/// Quad corners of the translate plane opposite one axis.
-/// Each span arm is flipped toward the camera (like UeTransformControls
-/// _getAxisVector) so the quad always sits in the camera-facing octant.
+// Builds planar translation handle quad from two axes.
 function __gm3d_ed_gizmo_quad(_pivot, _dirs, _a, _h, _view = undefined) {
 	var _b = (_a + 1) mod 3;
 	var _c = (_a + 2) mod 3;
@@ -259,8 +244,7 @@ function __gm3d_ed_gizmo_quad(_pivot, _dirs, _a, _h, _view = undefined) {
 	return [_pivot, _pb, _pbc, _pc];
 }
 
-/// Finds the gizmo handle under the mouse.
-/// @return {Real} Axis 0-2, plane 3-5, view ring 6, -2 center, -1 none
+// Detects which gizmo handle mouse currently hovers.
 function __gm3d_ed_gizmo_hover(_ed, _vp, _mx, _my) {
 	if (array_length(_ed.sel) == 0) {
 		return -1;
@@ -284,9 +268,7 @@ function __gm3d_ed_gizmo_hover(_ed, _vp, _mx, _my) {
 	var _f = __gm3d_ed_view_forward(_ed);
 	var _look = new GM3D_Vec3(-_f.x, -_f.y, -_f.z);
 	if (_ed.giz.tool == Gm3dEdTool.Translate) {
-		// Quad priority over axes: exact hits first (best = largest screen
-		// area, i.e. most facing the camera), then a small padded border so
-		// edge clicks near an axis shaft still grab the quad.
+
 		var _qb = -1;
 		var _qb_area = -1;
 		for (var _q = 0; _q < 3; _q++) {
@@ -320,8 +302,8 @@ function __gm3d_ed_gizmo_hover(_ed, _vp, _mx, _my) {
 		if (_qb != -1) {
 			return 3 + _qb;
 		}
-		// Padded border pass: still quad priority over the 20px axis grab.
-		var _pad2 = 36.0; // 6px squared
+
+		var _pad2 = 36.0;
 		var _pb = -1;
 		var _pb_d = 1000000000;
 		for (var _q2 = 0; _q2 < 3; _q2++) {
@@ -349,7 +331,7 @@ function __gm3d_ed_gizmo_hover(_ed, _vp, _mx, _my) {
 		}
 	}
 	var _best = -1;
-	var _bestD = 400.0; // 20px squared axis grab distance
+	var _bestD = 400.0;
 	for (var _a = 0; _a < 3; _a++) {
 		var _d;
 		if (_ed.giz.tool == Gm3dEdTool.Rotate) {
@@ -376,8 +358,7 @@ function __gm3d_ed_gizmo_hover(_ed, _vp, _mx, _my) {
 		if (_rd < _bestD) {
 			_best = 6;
 		}
-		// Sphere disc, id 7: only when axes and the white ring missed, so
-		// they keep hover priority. Trackball drag, distinct from ring drag.
+
 		if (_best == -1) {
 			var _rr2 = 0;
 			for (var _ri = 0; _ri < array_length(_vr2); _ri++) {
@@ -400,7 +381,7 @@ function __gm3d_ed_gizmo_hover(_ed, _vp, _mx, _my) {
 	return _best;
 }
 
-/// Captures drag state and history snapshot when a drag starts.
+// Initializes gizmo drag state and interaction plane.
 function __gm3d_ed_gizmo_begin(_ed, _vp, _mx, _my) {
 	var _g = _ed.giz;
 	_g.starts = [];
@@ -421,9 +402,7 @@ function __gm3d_ed_gizmo_begin(_ed, _vp, _mx, _my) {
 	if (_g.drag == 6) {
 		_g.dir = __gm3d_ed_view_forward(_ed);
 	} else if (_g.drag == 7) {
-		// Relative trackball: no grab point on the sphere, only mouse
-		// deltas (virtual, so wrapping allows infinite travel). Dragging in
-		// one direction keeps rotating without orbiting the camera.
+
 		_g.dir = __gm3d_ed_view_forward(_ed);
 		_g.tblen = __gm3d_ed_gizmo_len(_ed, _vp, _pivot);
 		_g.tb_mx = _mx;
@@ -542,7 +521,7 @@ function __gm3d_ed_gizmo_begin(_ed, _vp, _mx, _my) {
 	}
 }
 
-/// Applies the active gizmo drag (translate / scale / rotate) to the selection.
+// Routes active drag to translate, scale, or rotate.
 function __gm3d_ed_gizmo_drag(_ed, _vp, _mx, _my) {
 	var _g = _ed.giz;
 	var _ray = __gm3d_ed_screen_ray(_vp, _mx, _my);
@@ -555,6 +534,7 @@ function __gm3d_ed_gizmo_drag(_ed, _vp, _mx, _my) {
 	}
 }
 
+// Moves selected nodes along axis or plane.
 function __gm3d_ed_gizmo_drag_translate(_ed, _g, _ray) {
 	var _hit = __gm3d_ed_ray_plane(_ray.origin, _ray.dir, _g.pivot, _g.plane_n);
 	if (_hit == undefined) {
@@ -587,12 +567,11 @@ function __gm3d_ed_gizmo_drag_translate(_ed, _g, _ray) {
 	}
 }
 
+// Scales selected nodes uniformly or along axis.
 function __gm3d_ed_gizmo_drag_scale(_ed, _g, _ray, _my) {
 	var _f = 1.0;
 	if (_g.center) {
-		// Uniform scale from vertical mouse travel (Blender-style): the
-		// grab starts at the pivot, so a radial reference is degenerate
-		// (radius ~0 can only grow). Drag up grows, down shrinks freely.
+
 		_f = 1.0 + (_g.my0 - _my) / _g.size;
 	} else {
 		var _h2 = __gm3d_ed_ray_plane(_ray.origin, _ray.dir, _g.pivot, _g.plane_n);
@@ -627,18 +606,17 @@ function __gm3d_ed_gizmo_drag_scale(_ed, _g, _ray, _my) {
 	}
 }
 
+// Rotates selected nodes via trackball or ring.
 function __gm3d_ed_gizmo_drag_rotate(_ed, _vp, _g, _mx, _my) {
 	if (_g.drag == 7 && variable_struct_exists(_g, "tb_mx") && variable_struct_exists(_g, "tb_my")) {
-		// Relative trackball: dx -> yaw around camUp, dy (y-down) ->
-		// pitch around camRight. The same direction always gives the same
-		// rotation; there is no need to release the mouse.
+
 		var _dx7 = _mx - _g.tb_mx;
 		var _dy7 = _my - _g.tb_my;
 		_g.tb_mx = _mx;
 		_g.tb_my = _my;
 		var _mag7 = sqrt(_dx7 * _dx7 + _dy7 * _dy7);
 		if (_mag7 > 0.0001 && _vp.camRight != undefined && _vp.camUp != undefined) {
-			var _k7 = 0.01; // rad per pixel
+			var _k7 = 0.01;
 			var _rx7 = _vp.camRight;
 			var _ru7 = _vp.camUp;
 			var _axis7 = new GM3D_Vec3(
@@ -654,7 +632,7 @@ function __gm3d_ed_gizmo_drag_rotate(_ed, _vp, _g, _mx, _my) {
 				}
 				var _qr7 = _qt7.clone();
 				_qr7.multiply(_ed.sel[_k7i].getLocalRotation().clone());
-				// Guards a corrupt trackball update: never apply a NaN rotation.
+
 				var _bad7 = false;
 				try {
 					_bad7 = is_nan(_qr7.x) || is_nan(_qr7.y) || is_nan(_qr7.z) || is_nan(_qr7.w);
@@ -674,14 +652,7 @@ function __gm3d_ed_gizmo_drag_rotate(_ed, _vp, _g, _mx, _my) {
 		_g.rot_my = _my;
 		var _dd = (_rot_dx * _g.rot_tx + _rot_dy * _g.rot_ty) * 0.01;
 		var _ax2 = _g.center ? 1 : _g.axis_idx;
-		// Frozen rotation axis: _g.dir was captured at grab time in begin.
-		// Recomputing the basis here every frame feeds the CURRENT (already
-		// rotated) orientation back into the absolute total angle, so the
-		// axis drifts with the object and the error compounds while you
-		// keep dragging (runaway rotation). In local mode the delta is
-		// post-multiplied (local frame), so it must be built on the
-		// CANONICAL node axis: reusing the transformed basis column would
-		// apply the orientation twice. View ring (6) always uses _g.dir.
+
 		var _axis = _g.dir;
 		if (_g.drag != 6 && _ed.giz.orient == 1) {
 			if (_ax2 == 2) {
@@ -716,13 +687,11 @@ function __gm3d_ed_gizmo_drag_rotate(_ed, _vp, _g, _mx, _my) {
 	}
 }
 
-/// Draws selection boxes plus the active tool gizmo (handles + center).
+// Draws complete transform gizmo with handles.
 function __gm3d_ed_gizmo_draw(_ed, _vp) {
 	var _cols = [c_red, c_lime, c_blue];
 	var _hls = [make_colour_rgb(255, 150, 60), make_colour_rgb(255, 255, 120), make_colour_rgb(110, 200, 255)];
-	// AABB selection boxes retired: the Unique-style silhouette outline in
-	// gm3d_ed_outline replaces them (kept call below for quick re-enable).
-	// __gm3d_ed_gizmo_draw_selboxes(_ed, _vp);
+
 	if (array_length(_ed.sel) == 0) {
 		return;
 	}
@@ -749,14 +718,14 @@ function __gm3d_ed_gizmo_draw(_ed, _vp) {
 	}
 }
 
-/// Draws selection boxes for all selected nodes.
+// Draws selection bounding boxes for selected nodes.
 function __gm3d_ed_gizmo_draw_selboxes(_ed, _vp) {
 	for (var _i = 0; _i < array_length(_ed.sel); _i++) {
 		__gm3d_ed_draw_selbox(_ed.sel[_i], _vp, _ed);
 	}
 }
 
-/// Draws translate plane quads.
+// Renders planar translation handle quads.
 function __gm3d_ed_gizmo_draw_translate_quads(_ed, _vp, _pivot, _dirs, _ws, _cols, _hls) {
 	if (_ed.giz.tool == Gm3dEdTool.Translate) {
 		var _qview = __gm3d_ed_gizmo_cam_view(_vp, _pivot);
@@ -787,7 +756,7 @@ function __gm3d_ed_gizmo_draw_translate_quads(_ed, _vp, _pivot, _dirs, _ws, _col
 	}
 }
 
-/// Draws axes for translate/scale and rings for rotate.
+// Renders translate, scale, or rotate axis handles.
 function __gm3d_ed_gizmo_draw_axes(_ed, _vp, _pivot, _ps, _dirs, _ws, _cols, _hls) {
 	for (var _a = 0; _a < 3; _a++) {
 		var _mine = _ed.giz.drag == _a;
@@ -840,11 +809,11 @@ function __gm3d_ed_gizmo_draw_axes(_ed, _vp, _pivot, _ps, _dirs, _ws, _cols, _hl
 	}
 }
 
-/// Draws the view-plane ring for rotate.
+// Draws camera-facing rotation ring and trackball disc.
 function __gm3d_ed_gizmo_draw_viewring(_ed, _vp, _pivot, _look, _ws) {
 	if (_ed.giz.tool == Gm3dEdTool.Rotate) {
 		var _vpts = __gm3d_ed_gizmo_ring_pts(_vp, _pivot, _look, _ws);
-		// Sphere disc under the rings: transparent at rest, greyish on hover.
+
 		var _pc = __gm3d_ed_world_to_screen(_vp, _pivot);
 		if (_pc != undefined && array_length(_vpts) > 0) {
 			var _rr = 0;
@@ -880,7 +849,7 @@ function __gm3d_ed_gizmo_draw_viewring(_ed, _vp, _pivot, _look, _ws) {
 	}
 }
 
-/// Draws the center handle for translate/scale.
+// Draws central uniform transform handle circle.
 function __gm3d_ed_gizmo_draw_center(_ed, _ps) {
 	if (_ed.giz.tool == Gm3dEdTool.Translate || _ed.giz.tool == Gm3dEdTool.Scale) {
 		var _bhov = _ed.giz.hover == -2 || _ed.giz.drag == -2;
@@ -918,7 +887,7 @@ function __gm3d_ed_gizmo_draw_center(_ed, _ps) {
 	}
 }
 
-/// Draws the rotate-drag sweep sector.
+// Visualizes current rotation angle sweep arc.
 function __gm3d_ed_gizmo_draw_rotate_sweep(_ed, _vp, _pivot, _ps, _ws, _hls) {
 	var _sweep = _ed.giz.display_ang;
 	if (abs(_sweep) <= 0.01) {
@@ -963,7 +932,7 @@ function __gm3d_ed_gizmo_draw_rotate_sweep(_ed, _vp, _pivot, _ps, _ws, _hls) {
 	}
 }
 
-/// Draws the translate-drag trail.
+// Draws line from drag start to current pivot.
 function __gm3d_ed_gizmo_draw_trail(_ed, _vp, _ps) {
 	draw_set_alpha(0.7);
 	__gm3d_ed_vp_line(_ed, _ed.giz.piv_sx, _ed.giz.piv_sy, _ps[0], _ps[1], 2, c_white);
@@ -971,7 +940,7 @@ function __gm3d_ed_gizmo_draw_trail(_ed, _vp, _ps) {
 	draw_circle_color(_ed.giz.piv_sx, _ed.giz.piv_sy, 4, c_yellow, c_yellow, false);
 }
 
-/// Draws a translate-handle arrowhead.
+// Draws 3D-style arrowhead at axis endpoint.
 function __gm3d_ed_arrow(_x1, _y1, _x2, _y2, _col, _sz, _al) {
 	var _dx = _x2 - _x1;
 	var _dy = _y2 - _y1;
@@ -1012,7 +981,8 @@ function __gm3d_ed_arrow(_x1, _y1, _x2, _y2, _col, _sz, _al) {
 	draw_primitive_end();
 	draw_set_alpha(1);
 }
-/// Draws a gizmo axis shaft.
+
+// Draws highlighted gizmo axis shaft line.
 function __gm3d_ed_gizmo_shaft(_ed, _x1, _y1, _x2, _y2, _col, _al) {
 	var _dx = _x2 - _x1;
 	var _dy = _y2 - _y1;
@@ -1030,7 +1000,8 @@ function __gm3d_ed_gizmo_shaft(_ed, _x1, _y1, _x2, _y2, _col, _al) {
 	}
 	draw_set_alpha(1);
 }
-/// Draws the projected world-space bounding box of a selected node.
+
+// Draws bounding box outline around single node.
 function __gm3d_ed_draw_selbox(_node, _vp, _ed) {
 	if (__gm3d_ed_hidden_get(_ed, _node)) {
 		return;

@@ -1,16 +1,4 @@
-/// @module gm3d_ed_scene_ops
-/// Scene operations: new, delete, duplicate, focus, drop point and grid.
-///
-/// Editor grid: datafiles/grid.glb is spawned into the live scene as a
-/// transient root node (never registered in ed.tracked, so save / load /
-/// undo / outliner ignore it by construction). It is added on editor boot
-/// and on reopen, and removed on close and on cleanup so the game never
-/// sees it. Unlike the old 2D overlay it depth-tests against models.
-
-/// True when _node is the transient editor grid.
-/// Matches by reference first, then by node name: scene nodes have no
-/// stable identity across getNodes() calls (see module header in core),
-/// so reference equality alone cannot be trusted here.
+// Checks if node is editor grid.
 function __gm3d_ed_is_grid(_ed, _node) {
 	if (_node == undefined) {
 		return false;
@@ -26,7 +14,7 @@ function __gm3d_ed_is_grid(_ed, _node) {
 	return false;
 }
 
-/// Spawns the grid node when missing; removes it when show_grid is off.
+// Creates editor grid if enabled.
 function __gm3d_ed_grid_ensure(_ed) {
 	if (_ed == undefined || _ed.rt == undefined || _ed.rt.scene == undefined) {
 		return;
@@ -61,8 +49,7 @@ function __gm3d_ed_grid_ensure(_ed) {
 		}
 		var _mats = _src.getMaterials();
 		for (var _i = 0; _i < array_length(_mats); ++_i) {
-			// Grid shader: same lighting as sStatic plus distance fade that
-			// dissolves far lines instead of letting them shimmer (no MSAA).
+
 			_mats[_i].setShader(GM3D_ERenderPass.Forward, shGM3DGrid);
 		}
 		_src.freeze();
@@ -80,10 +67,7 @@ function __gm3d_ed_grid_ensure(_ed) {
 	_ed.rt.scene.update(0);
 }
 
-/// Pushes the toolbar cell size to the grid shader (u_grid_step, the true
-/// single-cell pitch in world units). Pushed to every grid material; no-op
-/// while the grid is hidden, and the spawn path above re-applies the stored
-/// step when the grid comes back.
+// Updates grid shader step size.
 function __gm3d_ed_grid_step_sync(_ed) {
 	if (_ed == undefined) {
 		return;
@@ -113,7 +97,7 @@ function __gm3d_ed_grid_step_sync(_ed) {
 	}
 }
 
-/// Stores a new grid cell size (clamped) and pushes it to the live node.
+// Sets grid step and refreshes.
 function __gm3d_ed_grid_set_step(_ed, _v) {
 	if (_ed == undefined || !is_real(_v)) {
 		return;
@@ -128,8 +112,7 @@ function __gm3d_ed_grid_set_step(_ed, _v) {
 	}
 }
 
-/// Pushes the live window colour into the grid shader background uniform,
-/// so line edges always blend toward the real background.
+// Syncs grid background color.
 function __gm3d_ed_grid_bg_sync(_ed) {
 	if (_ed == undefined || !variable_struct_exists(_ed, "grid_mat") || _ed.grid_mat == undefined) {
 		return;
@@ -138,7 +121,7 @@ function __gm3d_ed_grid_bg_sync(_ed) {
 	_ed.grid_mat.setFloatArray("u_grid_bg", [colour_get_red(_c) / 255, colour_get_green(_c) / 255, colour_get_blue(_c) / 255]);
 }
 
-/// Destroys the grid node when present (game must never see it).
+// Removes editor grid node.
 function __gm3d_ed_grid_remove(_ed) {
 	if (_ed == undefined || !variable_struct_exists(_ed, "grid_node")) {
 		return;
@@ -152,14 +135,13 @@ function __gm3d_ed_grid_remove(_ed) {
 	}
 }
 
-/// Ground-plane drop point for the mouse (exact raycast, never 2D approx).
-/// @return Hit point, or undefined when the ray misses the plane (e.g. sky).
+// Computes ground plane drop point.
 function __gm3d_ed_drop_point(_ed, _vp, _mx, _my) {
 	var _ray = __gm3d_ed_screen_ray(_vp, _mx, _my);
 	return __gm3d_ed_ray_plane(_ray.origin, _ray.dir, new GM3D_Vec3(0, 0, 0), new GM3D_Vec3(0, 1, 0));
 }
 
-/// Normalizes a drag rectangle to { x0, y0, x1, y1 } (top-left to bottom-right).
+// Normalizes rectangle corner coordinates.
 function __gm3d_ed_rect_norm(_r) {
 	return {
 		x0: min(_r.x0, _r.x1),
@@ -169,7 +151,7 @@ function __gm3d_ed_rect_norm(_r) {
 	};
 }
 
-/// Destroys a node and its whole subtree, deepest first.
+// Destroys node and all children.
 function __gm3d_ed_destroy_subtree(_node) {
 	if (_node == undefined) {
 		return;
@@ -181,7 +163,7 @@ function __gm3d_ed_destroy_subtree(_node) {
 	_node.destroy();
 }
 
-/// Clears all tracked placements to start a new empty scene.
+// Clears scene to empty state.
 function __gm3d_ed_new_scene(_ed) {
 	__gm3d_ed_drop_preview_clear(_ed);
 	var _tracked = __gm3d_ed_root_tracked(_ed);
@@ -200,10 +182,7 @@ function __gm3d_ed_new_scene(_ed) {
 	_ed.scene_file = "";
 }
 
-/// Drops unsaved session edits, restoring the last saved state.
-/// Reloads from disk when a scene file exists, else clears to empty.
-/// On reload failure the live scene is kept (no data loss).
-/// Used by "Don't save" on close; new/load rebuild by themselves.
+// Reloads file or clears scene.
 function __gm3d_ed_discard_changes(_ed) {
 	var _path = __gm3d_ed_scene_path(_ed);
 	if (_path != "" && file_exists(_path)) {
@@ -216,7 +195,7 @@ function __gm3d_ed_discard_changes(_ed) {
 	__gm3d_ed_new_scene(_ed);
 }
 
-/// Deletes the current selection; undoable.
+// Deletes selected nodes with undo.
 function __gm3d_ed_delete_sel(_ed) {
 	if (array_length(_ed.sel) == 0) {
 		return;
@@ -241,7 +220,7 @@ function __gm3d_ed_delete_sel(_ed) {
 	}
 }
 
-/// Duplicates the current selection with an offset, selects the copies; undoable.
+// Duplicates selected nodes with offset.
 function __gm3d_ed_duplicate_sel(_ed) {
 	var _n = array_length(_ed.sel);
 	if (_n == 0) {
@@ -296,8 +275,7 @@ function __gm3d_ed_duplicate_sel(_ed) {
 	}
 }
 
-/// Duplicates one light/camera/environment node with an offset; undoable via caller.
-/// @return New node or undefined.
+// Duplicates light camera environment node.
 function __gm3d_ed_duplicate_prop(_ed, _src, _kind, _off) {
 	var _en = __gm3d_ed_registry_find(_ed, _src);
 	if (_en == undefined || !is_struct(_en.data)) {
@@ -363,7 +341,7 @@ function __gm3d_ed_duplicate_prop(_ed, _src, _kind, _off) {
 	return _node;
 }
 
-/// Returns the focus target for the current selection.
+// Computes focus center from selection.
 function __gm3d_ed_focus_target(_ed) {
 	var _n = array_length(_ed.sel);
 	if (_n == 0) {
@@ -407,8 +385,7 @@ function __gm3d_ed_focus_target(_ed) {
 	return { center: _p, radius: 1.0 };
 }
 
-/// Moves the camera to frame the current selection.
-/// @return True when a selection was focused.
+// Moves camera to frame selection.
 function __gm3d_ed_focus_selection(_ed) {
 	var _t = __gm3d_ed_focus_target(_ed);
 	if (_t == undefined) {
@@ -467,8 +444,7 @@ function __gm3d_ed_focus_selection(_ed) {
 	return true;
 }
 
-/// Selects a node and moves the camera to frame it.
-/// @return True on success.
+// Selects and focuses single node.
 function __gm3d_ed_focus_node(_ed, _node) {
 	if (_node == undefined) {
 		return false;
@@ -479,14 +455,14 @@ function __gm3d_ed_focus_node(_ed, _node) {
 	return __gm3d_ed_focus_selection(_ed);
 }
 
-/// Selects exactly one node, clearing the previous selection.
+// Selects single scene node.
 function __gm3d_ed_scene_select(_ed, _node) {
 	_ed.sel = [_node];
 	_ed.giz.drag = -1;
 	__gm3d_ed_sel_apply_tool(_ed);
 }
 
-/// Handles outliner row clicks: select on single click, focus on double click.
+// Handles scene list click and doubleclick.
 function __gm3d_ed_scene_click(_ed, _nd, _row) {
 	var _now = current_time;
 	if (_ed.scene_click_idx == _row && _now - _ed.scene_click_time <= 400) {
@@ -501,7 +477,7 @@ function __gm3d_ed_scene_click(_ed, _nd, _row) {
 	}
 }
 
-/// Renames a node label; undoable.
+// Commits renamed node label with undo.
 function __gm3d_ed_scene_commit_rename(_ed, _node, _new_label) {
 	var _hb = __gm3d_ed_history_snap(_ed);
 	var _en = __gm3d_ed_registry_find(_ed, _node);
@@ -513,7 +489,7 @@ function __gm3d_ed_scene_commit_rename(_ed, _node, _new_label) {
 	}
 }
 
-/// Applies a deferred outliner context-menu action.
+// Applies pending scene list actions.
 function __gm3d_ed_scene_list_commit(_ed, _ren, _foc, _dup, _del) {
 	if (_ren != undefined) {
 		__gm3d_ed_scene_select(_ed, _ren);
@@ -532,9 +508,7 @@ function __gm3d_ed_scene_list_commit(_ed, _ren, _foc, _dup, _del) {
 	}
 }
 
-/// Writes one transform component over the whole selection.
-/// @param _mode 0 position, 1 rotation (deg), 2 scale.
-/// @param _idx 0 X, 1 Y, 2 Z.
+// Applies position rotation scale axis edit.
 function __gm3d_ed_apply_axis(_ed, _mode, _idx, _v) {
 	for (var _i = 0; _i < array_length(_ed.sel); _i++) {
 		var _n = _ed.sel[_i];
@@ -566,8 +540,7 @@ function __gm3d_ed_apply_axis(_ed, _mode, _idx, _v) {
 	}
 }
 
-/// Applies an inspector axis edit to the selection; undoable.
-/// @param _mode 0 position, 1 rotation, 2 scale (clamped).
+// Applies inspector edit with history.
 function __gm3d_ed_inspector_apply(_ed, _mode, _idx, _v) {
 	var _vv = _v;
 	if (_mode == 2) {

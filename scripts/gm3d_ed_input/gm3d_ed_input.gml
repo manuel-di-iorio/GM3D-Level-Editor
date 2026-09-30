@@ -1,6 +1,4 @@
-/// @module gm3d_ed_input
-
-/// Resolves the active gesture owner and clears owners whose gesture ended.
+// Synchronizes active input gesture owner.
 function __gm3d_ed_input_owner_sync(_ed) {
 	var _owner = _ed.input_owner;
 	if (_owner == undefined) {
@@ -38,19 +36,19 @@ function __gm3d_ed_input_owner_sync(_ed) {
 	return _owner;
 }
 
-/// True when the active owner is one of the camera gestures.
+// Checks if owner is camera operation.
 function __gm3d_ed_input_owner_is_camera(_owner) {
 	return _owner == "camera_orbit" || _owner == "camera_zoom" || _owner == "camera_fly" || _owner == "camera_pan";
 }
 
-/// Clears the owner only when the requested gesture currently owns input.
+// Clears specified input owner if active.
 function __gm3d_ed_input_owner_clear(_ed, _owner) {
 	if (_ed.input_owner == _owner) {
 		_ed.input_owner = undefined;
 	}
 }
 
-/// Captures shared per-frame input state before camera and editor handlers run.
+// Builds mouse keyboard and viewport input context.
 function __gm3d_ed_input_context(_ed, _keys) {
 	var _mx = device_mouse_x_to_gui(0);
 	var _my = device_mouse_y_to_gui(0);
@@ -84,7 +82,7 @@ function __gm3d_ed_input_context(_ed, _keys) {
 	};
 }
 
-/// Handles tool, nudge and Ctrl hotkeys.
+// Handles editor keyboard shortcuts and nudging.
 function __gm3d_ed_step_hotkeys(_ed, _input) {
 	var _keys = _input.keys;
 	var _typing = _input.typing;
@@ -160,7 +158,7 @@ function __gm3d_ed_step_hotkeys(_ed, _input) {
 	}
 }
 
-/// Handles cascading Esc cancel for confirm, rename, drag, rect and gizmo.
+// Handles Escape cancellation of active operations.
 function __gm3d_ed_step_cancel(_ed, _input) {
 	var _keys = _input.keys;
 	var _typing = _input.typing;
@@ -204,7 +202,7 @@ function __gm3d_ed_step_cancel(_ed, _input) {
 	}
 }
 
-/// Continues the active gizmo drag; returns true when handled.
+// Updates active gizmo drag operation.
 function __gm3d_ed_step_gizmo(_ed, _input) {
 	var _vp = _input.vp;
 	var _mx = _input.mx;
@@ -227,13 +225,7 @@ function __gm3d_ed_step_gizmo(_ed, _input) {
 			}
 			var _wv = __gm3d_ed_wrap_step(_ed, _mx, _my);
 			__gm3d_ed_gizmo_drag(_ed, _vp, _wv[0], _wv[1]);
-			// Keep tracked positions following the live nodes every frame.
-			// Entries match by live name + nearest recorded position and two
-			// placements from the same asset share the live name: without a
-			// per-frame follow, dragging a (just created/duplicated) node
-			// near a similar one makes registry_find snap to the wrong entry
-			// (outline flicker, wrong hidden/kind, corrupt rows_follow on
-			// release). Small per-frame deltas keep the 1-to-1 mapping stable.
+
 			__gm3d_ed_rows_follow(_ed, _ed.sel);
 		}
 		_ed.giz.hover = _ed.giz.drag;
@@ -244,7 +236,7 @@ function __gm3d_ed_step_gizmo(_ed, _input) {
 	return false;
 }
 
-/// Continues library drag and drop; returns true when handled.
+// Handles asset drag preview and placement.
 function __gm3d_ed_step_libdrop(_ed, _input) {
 	var _vp = _input.vp;
 	var _mx = _input.mx;
@@ -257,8 +249,7 @@ function __gm3d_ed_step_libdrop(_ed, _input) {
 		if (_ed.drag_moved && _drop_vp) {
 			var _dpv = __gm3d_ed_drop_point(_ed, _vp, _mx, _my);
 			if (_dpv == undefined) {
-				// Ray misses the ground (e.g. sky): no positionable point,
-				// so the preview hides instead of sitting somewhere stale.
+
 				__gm3d_ed_drop_preview_clear(_ed);
 			} else {
 				__gm3d_ed_drop_preview_update(_ed, _dpv);
@@ -279,8 +270,7 @@ function __gm3d_ed_step_libdrop(_ed, _input) {
 				_hb = __gm3d_ed_history_snap(_ed);
 				var _asset = _ed.drag_lib.asset;
 				if (_ed.drag_preview != undefined) {
-					// Adopt the preview: final TRS plus registry entry, no
-					// second spawn, so the preview never flickers.
+
 					_ed.drag_preview.setLocalPosition(new GM3D_Vec3(_drop.x, _drop.y, _drop.z));
 					if (variable_struct_exists(_ed.rt, "on_spawn")) {
 						_ed.rt.on_spawn(_ed.inst, _ed.drag_preview, _asset.name, _asset.model);
@@ -320,7 +310,7 @@ function __gm3d_ed_step_libdrop(_ed, _input) {
 	return false;
 }
 
-/// Continues rectangle select; returns true when handled.
+// Handles rectangle selection drag completion.
 function __gm3d_ed_step_rect(_ed, _input) {
 	var _vp = _input.vp;
 	var _mx = _input.mx;
@@ -331,9 +321,7 @@ function __gm3d_ed_step_rect(_ed, _input) {
 		if (!mouse_check_button(mb_left)) {
 			var _r = __gm3d_ed_rect_norm(_ed.rect);
 			if (abs(_r.x1 - _r.x0) > 6 || abs(_r.y1 - _r.y0) > 6) {
-				// GPU rect pick, executed in Draw (valid 3D render context)
-				// same frame: one ID render + one buffer download + region
-				// scan, then replace vs shift-add with the old semantics.
+
 				__gm3d_ed_gpupick_request_rect(_ed, _r, keyboard_check(vk_shift));
 			}
 			_ed.rect = undefined;
@@ -345,7 +333,7 @@ function __gm3d_ed_step_rect(_ed, _input) {
 	return false;
 }
 
-/// Updates gizmo and viewcube hover plus click pick.
+// Handles hover picking and click selection.
 function __gm3d_ed_step_hover(_ed, _input) {
 	var _vp = _input.vp;
 	var _mx = _input.mx;
@@ -436,8 +424,7 @@ function __gm3d_ed_step_hover(_ed, _input) {
 			}
 			_ed.cube_face = undefined;
 		} else if (_in_vp) {
-			// GPU ID pick, executed in Draw (valid 3D render context) same
-			// frame: precise per-pixel topmost with depth, icons first.
+
 			__gm3d_ed_gpupick_request_click(_ed, _mx, _my, keyboard_check(vk_shift));
 		}
 	}

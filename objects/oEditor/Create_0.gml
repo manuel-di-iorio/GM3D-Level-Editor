@@ -17,8 +17,7 @@ for (var _i = 0, _n = array_length(_lib); _i < _n; _i++) {
 	gm3d_editor_asset_add(ed, _model[0], demo_load_model(id, _model[1]));
 }
 
-// The demo light and environment join the editor like any other node
-gm3d_editor_light_add(ed, id.lightNode, "Sun");
-gm3d_editor_environment_add(ed, id.envNode, "Environment");
-
-gm3d_editor_load("demo.json");
+for (var _k = 0; _k < array_length(id.demo_track); ++_k) {
+	var _t = id.demo_track[_k];
+	gm3d_editor_track(ed, _t[0], _t[1], _t[2], _t[3]);
+}

@@ -1,10 +1,4 @@
-/// @module gm3d_ed_scene_walk
-/// Shared scene-graph walk helpers: root resolve, mesh-component collect and
-/// mute. Extracted from the selection outline so the GPU ID picking pass
-/// reuses the exact same traversal, swap and restore semantics.
-
-/// Climbs to the topmost ancestor of _node (the pickable root).
-/// @return Root node, or _node itself when parentless or on failure.
+// Finds root ancestor of scene node.
 function __gm3d_ed_walk_root(_node) {
 	var _root = _node;
 	var _guard = 0;
@@ -18,8 +12,7 @@ function __gm3d_ed_walk_root(_node) {
 	return _root;
 }
 
-/// Pushes the mesh components of _node (no recursion, the scene walk covers
-/// every node) as { comp, skinned } entries.
+// Collects mesh components from node.
 function __gm3d_ed_walk_collect_comps(_node, _out) {
 	try {
 		var _mc = _node.getMeshComponent();
@@ -37,8 +30,7 @@ function __gm3d_ed_walk_collect_comps(_node, _out) {
 	}
 }
 
-/// Disables the mesh components of _node, recording their previous enabled
-/// state in _muted as { comp, was } entries.
+// Disables node meshes and records state.
 function __gm3d_ed_walk_mute_node(_node, _muted) {
 	var _list = [];
 	__gm3d_ed_walk_collect_comps(_node, _list);
@@ -60,9 +52,7 @@ function __gm3d_ed_walk_mute_node(_node, _muted) {
 	}
 }
 
-/// Restores swapped materials and muted components recorded by a render pass.
-/// @param _swapped { comp, orig } entries from setMaterial overrides.
-/// @param _muted { comp, was } entries from mute_node.
+// Restores materials and enabled states.
 function __gm3d_ed_walk_restore(_swapped, _muted) {
 	try {
 		for (var _s = 0; _s < array_length(_swapped); _s++) {

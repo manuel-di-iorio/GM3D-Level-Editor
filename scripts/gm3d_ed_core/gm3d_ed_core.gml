@@ -1,14 +1,10 @@
-/// @module gm3d_ed_core
-/// Boot, loop, public API, central state and input orchestration.
-/// NOTE: scene nodes have no stable identity; tracked placements match by live name + nearest recorded position.
 enum Gm3dEdTool {
 	Translate = 1,
 	Rotate = 2,
 	Scale = 3,
 }
 
-/// Public API: boot + loop
-/// Creates editor state over a game runtime adapter.
+// Initializes editor state and restores view.
 function gm3d_editor_init(_self, _rt) {
 	global.gm3d_editor_active = true;
 	var _ed = __gm3d_ed_create(_self, _rt);
@@ -24,7 +20,7 @@ function gm3d_editor_init(_self, _rt) {
 	return _ed;
 }
 
-/// Advances the frozen scene and editor input; call from Step event.
+// Updates editor logic and draws UI.
 function gm3d_editor_step(_ed) {
 	if (_ed == undefined || _ed.rt == undefined) {
 		return;
@@ -37,9 +33,20 @@ function gm3d_editor_step(_ed) {
 	__gm3d_ed_imgui_draw(_ed);
 }
 
-/// Draws the 3D overlay; call from Draw GUI event.
+// Warms up editor shaders before rendering.
+function gm3d_editor_prerender(_ed) {
+	__gm3d_ed_shaders_warmup(_ed);
+}
+
+// Captures outline and executes GPU picking.
+function gm3d_editor_postrender(_ed) {
+	__gm3d_ed_outline_capture(_ed);
+	__gm3d_ed_gpupick_execute(_ed);
+}
+
+// Draws gizmos, overlays, and selection rectangle.
 function gm3d_editor_draw(_ed) {
-	// Fresh viewport: the Step copy is stale after fly and gizmo moves.
+
 	var _vp = undefined;
 	if (_ed.rt != undefined) {
 		_vp = __gm3d_ed_viewport(_ed);
@@ -68,7 +75,7 @@ function gm3d_editor_draw(_ed) {
 		if (_ed.drag_lib != undefined && _ed.drag_moved) {
 			var _mx = device_mouse_x_to_gui(0);
 			var _my = device_mouse_y_to_gui(0);
-			// Over the scene the live preview is the feedback (no text/circle).
+
 			if (!__gm3d_ed_drag_in_viewport(_ed, _mx, _my)) {
 				draw_set_color(make_colour_rgb(90, 140, 250));
 				draw_rectangle(_mx + 14, _my + 10, _mx + 150, _my + 32, false);
@@ -79,7 +86,6 @@ function gm3d_editor_draw(_ed) {
 			}
 		}
 		__gm3d_ed_outline_composite(_ed);
-		__gm3d_ed_gpupick_draw_fault(_ed);
 		__gm3d_ed_gizmo_draw(_ed, _vp);
 		__gm3d_ed_overlay_draw(_ed, _vp);
 		__gm3d_ed_viewcube_draw(_ed, _vp);
@@ -118,7 +124,7 @@ function gm3d_editor_draw(_ed) {
 	draw_set_valign(fa_top);
 }
 
-/// Unregisters the editor instance; call from CleanUp event.
+// Releases editor resources and restores scene.
 function gm3d_editor_cleanup(_ed) {
 	__gm3d_ed_outline_cleanup(_ed);
 	__gm3d_ed_gpupick_cleanup(_ed);
@@ -142,7 +148,7 @@ function gm3d_editor_cleanup(_ed) {
 	}
 }
 
-/// Returns the live editor state, or undefined when destroyed.
+// Returns current active editor instance.
 function gm3d_editor_inst() {
 	var _st = undefined;
 
@@ -162,10 +168,7 @@ function gm3d_editor_inst() {
 	return _st;
 }
 
-/// Editor viewport background: soft dark blue, applied on open.
-/// The GM3D camera exposes no documented clear color; the background comes
-/// from the display buffer clear + the room background layer, so the editor
-/// sets the window colour and hides the room "Background" layer while open.
+// Applies dark background and hides layer.
 function __gm3d_ed_bg_apply(_ed) {
 	if (_ed == undefined) {
 		return;
@@ -181,7 +184,7 @@ function __gm3d_ed_bg_apply(_ed) {
 	}
 }
 
-/// Restores the window colour and room background hidden by bg_apply.
+// Restores previous window background color.
 function __gm3d_ed_bg_restore(_ed) {
 	if (_ed == undefined) {
 		return;
@@ -196,9 +199,7 @@ function __gm3d_ed_bg_restore(_ed) {
 	_ed.bg_layer = undefined;
 }
 
-/// Ensures native render resolution and GUI match the window (no letterbox
-/// bars, no stretch): application_surface and GUI follow window size, like
-/// Unique Engine's resize path. Acts only on change; call per step.
+// Synchronizes application surface to window size.
 function __gm3d_ed_view_sync(_ed) {
 	var _ww = 0;
 	var _wh = 0;
@@ -231,7 +232,7 @@ function __gm3d_ed_view_sync(_ed) {
 	}
 }
 
-/// Saves game viewport state before the editor takes it over.
+// Saves current surface and GUI sizes.
 function __gm3d_ed_view_save(_ed) {
 	var _v = { sw: -1, sh: -1, gw: -1, gh: -1 };
 	try {
@@ -249,7 +250,7 @@ function __gm3d_ed_view_save(_ed) {
 	_ed.view_prev = _v;
 }
 
-/// Restores game viewport state saved by view_save.
+// Restores previously saved surface sizes.
 function __gm3d_ed_view_restore(_ed) {
 	if (_ed == undefined || !is_struct(_ed.view_prev)) {
 		return;
@@ -270,8 +271,7 @@ function __gm3d_ed_view_restore(_ed) {
 	}
 }
 
-/// Sets the editor open state.
-/// @param {Bool} _on true to open, false to close
+// Toggles editor active state with setup.
 function __gm3d_ed_set_active(_ed, _on) {
 	if (_ed == undefined) {
 		return;
@@ -298,7 +298,7 @@ function __gm3d_ed_set_active(_ed, _on) {
 	}
 }
 
-/// Opens the editor UI (same as F1).
+// Enables the 3D editor.
 function gm3d_editor_enable() {
 	var _e = gm3d_editor_inst();
 	if (_e != undefined) {
@@ -306,7 +306,7 @@ function gm3d_editor_enable() {
 	}
 }
 
-/// Closes the editor UI, leaving the scene running.
+// Disables the 3D editor.
 function gm3d_editor_disable() {
 	var _e = gm3d_editor_inst();
 	if (_e != undefined) {
@@ -314,7 +314,7 @@ function gm3d_editor_disable() {
 	}
 }
 
-/// Toggles the editor UI (same as F1).
+// Toggles editor enabled state.
 function gm3d_editor_toggle() {
 	var _e = gm3d_editor_inst();
 	if (_e != undefined) {
@@ -322,13 +322,13 @@ function gm3d_editor_toggle() {
 	}
 }
 
-/// True when the editor exists and its UI is open.
+// Checks if editor is active.
 function gm3d_editor_is_active() {
 	var _e = gm3d_editor_inst();
 	return _e != undefined && _e.active;
 }
 
-/// Focuses the camera on the current selection.
+// Focuses camera on current selection.
 function gm3d_editor_focus() {
 	var _e = gm3d_editor_inst();
 	if (_e == undefined) {
@@ -337,8 +337,7 @@ function gm3d_editor_focus() {
 	return __gm3d_ed_focus_selection(_e);
 }
 
-/// Saves the scene, optionally switching files first.
-/// @param {String} _fname scene path, undefined keeps the current file
+// Saves scene to file.
 function gm3d_editor_save(_fname) {
 	var _e = gm3d_editor_inst();
 	if (_e == undefined) {
@@ -355,7 +354,7 @@ function gm3d_editor_save(_fname) {
 	return false;
 }
 
-/// Saves through the OS dialog, always asking for a path.
+// Prompts filename and saves scene.
 function __gm3d_ed_save_as(_ed) {
 	var _f = "";
 	_f = get_save_filename("Scene JSON (*.json)|*.json", _ed.scene_file != "" ? _ed.scene_file : "scene.json");
@@ -367,7 +366,7 @@ function __gm3d_ed_save_as(_ed) {
 	return _ok;
 }
 
-/// Saves, asking for a path when no file is known yet.
+// Saves scene or prompts for path.
 function __gm3d_ed_save_or_ask(_ed) {
 	if (_ed.scene_file == undefined || _ed.scene_file == "") {
 		return __gm3d_ed_save_as(_ed);
@@ -376,8 +375,7 @@ function __gm3d_ed_save_or_ask(_ed) {
 	return _ok;
 }
 
-/// Asks to save dirty changes before a discard action.
-/// @param {String} _action "new", "load" or "close"
+// Shows confirmation dialog if dirty.
 function __gm3d_ed_confirm_ask(_ed, _action) {
 	var _dirty = false;
 	_dirty = _ed.dirty == true;
@@ -388,7 +386,7 @@ function __gm3d_ed_confirm_ask(_ed, _action) {
 	_ed.confirm = { action: _action, open: true };
 }
 
-/// Runs the confirmed discard action.
+// Executes confirmed new load close action.
 function __gm3d_ed_confirm_do(_ed, _action) {
 	if (_action == "new") {
 		__gm3d_ed_new_scene(_ed);
@@ -399,8 +397,7 @@ function __gm3d_ed_confirm_do(_ed, _action) {
 	}
 }
 
-/// Loads a scene at runtime.
-/// @param {String} _fname path, undefined asks, empty aborts
+// Loads scene from file.
 function gm3d_editor_load(_fname) {
 	var _e = gm3d_editor_inst();
 	if (_e == undefined) {
@@ -423,8 +420,7 @@ function gm3d_editor_load(_fname) {
 	return false;
 }
 
-/// Clears to an empty scene. Lights, cameras and the environment are tracked
-/// nodes like models, so new scene removes them as well.
+// Creates new empty scene.
 function gm3d_editor_new_scene() {
 	var _e = gm3d_editor_inst();
 	if (_e == undefined) {
@@ -433,14 +429,13 @@ function gm3d_editor_new_scene() {
 	__gm3d_ed_new_scene(_e);
 }
 
-/// State
-/// Creates the central editor state struct.
+// Creates default editor state struct.
 function __gm3d_ed_create(_inst, _rt) {
 	var _ed = {
 		inst: _inst,
 		rt: _rt,
 		cfg: {
-			ndc_yup: true, // Deprecated: use ed.ndc_yup
+			ndc_yup: true,
 			keys: {
 				toggle: vk_f1,
 				tool_move: ord("1"),
@@ -457,8 +452,8 @@ function __gm3d_ed_create(_inst, _rt) {
 				rename: vk_f2,
 				load: ord("L"),
 			},
-			snap: { on: false, pos: 0.5, rot: 15 }, // Deprecated: use ed.snap_*
-			gizmo_px: 90, // Deprecated: use ed.giz.size
+			snap: { on: false, pos: 0.5, rot: 15 },
+			gizmo_px: 90,
 			duplicate_offset: 0.6,
 		},
 		active: true,
@@ -552,8 +547,7 @@ function __gm3d_ed_create(_inst, _rt) {
 	return _ed;
 }
 
-/// Input
-/// Runs per-frame camera, hotkeys and viewport input in priority order.
+// Processes input, cameras, and interactions.
 function __gm3d_ed_step(_ed, _dt) {
 	_ed.gw = max(320, display_get_gui_width());
 	_ed.gh = max(200, display_get_gui_height());
@@ -611,29 +605,19 @@ function __gm3d_ed_step(_ed, _dt) {
 	__gm3d_ed_step_hover(_ed, _input);
 }
 
-/// Centralized infinite-drag mouse wrap. While a gizmo
-/// transform or a camera gesture is active the OS cursor teleports from one
-/// screen edge to the opposite one, so motion never stalls at the border:
-/// - gizmo drags use absolute coordinates, so they consume VIRTUAL coords
-///   (begin/step/end) that keep growing past the edges;
-/// - camera gestures (RMB orbit, MMB pan) are delta-driven, so they only
-///   need the edge teleport AFTER their deltas were consumed (wrap_camera).
-/// State lives on _ed.wrap: { on, vx, vy, lx, ly }.
-
-/// Starts virtual tracking at the current mouse position.
+// Begins infinite mouse wrap tracking.
 function __gm3d_ed_wrap_begin(_ed, _mx, _my) {
 	_ed.wrap = { on: true, vx: _mx, vy: _my, lx: _mx, ly: _my };
 }
 
-/// Stops virtual tracking.
+// Ends mouse wrap tracking.
 function __gm3d_ed_wrap_end(_ed) {
 	if (_ed != undefined) {
 		_ed.wrap = undefined;
 	}
 }
 
-/// Folds the real mouse delta into the virtual position and teleports the OS
-/// cursor at the window edges. Returns [vx, vy] for the drag math.
+// Updates wrapped mouse virtual coordinates.
 function __gm3d_ed_wrap_step(_ed, _mx, _my) {
 	var _w = _ed.wrap;
 	if (_w == undefined || !_w.on) {
@@ -668,8 +652,7 @@ function __gm3d_ed_wrap_step(_ed, _mx, _my) {
 				window_mouse_set(round(_nx), round(_ny));
 			} catch (_eW2) {
 			}
-			// Rebase BEFORE the next frame: the teleport jump must never
-			// leak into the virtual position.
+
 			_w.lx = _nx;
 			_w.ly = _ny;
 		}
@@ -677,8 +660,7 @@ function __gm3d_ed_wrap_step(_ed, _mx, _my) {
 	return [_w.vx, _w.vy];
 }
 
-/// Edge teleport for delta-driven camera gestures (orbit/pan): call AFTER the
-/// frame deltas were consumed, so the jump stays out of the motion.
+// Wraps cursor at window edges.
 function __gm3d_ed_wrap_camera(_ed) {
 	if (_ed == undefined) {
 		return;
@@ -722,9 +704,7 @@ function __gm3d_ed_wrap_camera(_ed) {
 	}
 }
 
-/// Spawns (once) and moves the live drop preview for the library drag.
-/// The preview is an untracked scene node, so save/load/undo/picking ignore
-/// it by construction; it is either adopted on drop or destroyed.
+// Updates asset drag preview position.
 function __gm3d_ed_drop_preview_update(_ed, _drop) {
 	if (_ed == undefined || _ed.drag_lib == undefined || _drop == undefined) {
 		return;
@@ -743,11 +723,11 @@ function __gm3d_ed_drop_preview_update(_ed, _drop) {
 		_ed.drag_preview = _pv;
 	}
 	_pv.setLocalPosition(new GM3D_Vec3(_drop.x, _drop.y, _drop.z));
-	// Fresh matrices now: the node must never render one frame at origin.
+
 	_ed.rt.scene.update(0);
 }
 
-/// Destroys the live drop preview without tracking it.
+// Removes asset drag preview node.
 function __gm3d_ed_drop_preview_clear(_ed) {
 	if (_ed == undefined) {
 		return;
@@ -761,10 +741,7 @@ function __gm3d_ed_drop_preview_clear(_ed) {
 	}
 }
 
-/// Viewport test for the library drag. ImGui keeps mouse capture while a
-/// drag-drop payload is active, so WantMouseCapture stays true even over the
-/// scene: hit-test real windows instead (the passthrough central dockspace
-/// does not count as hovered).
+// Checks if mouse is inside viewport.
 function __gm3d_ed_drag_in_viewport(_ed, _mx, _my) {
 	if (_mx < 0 || _mx > _ed.gw || _my < 0 || _my > _ed.gh) {
 		return false;
