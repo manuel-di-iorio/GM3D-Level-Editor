@@ -182,7 +182,7 @@ function __gm3d_ed_new_scene(_ed) {
 	_ed.scene_file = "";
 }
 
-// Reloads file or clears scene.
+// Drops session edits, restoring the last clean state.
 function __gm3d_ed_discard_changes(_ed) {
 	var _path = __gm3d_ed_scene_path(_ed);
 	if (_path != "" && file_exists(_path)) {
@@ -190,6 +190,13 @@ function __gm3d_ed_discard_changes(_ed) {
 			__gm3d_ed_sel_clear(_ed);
 			__gm3d_ed_history_clear(_ed);
 		}
+		return;
+	}
+	if (variable_struct_exists(_ed, "open_snapshot") && is_array(_ed.open_snapshot)) {
+		__gm3d_ed_rebuild(_ed, _ed.open_snapshot);
+		__gm3d_ed_sel_clear(_ed);
+		__gm3d_ed_history_clear(_ed);
+		_ed.dirty = false;
 		return;
 	}
 	__gm3d_ed_new_scene(_ed);

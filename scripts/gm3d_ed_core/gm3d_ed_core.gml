@@ -295,6 +295,7 @@ function __gm3d_ed_set_active(_ed, _on) {
 		__gm3d_ed_bg_apply(_ed);
 		__gm3d_ed_grid_ensure(_ed);
 		__gm3d_ed_cameras_mute(_ed);
+		_ed.open_snapshot = __gm3d_ed_serialize_scene(_ed);
 	}
 }
 
@@ -523,6 +524,7 @@ function __gm3d_ed_create(_inst, _rt) {
 		wrap: undefined,
 		cube_geom: undefined,
 		scene_file: "",
+		open_snapshot: undefined,
 		snap_on: false,
 		snap_pos: 0.5,
 		snap_rot: 15,
@@ -557,6 +559,9 @@ function __gm3d_ed_step(_ed, _dt) {
 	}
 
 	__gm3d_ed_view_sync(_ed);
+	if (_ed.open_snapshot == undefined && _ed.dirty != true) {
+		_ed.open_snapshot = __gm3d_ed_serialize_scene(_ed);
+	}
 	var _input = __gm3d_ed_input_context(_ed, _keys);
 	var _vp = _input.vp;
 	_ed.vp = _vp;
