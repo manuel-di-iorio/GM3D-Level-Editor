@@ -40,6 +40,9 @@ function __gm3d_ed_grid_ensure(_ed) {
 	if (!variable_struct_exists(_ed, "grid_mat")) {
 		_ed.grid_mat = undefined;
 	}
+	if (!variable_struct_exists(_ed, "grid_step") || !is_real(_ed.grid_step)) {
+		_ed.grid_step = 1;
+	}
 	if (!variable_struct_exists(_ed, "show_grid") || !_ed.show_grid) {
 		__gm3d_ed_grid_remove(_ed);
 		return;
@@ -73,7 +76,56 @@ function __gm3d_ed_grid_ensure(_ed) {
 	var _gmats = _ed.grid_src.getMaterials();
 	_ed.grid_mat = array_length(_gmats) > 0 ? _gmats[0] : undefined;
 	__gm3d_ed_grid_bg_sync(_ed);
+	__gm3d_ed_grid_step_sync(_ed);
 	_ed.rt.scene.update(0);
+}
+
+/// Pushes the toolbar cell size to the grid shader (u_grid_step, the true
+/// single-cell pitch in world units). Pushed to every grid material; no-op
+/// while the grid is hidden, and the spawn path above re-applies the stored
+/// step when the grid comes back.
+function __gm3d_ed_grid_step_sync(_ed) {
+	if (_ed == undefined) {
+		return;
+	}
+	var _s = 1;
+	if (variable_struct_exists(_ed, "grid_step") && is_real(_ed.grid_step)) {
+		_s = clamp(_ed.grid_step, 0.1, 8);
+	}
+	var _mats = [];
+	if (variable_struct_exists(_ed, "grid_src") && _ed.grid_src != undefined) {
+		try {
+			_mats = _ed.grid_src.getMaterials();
+		} catch (_e) {
+			_mats = [];
+		}
+	}
+	if (!is_array(_mats) || array_length(_mats) == 0) {
+		if (variable_struct_exists(_ed, "grid_mat") && _ed.grid_mat != undefined) {
+			_mats = [_ed.grid_mat];
+		}
+	}
+	for (var _i = 0; _i < array_length(_mats); ++_i) {
+		try {
+			_mats[_i].setFloat("u_grid_step", _s);
+		} catch (_e2) {
+		}
+	}
+}
+
+/// Stores a new grid cell size (clamped) and pushes it to the live node.
+function __gm3d_ed_grid_set_step(_ed, _v) {
+	if (_ed == undefined || !is_real(_v)) {
+		return;
+	}
+	_ed.grid_step = clamp(_v, 0.1, 8);
+	__gm3d_ed_grid_step_sync(_ed);
+	if (_ed.rt != undefined && _ed.rt.scene != undefined && variable_struct_exists(_ed, "grid_node") && _ed.grid_node != undefined) {
+		try {
+			_ed.rt.scene.update(0);
+		} catch (_e2) {
+		}
+	}
 }
 
 /// Pushes the live window colour into the grid shader background uniform,

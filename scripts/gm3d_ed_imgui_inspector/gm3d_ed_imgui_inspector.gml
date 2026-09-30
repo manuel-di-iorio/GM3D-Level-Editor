@@ -126,6 +126,9 @@ function __gm3d_ed_imgui_axis_row(_ed, _mode, _label) {
 	ImGui.PushID(_mode);
 	ImGui.AlignTextToFramePadding();
 	ImGui.Text(_label);
+	// Drag speed per mode: rotation is in degrees, so it needs a faster
+	// step than position/scale to feel the same under the mouse.
+	var _speed = _mode == 1 ? 0.1 : 0.01;
 	for (var _a = 0; _a < 3; _a++) {
 		var _av = __gm3d_ed_axis_val(_ed, _mode, _a);
 		if (_a == 0) {
@@ -137,11 +140,32 @@ function __gm3d_ed_imgui_axis_row(_ed, _mode, _label) {
 		var _fkey = "ax" + string(_mode) + "_" + _label + "_" + _names[_a];
 		var _was = false;
 		_was = _ed.imgui.ax_active[$ _fkey] == true;
-		var _nv = __gm3d_ed_imgui_dragfloat(_names[_a], _av.val, 0.01);
+		// Draft cache while the widget is active: DragFloat only accumulates
+		// correctly when each frame feeds back the previous frame output.
+		// Passing the committed node value every frame resets the drag, so
+		// it feels insensitive and the blur frame only keeps the last pixel.
+		if (!variable_struct_exists(_ed.imgui, "ax_draft")) {
+			_ed.imgui.ax_draft = {};
+		}
+		var _input = _av.val;
+		if (_was && variable_struct_exists(_ed.imgui.ax_draft, _fkey)) {
+			var _dr = _ed.imgui.ax_draft[$ _fkey];
+			if (is_real(_dr)) {
+				_input = _dr;
+			}
+		}
+		var _nv = __gm3d_ed_imgui_dragfloat(_names[_a], _input, _speed);
 		var _now = ImGui.IsItemActive();
 		_ed.imgui.ax_active[$ _fkey] = _now;
-		if (_was && !_now && _nv != _av.val) {
-			__gm3d_ed_inspector_apply(_ed, _mode, _a, _nv);
+		if (_now) {
+			_ed.imgui.ax_draft[$ _fkey] = _nv;
+		} else {
+			if (variable_struct_exists(_ed.imgui.ax_draft, _fkey)) {
+				variable_struct_remove(_ed.imgui.ax_draft, _fkey);
+			}
+			if (_was && _nv != _av.val) {
+				__gm3d_ed_inspector_apply(_ed, _mode, _a, _nv);
+			}
 		}
 		if (_a < 2) {
 			ImGui.SameLine();
@@ -152,6 +176,8 @@ function __gm3d_ed_imgui_axis_row(_ed, _mode, _label) {
 }
 
 /// Float field with commit-on-defocus for prop sections.
+/// While active, the in-progress drag is kept in a per-key draft so the
+/// widget accumulates correctly (same stale-value issue as the axis rows).
 /// @return Committed value, or undefined when untouched.
 function __gm3d_ed_imgui_prop_float(_ed, _key, _label, _val, _w) {
 	if (_ed.imgui == undefined) {
@@ -160,12 +186,29 @@ function __gm3d_ed_imgui_prop_float(_ed, _key, _label, _val, _w) {
 	if (!variable_struct_exists(_ed.imgui, "flt_active")) {
 		_ed.imgui.flt_active = {};
 	}
+	if (!variable_struct_exists(_ed.imgui, "flt_draft")) {
+		_ed.imgui.flt_draft = {};
+	}
 	ImGui.SetNextItemWidth(_w);
-	var _nv = __gm3d_ed_imgui_dragfloat(_label, _val, 0.01);
-	var _now = ImGui.IsItemActive();
 	var _was = _ed.imgui.flt_active[$ _key] == true;
+	var _input = _val;
+	if (_was && variable_struct_exists(_ed.imgui.flt_draft, _key)) {
+		var _dr = _ed.imgui.flt_draft[$ _key];
+		if (is_real(_dr)) {
+			_input = _dr;
+		}
+	}
+	var _nv = __gm3d_ed_imgui_dragfloat(_label, _input, 0.01);
+	var _now = ImGui.IsItemActive();
 	_ed.imgui.flt_active[$ _key] = _now;
-	if (_was && !_now && _nv != _val) {
+	if (_now) {
+		_ed.imgui.flt_draft[$ _key] = _nv;
+		return undefined;
+	}
+	if (variable_struct_exists(_ed.imgui.flt_draft, _key)) {
+		variable_struct_remove(_ed.imgui.flt_draft, _key);
+	}
+	if (_was && _nv != _val) {
 		return _nv;
 	}
 	return undefined;

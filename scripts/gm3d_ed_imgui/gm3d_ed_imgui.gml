@@ -129,7 +129,9 @@ function __gm3d_ed_imgui_ensure(_ed) {
 		filter: "",
 		scene_filter: "",
 		ax_active: {},
+		ax_draft: {},
 		flt_active: {},
+		flt_draft: {},
 		show_kind: { m: true, l: true, c: true, e: true },
 		scene_eye_idx: -1,
 		scene_eye_till: 0,
@@ -197,7 +199,8 @@ function __gm3d_ed_imgui_tool_btn(_tip, _label, _active) {
 	return _hit;
 }
 
-/// Floating scene toolbar for tool switch, snap toggle and camera home.
+/// Floating scene toolbar: tool switch, axes space, snap/grid split
+/// controls (toggle button + increment dropdown, Unity-like) and home.
 function __gm3d_ed_imgui_toolbar(_ed) {
 	if (!_ed.imgui.win_toolbar.open) {
 		return;
@@ -221,15 +224,142 @@ function __gm3d_ed_imgui_toolbar(_ed) {
 	}
 	ImGui.SameLine();
 	ImGui.TextDisabled("|");
+	// Gizmo space: single toggle button, Unity-like (Global/Local switch).
 	ImGui.SameLine();
-	_ed.snap_on = ImGui.Checkbox("Snap", _ed.snap_on);
+	var _olbl = _ed.giz.orient == 1 ? "Local" : "World";
+	if (__gm3d_ed_imgui_tool_btn("Gizmo axes space (" + _olbl + ", click to switch)", _olbl, false)) {
+		_ed.giz.orient = _ed.giz.orient == 1 ? 0 : 1;
+	}
 	ImGui.SameLine();
-	_ed.show_grid = ImGui.Checkbox("Grid", _ed.show_grid);
+	ImGui.TextDisabled("|");
+	// Snap split control: the button toggles, the combo edits increments
+	// without forcing a toggle.
+	ImGui.SameLine();
+	if (__gm3d_ed_imgui_tool_btn("Snap to increments (on/off)", "Snap", _ed.snap_on)) {
+		_ed.snap_on = !_ed.snap_on;
+	}
+	ImGui.SameLine();
+	__gm3d_ed_imgui_snap_combo(_ed);
+	ImGui.SameLine();
+	ImGui.TextDisabled("|");
+	// Grid split control: same pattern, toggle + cell size.
+	ImGui.SameLine();
+	if (__gm3d_ed_imgui_tool_btn("Show grid (on/off)", "Grid", _ed.show_grid)) {
+		_ed.show_grid = !_ed.show_grid;
+	}
+	ImGui.SameLine();
+	__gm3d_ed_imgui_grid_combo(_ed);
+	ImGui.SameLine();
+	ImGui.TextDisabled("|");
 	ImGui.SameLine();
 	if (__gm3d_ed_imgui_tool_btn("Reset camera to the initial view", "Home", false)) {
 		__gm3d_ed_cam_home(_ed, true);
 	}
 	ImGui.End();
+}
+
+/// Toolbar snap increment dropdown: presets plus custom move/rotate steps.
+/// The on/off toggle lives on the Snap button; this only edits values.
+function __gm3d_ed_imgui_snap_combo(_ed) {
+	if (!__gm3d_ed_imgui_has_widget(_ed, "BeginCombo")) {
+		_ed.snap_pos = max(0.01, __gm3d_ed_imgui_dragfloat("##snappos_fb", _ed.snap_pos, 0.005));
+		return;
+	}
+	ImGui.SetNextItemWidth(62);
+	var _prev = string(_ed.snap_pos);
+	var _open = false;
+	try {
+		_open = ImGui.BeginCombo("##snapcombo", _prev);
+	} catch (_e) {
+		_ed.imgui.widget_probe[$ "BeginCombo"] = false;
+		_ed.snap_pos = max(0.01, __gm3d_ed_imgui_dragfloat("##snappos_fb", _ed.snap_pos, 0.005));
+		return;
+	}
+	if (!_open) {
+		if (ImGui.IsItemHovered()) {
+			ImGui.SetTooltip("Snap increments (move / rotate deg)");
+		}
+		return;
+	}
+	var _presets = [0.1, 0.25, 0.5, 1, 2];
+	for (var _i = 0; _i < array_length(_presets); _i++) {
+		var _p = _presets[_i];
+		var _sel = abs(_ed.snap_pos - _p) < 0.0001;
+		if (ImGui.Selectable(string(_p), _sel)) {
+			_ed.snap_pos = _p;
+		}
+		if (_sel) {
+			try {
+				ImGui.SetItemDefaultFocus();
+			} catch (_e2) {
+			}
+		}
+	}
+	ImGui.Separator();
+	ImGui.TextDisabled("Move step");
+	ImGui.SetNextItemWidth(120);
+	_ed.snap_pos = max(0.01, __gm3d_ed_imgui_dragfloat("##snappos_custom", _ed.snap_pos, 0.005));
+	ImGui.TextDisabled("Rotate step (deg)");
+	ImGui.SetNextItemWidth(120);
+	_ed.snap_rot = max(0.5, __gm3d_ed_imgui_dragfloat("##snaprot_custom", _ed.snap_rot, 0.1));
+	try {
+		ImGui.EndCombo();
+	} catch (_e3) {
+	}
+}
+
+/// Toolbar grid cell-size dropdown: presets plus a custom step.
+/// Shows/hides via the Grid button; this only edits the pitch.
+function __gm3d_ed_imgui_grid_combo(_ed) {
+	if (!variable_struct_exists(_ed, "grid_step") || !is_real(_ed.grid_step)) {
+		_ed.grid_step = 1;
+	}
+	if (!__gm3d_ed_imgui_has_widget(_ed, "BeginCombo")) {
+		var _fb = __gm3d_ed_imgui_dragfloat("##gridstep_fb", _ed.grid_step, 0.01);
+		__gm3d_ed_grid_set_step(_ed, clamp(_fb, 0.1, 8));
+		return;
+	}
+	ImGui.SetNextItemWidth(62);
+	var _prev = string(_ed.grid_step) + "m";
+	var _open = false;
+	try {
+		_open = ImGui.BeginCombo("##gridcombo", _prev);
+	} catch (_e) {
+		_ed.imgui.widget_probe[$ "BeginCombo"] = false;
+		var _fb2 = __gm3d_ed_imgui_dragfloat("##gridstep_fb", _ed.grid_step, 0.01);
+		__gm3d_ed_grid_set_step(_ed, clamp(_fb2, 0.1, 8));
+		return;
+	}
+	if (!_open) {
+		if (ImGui.IsItemHovered()) {
+			ImGui.SetTooltip("Grid cell size (world units)");
+		}
+		return;
+	}
+	var _presets = [0.25, 0.5, 1, 2, 4];
+	for (var _i = 0; _i < array_length(_presets); _i++) {
+		var _p = _presets[_i];
+		var _lbl = string(_p) + "m";
+		var _sel = abs(_ed.grid_step - _p) < 0.0001;
+		if (ImGui.Selectable(_lbl, _sel)) {
+			__gm3d_ed_grid_set_step(_ed, _p);
+		}
+		if (_sel) {
+			try {
+				ImGui.SetItemDefaultFocus();
+			} catch (_e2) {
+			}
+		}
+	}
+	ImGui.Separator();
+	ImGui.TextDisabled("Cell size (m)");
+	ImGui.SetNextItemWidth(120);
+	var _c = __gm3d_ed_imgui_dragfloat("##gridstep_custom", _ed.grid_step, 0.01);
+	__gm3d_ed_grid_set_step(_ed, clamp(_c, 0.1, 8));
+	try {
+		ImGui.EndCombo();
+	} catch (_e3) {
+	}
 }
 
 /// Returns the UI prefs file path.
@@ -348,7 +478,7 @@ function __gm3d_ed_imgui_place(_ed) {
 	var _top = 30;
 	var _lw = 250;
 	var _lh = clamp((_gh - _top - 16) * 0.55, 220, 640);
-	var _iw = 295;
+	var _iw = 300;
 	var _ih = clamp((_gh - _top - 16) * 0.4, 220, 360);
 	var _gap = 8;
 	return {
@@ -440,31 +570,6 @@ function __gm3d_ed_imgui_menu(_ed) {
 		if (ImGui.MenuItem("Close Editor", "F1")) {
 			_do_close = true;
 		}
-		ImGui.EndMenu();
-	}
-	if (ImGui.BeginMenu("Tools")) {
-		if (ImGui.MenuItem("Move", "1", { selected: _ed.giz.tool == Gm3dEdTool.Translate, checked: _ed.giz.tool == Gm3dEdTool.Translate })) {
-			_ed.giz.tool = Gm3dEdTool.Translate;
-		}
-		if (ImGui.MenuItem("Rotate", "2", { selected: _ed.giz.tool == Gm3dEdTool.Rotate, checked: _ed.giz.tool == Gm3dEdTool.Rotate })) {
-			_ed.giz.tool = Gm3dEdTool.Rotate;
-		}
-		if (ImGui.MenuItem("Scale", "3", { selected: _ed.giz.tool == Gm3dEdTool.Scale, checked: _ed.giz.tool == Gm3dEdTool.Scale })) {
-			_ed.giz.tool = Gm3dEdTool.Scale;
-		}
-		ImGui.Separator();
-		if (ImGui.RadioButton("World axes", _ed.giz.orient == 0)) {
-			_ed.giz.orient = 0;
-		}
-		if (ImGui.RadioButton("Local axes", _ed.giz.orient == 1)) {
-			_ed.giz.orient = 1;
-		}
-		ImGui.Separator();
-		_ed.snap_on = ImGui.Checkbox("Snap", _ed.snap_on);
-		_ed.snap_pos = __gm3d_ed_imgui_dragfloat("Snap pos", _ed.snap_pos, 0.005);
-		_ed.snap_pos = max(0.01, _ed.snap_pos);
-		_ed.snap_rot = __gm3d_ed_imgui_dragfloat("Snap rot", _ed.snap_rot, 0.1);
-		_ed.snap_rot = max(0.5, _ed.snap_rot);
 		ImGui.EndMenu();
 	}
 	if (ImGui.BeginMenu("Create")) {

@@ -540,6 +540,7 @@ function __gm3d_ed_create(_inst, _rt) {
 		snap_pos: 0.5,
 		snap_rot: 15,
 		show_grid: true,
+		grid_step: 1,
 		grid_node: undefined,
 		grid_src: undefined,
 		grid_mat: undefined,

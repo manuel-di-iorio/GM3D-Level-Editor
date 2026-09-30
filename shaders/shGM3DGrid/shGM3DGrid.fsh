@@ -15,9 +15,10 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-// Line pitch in world units and palette (tune to taste).
-#define GRID_MINOR_STEP 1.0
-#define GRID_MAJOR_STEP 5.0
+// Line pitch in world units and palette (tune to taste). The minor pitch
+// (single-cell size) comes from u_grid_step, pushed live from GML; majors
+// land every 5 minors, preserving the 1:5 ratio at any cell size.
+// Palette stays fixed here.
 #define GRID_MINOR_COL vec3(0.30, 0.30, 0.30)
 #define GRID_MAJOR_COL vec3(0.36, 0.36, 0.36)
 
@@ -45,6 +46,12 @@ varying float vViewDepth;
 // blend toward the real background, never below it.
 uniform vec3 u_grid_bg;
 
+// Single-cell size in world units (minor pitch), pushed live from the
+// toolbar grid combo. Uniforms start at 0 in GLSL ES and the GML side
+// pushes on spawn, but the 1.0 fallback keeps the grid sane if a frame
+// ever renders before the first push.
+uniform float u_grid_step;
+
 // Coverage (0..1) of the grid lines at one pitch, anti-aliased via the
 // screen-space derivative.
 float gridLine(vec2 _p, float _step) {
@@ -63,6 +70,8 @@ float gridLine(vec2 _p, float _step) {
 // Extra early fade for minors only: fine lines melt away
 // with distance even where still resolvable, majors carry the far field.
 // Smoothstep over a long range: no visible band edge, ever.
+// Calibrated for 1m cells; the main() scales the band with u_grid_step so
+// bigger cells stay readable further out (at 1m nothing changes).
 #define GRID_MINOR_DIST_A 15.0
 #define GRID_MINOR_DIST_B 75.0
 float distBand(float _d, float _a, float _b) {
@@ -81,8 +90,10 @@ float lodFade(vec2 _p, float _step) {
 
 void main()
 {
-	float minor = gridLine(vWorldPosition.xz, GRID_MINOR_STEP) * lodFade(vWorldPosition.xz, GRID_MINOR_STEP) * distBand(vViewDepth, GRID_MINOR_DIST_A, GRID_MINOR_DIST_B);
-	float major = gridLine(vWorldPosition.xz, GRID_MAJOR_STEP) * lodFade(vWorldPosition.xz, GRID_MAJOR_STEP);
+	float _step = u_grid_step > 0.001 ? u_grid_step : 1.0;
+	float _major = _step * 5.0;
+	float minor = gridLine(vWorldPosition.xz, _step) * lodFade(vWorldPosition.xz, _step) * distBand(vViewDepth, GRID_MINOR_DIST_A * _step, GRID_MINOR_DIST_B * _step);
+	float major = gridLine(vWorldPosition.xz, _major) * lodFade(vWorldPosition.xz, _major);
 	float horizon = 1.0 - smoothstep(GRID_HORIZON_A, GRID_HORIZON_B, vViewDepth);
 	float cover = clamp(minor + major, 0.0, 1.0) * horizon;
 	if (cover <= 0.01) {
