@@ -1,1 +1,1 @@
-gm3d_editor_draw(ed);
+gm3d_editor_draw();

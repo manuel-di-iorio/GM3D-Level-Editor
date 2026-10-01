@@ -8,6 +8,7 @@ enum Gm3dEdTool {
 function gm3d_editor_init(_self, _rt) {
 	global.gm3d_editor_active = true;
 	var _ed = __gm3d_ed_create(_self, _rt);
+	__gm3d_ed_viewcam_seed_from(_ed, _rt.cam);
 	__gm3d_ed_cam_remember(_ed);
 	__gm3d_ed_ui_load(_ed);
 	__gm3d_ed_view_save(_ed);
@@ -21,7 +22,8 @@ function gm3d_editor_init(_self, _rt) {
 }
 
 // Updates editor logic and draws UI.
-function gm3d_editor_step(_ed) {
+function gm3d_editor_step() {
+	var _ed = gm3d_editor_inst();
 	if (_ed == undefined || _ed.rt == undefined) {
 		return;
 	}
@@ -34,21 +36,33 @@ function gm3d_editor_step(_ed) {
 }
 
 // Warms up editor shaders before rendering.
-function gm3d_editor_prerender(_ed) {
+function gm3d_editor_prerender() {
+	var _ed = gm3d_editor_inst();
+	if (_ed == undefined) {
+		return;
+	}
 	__gm3d_ed_shaders_warmup(_ed);
 }
 
 // Captures outline and executes GPU picking.
-function gm3d_editor_postrender(_ed) {
+function gm3d_editor_postrender() {
+	var _ed = gm3d_editor_inst();
+	if (_ed == undefined) {
+		return;
+	}
 	if (_ed.thumbs_done != true) {
-		gm3d_editor_capture_thumbnails(_ed);
+		gm3d_editor_capture_thumbnails();
 	}
 	__gm3d_ed_outline_capture(_ed);
 	__gm3d_ed_gpupick_execute(_ed);
 }
 
 // Draws gizmos, overlays, and selection rectangle.
-function gm3d_editor_draw(_ed) {
+function gm3d_editor_draw() {
+	var _ed = gm3d_editor_inst();
+	if (_ed == undefined) {
+		return;
+	}
 
 	var _vp = undefined;
 	if (_ed.rt != undefined) {
@@ -137,7 +151,11 @@ function gm3d_editor_draw(_ed) {
 }
 
 // Releases editor resources and restores scene.
-function gm3d_editor_cleanup(_ed) {
+function gm3d_editor_cleanup(_ed = undefined) {
+	_ed ??= gm3d_editor_inst();
+	if (_ed == undefined) {
+		return;
+	}
 	__gm3d_ed_outline_cleanup(_ed);
 	__gm3d_ed_gpupick_cleanup(_ed);
 	__gm3d_ed_thumbs_free(_ed);
@@ -146,6 +164,15 @@ function gm3d_editor_cleanup(_ed) {
 	__gm3d_ed_view_restore(_ed);
 	__gm3d_ed_bg_restore(_ed);
 	__gm3d_ed_cameras_restore(_ed);
+	if (_ed.viewcam != undefined) {
+		try {
+			var _vcc0 = _ed.viewcam.getCameraComponent();
+			if (_vcc0 != undefined) {
+				_vcc0.setEnabled(false);
+			}
+		} catch (_eV0) {
+		}
+	}
 	__gm3d_ed_grid_remove(_ed);
 	_ed.show_shadows = true;
 	__gm3d_ed_shadowpreview_apply(_ed);
@@ -300,6 +327,15 @@ function __gm3d_ed_set_active(_ed, _on) {
 		__gm3d_ed_bg_restore(_ed);
 		__gm3d_ed_grid_remove(_ed);
 		__gm3d_ed_cameras_restore(_ed);
+		if (_ed.viewcam != undefined) {
+			try {
+				var _vcc = _ed.viewcam.getCameraComponent();
+				if (_vcc != undefined) {
+					_vcc.setEnabled(false);
+				}
+			} catch (_eV) {
+			}
+		}
 		__gm3d_ed_cam_home(_ed);
 		_ed.show_shadows = true;
 		__gm3d_ed_shadowpreview_apply(_ed);
@@ -312,6 +348,7 @@ function __gm3d_ed_set_active(_ed, _on) {
 		__gm3d_ed_bg_apply(_ed);
 		__gm3d_ed_grid_ensure(_ed);
 		__gm3d_ed_cameras_mute(_ed);
+		__gm3d_ed_viewcam_seed(_ed);
 		_ed.open_snapshot = __gm3d_ed_serialize_scene(_ed);
 	}
 }
@@ -499,7 +536,7 @@ function __gm3d_ed_create(_inst, _rt) {
 			display_ang: 0,
 			len: 1,
 			len_key: undefined,
-			orient: 0,
+			orient: 1,
 			sector_t0: 0,
 		},
 		scene_click_idx: -1,
@@ -530,6 +567,7 @@ function __gm3d_ed_create(_inst, _rt) {
 		cube_gy: 0,
 		cube_off: [375, 100],
 		vp: undefined,
+		viewcam: undefined,
 		cam_anim: undefined,
 		cam_home: undefined,
 		cam_orbit: false,

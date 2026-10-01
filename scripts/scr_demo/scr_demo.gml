@@ -44,6 +44,7 @@ function demo_create(_self) {
 	demo_place_camera(_self);
 
 	_self.demo_track = [
+		["camera", "", _camNode, "MainCamera"],
 		["light", "", _lightNode, "Sun"],
 		["environment", "", _envNode, "Environment"],
 	];

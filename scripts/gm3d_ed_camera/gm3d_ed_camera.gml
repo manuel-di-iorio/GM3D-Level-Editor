@@ -21,6 +21,78 @@ function __gm3d_ed_cam_remember(_ed) {
 	_ed.cam_home = { pos: [_p.x, _p.y, _p.z], rot: [_q.x, _q.y, _q.z, _q.w] };
 }
 
+// Ensures separate editor viewport camera exists and selects it.
+function __gm3d_ed_viewcam_ensure(_ed) {
+	if (_ed == undefined || _ed.rt == undefined || _ed.rt.scene == undefined) {
+		return undefined;
+	}
+	if (_ed.viewcam == undefined) {
+		var _node = _ed.rt.scene.createNode("__editor_camera");
+		if (_node == undefined) {
+			return undefined;
+		}
+		var _cc = new GM3D_CameraComponent();
+		_node.addComponent(_cc);
+		try {
+			_cc.setEnabled(false);
+		} catch (_eDis) {
+		}
+		_ed.viewcam = _node;
+	}
+	_ed.rt.cam = _ed.viewcam;
+	return _ed.viewcam;
+}
+
+// Seeds editor camera from given gameplay camera pose and settings.
+function __gm3d_ed_viewcam_seed_from(_ed, _src) {
+	if (_ed == undefined) {
+		return false;
+	}
+	__gm3d_ed_viewcam_ensure(_ed);
+	var _vc = _ed.viewcam;
+	if (_vc == undefined || _src == undefined) {
+		return false;
+	}
+	var _p = _src.getLocalPosition();
+	var _q = _src.getLocalRotation();
+	_vc.setLocalPosition(new GM3D_Vec3(_p.x, _p.y, _p.z));
+	_vc.setLocalRotation(_q.clone());
+	__gm3d_ed_camera_apply(_vc, __gm3d_ed_camera_read(_src));
+	try {
+		var _cc = _vc.getCameraComponent();
+		if (_cc != undefined) {
+			_cc.setEnabled(true);
+		}
+	} catch (_eEn) {
+	}
+	_ed.rt.scene.update(0);
+	__gm3d_ed_cam_remember(_ed);
+	return true;
+}
+
+// Seeds editor camera from resolved gameplay camera.
+function __gm3d_ed_viewcam_seed(_ed) {
+	if (_ed == undefined) {
+		return false;
+	}
+	var _g = __gm3d_ed_gamecam_resolve(_ed);
+	if (_g == undefined) {
+		__gm3d_ed_viewcam_ensure(_ed);
+		if (_ed.viewcam != undefined) {
+			try {
+				var _ec = _ed.viewcam.getCameraComponent();
+				if (_ec != undefined) {
+					_ec.setEnabled(true);
+				}
+			} catch (_eEn0) {
+			}
+		}
+		__gm3d_ed_cam_remember(_ed);
+		return false;
+	}
+	return __gm3d_ed_viewcam_seed_from(_ed, _g);
+}
+
 // Restores camera to remembered home position instantly or animated.
 function __gm3d_ed_cam_home(_ed, _smooth = false) {
 	if (_ed == undefined || _ed.cam_home == undefined || _ed.rt == undefined || _ed.rt.cam == undefined) {

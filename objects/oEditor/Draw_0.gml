@@ -1,3 +1,3 @@
-gm3d_editor_prerender(ed);
+gm3d_editor_prerender();
 demo_render(id);
-gm3d_editor_postrender(ed);
+gm3d_editor_postrender();

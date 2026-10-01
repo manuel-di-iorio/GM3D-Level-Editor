@@ -173,6 +173,8 @@ function __gm3d_ed_new_scene(_ed) {
 	}
 	_ed.rt.scene.update(0);
 	_ed.tracked = [];
+	__gm3d_ed_gamecam_ensure(_ed);
+	__gm3d_ed_viewcam_seed(_ed);
 	__gm3d_ed_sel_clear(_ed);
 	__gm3d_ed_history_clear(_ed);
 	_ed.dirty = false;
@@ -210,6 +212,9 @@ function __gm3d_ed_delete_sel(_ed) {
 	}
 	var _victims = [];
 	for (var _i = 0; _i < array_length(_ed.sel); _i++) {
+		if (_ed.rt != undefined && _ed.sel[_i] == _ed.rt.cam) {
+			continue;
+		}
 		array_push(_victims, _ed.sel[_i]);
 	}
 	if (array_length(_victims) == 0) {

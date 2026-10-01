@@ -421,6 +421,7 @@ function __gm3d_ed_rebuild(_ed, _nodes) {
 		_rep.placed++;
 	}
 	_ed.rt.scene.update(0);
+	__gm3d_ed_gamecam_ensure(_ed);
 	__gm3d_ed_cameras_mute(_ed);
 	var _rt2 = __gm3d_ed_root_tracked(_ed);
 	for (var _h = 0; _h < array_length(_rt2); _h++) {
@@ -538,6 +539,7 @@ function __gm3d_ed_load_scene(_ed) {
 		return false;
 	}
 	__gm3d_ed_rebuild(_ed, _data.nodes);
+	__gm3d_ed_viewcam_seed(_ed);
 	_ed.sel = [];
 	_ed.giz.drag = -1;
 	_ed.giz.hover = -1;

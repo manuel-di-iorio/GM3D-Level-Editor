@@ -1,4 +1,4 @@
-gm3d_editor_step(ed);
+gm3d_editor_step();
 
 if (!gm3d_editor_is_active()) {
 	demo_step(id);

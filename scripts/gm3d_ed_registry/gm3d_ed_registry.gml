@@ -1,5 +1,6 @@
 // Adds model asset to editor library.
-function gm3d_editor_asset_add(_ed, _name, _model, _thumb = -1) {
+function gm3d_editor_asset_add(_name, _model, _thumb = -1) {
+	var _ed = gm3d_editor_inst();
 	if (_ed == undefined) {
 		return;
 	}
@@ -20,7 +21,8 @@ function gm3d_editor_asset_add(_ed, _name, _model, _thumb = -1) {
 }
 
 // Clears all editor library assets.
-function gm3d_editor_asset_clear(_ed) {
+function gm3d_editor_asset_clear() {
+	var _ed = gm3d_editor_inst();
 	if (_ed == undefined) {
 		return;
 	}
@@ -50,7 +52,8 @@ function __gm3d_ed_thumbs_free(_ed) {
 }
 
 // Captures library thumbnails once at startup.
-function gm3d_editor_capture_thumbnails(_ed) {
+function gm3d_editor_capture_thumbnails() {
+	var _ed = gm3d_editor_inst();
 	if (_ed == undefined || _ed.thumbs_done == true) {
 		return;
 	}
@@ -337,7 +340,11 @@ function __gm3d_ed_place(_ed, _asset, _model, _pos3, _rot, _scale3, _label = und
 }
 
 // Tracks any node kind for editor editing.
-function gm3d_editor_track(_ed, _kind, _asset, _node, _label = undefined) {
+function gm3d_editor_track(_kind, _asset, _node, _label = undefined) {
+	var _ed = gm3d_editor_inst();
+	if (_ed == undefined) {
+		return undefined;
+	}
 	if (_kind == "light") {
 		return __gm3d_ed_track_light(_ed, _node, _label);
 	}
@@ -557,11 +564,6 @@ function __gm3d_ed_root_tracked(_ed) {
 			continue;
 		}
 
-		if (_ed != undefined && variable_struct_exists(_ed, "rt") && is_struct(_ed.rt)) {
-			if (variable_struct_exists(_ed.rt, "cam") && _nd == _ed.rt.cam) {
-				continue;
-			}
-		}
 		if (__gm3d_ed_registry_find(_ed, _nd) == undefined) {
 			continue;
 		}
@@ -600,9 +602,6 @@ function __gm3d_ed_tracked_nodes(_ed) {
 				continue;
 			}
 			if (__gm3d_ed_is_grid(_ed, _nd)) {
-				continue;
-			}
-			if (variable_struct_exists(_ed.rt, "cam") && _nd == _ed.rt.cam) {
 				continue;
 			}
 			if (variable_struct_exists(_ed, "drag_preview") && _nd == _ed.drag_preview) {
@@ -1134,7 +1133,73 @@ function __gm3d_ed_track_camera(_ed, _node, _label = undefined) {
 		_label = __gm3d_ed_fresh_label(_ed, _node.name);
 	}
 	__gm3d_ed_kind_register(_ed, _node, "camera", "", [_pp.x, _pp.y, _pp.z], _label, _d);
+	__gm3d_ed_hidden_set(_ed, _node, true);
 	__gm3d_ed_cameras_mute(_ed);
+	return _node;
+}
+
+// Resolves gameplay camera: MainCamera label first, else first enabled, else first.
+function __gm3d_ed_gamecam_resolve(_ed) {
+	if (_ed == undefined) {
+		return undefined;
+	}
+	var _roots = __gm3d_ed_root_tracked(_ed);
+	var _first = undefined;
+	var _enabled = undefined;
+	for (var _i = 0; _i < array_length(_roots); _i++) {
+		if (__gm3d_ed_kind_of(_ed, _roots[_i]) != "camera") {
+			continue;
+		}
+		if (_first == undefined) {
+			_first = _roots[_i];
+		}
+		var _en = __gm3d_ed_registry_find(_ed, _roots[_i]);
+		if (_en == undefined || !is_struct(_en.data)) {
+			continue;
+		}
+		if (is_string(_en.label) && _en.label == "MainCamera") {
+			return _roots[_i];
+		}
+		if (_enabled == undefined && _en.data.enabled == true) {
+			_enabled = _roots[_i];
+		}
+	}
+	if (_enabled != undefined) {
+		return _enabled;
+	}
+	return _first;
+}
+
+// Ensures a gameplay camera exists, creating a default one when missing.
+function __gm3d_ed_gamecam_ensure(_ed) {
+	var _g = __gm3d_ed_gamecam_resolve(_ed);
+	if (_g != undefined) {
+		return _g;
+	}
+	if (_ed == undefined || _ed.rt == undefined || _ed.rt.scene == undefined) {
+		return undefined;
+	}
+	var _lbl = __gm3d_ed_fresh_label(_ed, "MainCamera");
+	var _node = _ed.rt.scene.createNode(_lbl);
+	if (_node == undefined) {
+		return undefined;
+	}
+	var _cc = new GM3D_CameraComponent();
+	_node.addComponent(_cc);
+	var _dpos = [0, 2, 5];
+	try {
+		if (_ed.inst != undefined && _ed.inst != noone && variable_instance_exists(_ed.inst, "camPos")) {
+			var _cp0 = _ed.inst.camPos;
+			_dpos = [_cp0.x, _cp0.y, _cp0.z];
+		}
+	} catch (_ePos) {
+	}
+	_node.setLocalPosition(new GM3D_Vec3(_dpos[0], _dpos[1], _dpos[2]));
+	var _cd = __gm3d_ed_camera_defaults();
+	__gm3d_ed_camera_apply(_node, _cd);
+	_ed.rt.scene.update(0);
+	var _pp = _node.getLocalPosition();
+	__gm3d_ed_kind_register(_ed, _node, "camera", "", [_pp.x, _pp.y, _pp.z], _lbl, _cd);
 	return _node;
 }
 
@@ -1267,6 +1332,9 @@ function __gm3d_ed_cameras_mute(_ed) {
 	}
 	var _roots = __gm3d_ed_root_tracked(_ed);
 	for (var _i = 0; _i < array_length(_roots); _i++) {
+		if (_roots[_i] == _ed.rt.cam) {
+			continue;
+		}
 		if (__gm3d_ed_kind_of(_ed, _roots[_i]) != "camera") {
 			continue;
 		}
