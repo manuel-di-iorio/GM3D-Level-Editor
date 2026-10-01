@@ -1328,7 +1328,7 @@ function __gm3d_ed_tool_allowed(_ed, _node, _tool) {
 		_type = _en.data.type;
 	}
 	if (_tool == Gm3dEdTool.Translate) {
-		return _type != "directional";
+		return true;
 	}
 	if (_tool == Gm3dEdTool.Rotate) {
 		return _type != "point";

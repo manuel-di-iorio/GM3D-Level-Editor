@@ -905,15 +905,35 @@ function __gm3d_ed_gizmo_draw_rotate_sweep(_ed, _vp, _pivot, _ps, _ws, _hls) {
 	if (array_length(_arc) >= 2) {
 		var _scol = _ed.giz.drag == 6 ? c_yellow : _hls[_ed.giz.drag];
 		var _srim = merge_colour(_scol, c_white, 0.4);
-		var _sfill = merge_colour(c_yellow, c_black, 0.25);
 		var _laps = floor(abs(_sweep) / (2 * pi));
 		var _boost = min(_laps, 4) * 0.12;
+		var _sfill_bg = merge_colour(c_yellow, c_black, min(0.25 + _laps * 0.1, 0.55));
+		var _bg_al = min(0.3 + _boost * 0.5, 0.55);
 		draw_primitive_begin(pr_trianglefan);
-		draw_vertex_colour(_ps[0], _ps[1], _sfill, min(0.3 + _boost, 0.85));
+		draw_vertex_colour(_ps[0], _ps[1], _sfill_bg, _bg_al);
 		for (var _f = 0; _f < array_length(_arc); _f++) {
-			draw_vertex_colour(_arc[_f][0], _arc[_f][1], _sfill, min(0.3 + _boost, 0.85));
+			draw_vertex_colour(_arc[_f][0], _arc[_f][1], _sfill_bg, _bg_al);
 		}
 		draw_primitive_end();
+		if (_laps >= 1) {
+			var _sign = _sweep >= 0 ? 1 : -1;
+			var _rem = _sweep - _sign * _laps * 2 * pi;
+			if (abs(_rem) > 0.01) {
+				var _sfill_tri = merge_colour(c_yellow, c_black, min(0.25 + _laps * 0.15, 0.7));
+				var _tri_al = min(0.3 + _boost, 0.85);
+				var _tsteps = max(2, ceil(abs(_rem) / (2 * pi) * 72));
+				draw_primitive_begin(pr_trianglefan);
+				draw_vertex_colour(_ps[0], _ps[1], _sfill_tri, _tri_al);
+				for (var _ti = 0; _ti <= _tsteps; _ti++) {
+					var _tt = _t0 + _rem * (_ti / _tsteps);
+					var _tp = __gm3d_ed_world_to_screen(_vp, __gm3d_ed_gizmo_ring_point(_pivot, _ed.giz.dir, _ws, _tt));
+					if (_tp != undefined) {
+						draw_vertex_colour(_tp[0], _tp[1], _sfill_tri, _tri_al);
+					}
+				}
+				draw_primitive_end();
+			}
+		}
 		draw_set_alpha(min(0.8 + _boost, 1.0));
 		for (var _e = 0; _e < array_length(_arc) - 1; _e++) {
 			__gm3d_ed_vp_line(_ed, _arc[_e][0], _arc[_e][1], _arc[_e + 1][0], _arc[_e + 1][1], 2, _scol);

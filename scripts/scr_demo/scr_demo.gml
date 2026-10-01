@@ -30,6 +30,7 @@ function demo_create(_self) {
 	_lightComp.setShadowResolution(2048);
 	_lightComp.setShadowDistance(30.0);
 	_lightComp.setShadowNormalOffset(0.05);
+	_lightNode.setLocalPosition(new GM3D_Vec3(0.3, 2.2, 1.3));
 	demo_align_node(_lightNode, new GM3D_Vec3(0.35, 0.8, 0.45));
 
 	var _camNode = _self.scene.createNode("MainCamera");

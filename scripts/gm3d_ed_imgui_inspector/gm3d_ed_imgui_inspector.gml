@@ -83,9 +83,7 @@ function __gm3d_ed_imgui_inspector(_ed) {
 				_show_s = false;
 			} else if (_skind == "light") {
 				_show_s = false;
-				if (_stype == "directional") {
-					_show_p = false;
-				} else if (_stype == "point") {
+				if (_stype == "point") {
 					_show_r = false;
 				}
 			}
