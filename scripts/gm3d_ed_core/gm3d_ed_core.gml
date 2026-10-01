@@ -40,6 +40,9 @@ function gm3d_editor_prerender(_ed) {
 
 // Captures outline and executes GPU picking.
 function gm3d_editor_postrender(_ed) {
+	if (_ed.thumbs_done != true) {
+		gm3d_editor_capture_thumbnails(_ed);
+	}
 	__gm3d_ed_outline_capture(_ed);
 	__gm3d_ed_gpupick_execute(_ed);
 }
@@ -52,7 +55,7 @@ function gm3d_editor_draw(_ed) {
 		_vp = __gm3d_ed_viewport(_ed);
 	}
 	var _modal = false;
-	_modal = _ed.confirm != undefined;
+	_modal = _ed.confirm != undefined || _ed.about != undefined;
 	if (_modal) {
 		draw_set_alpha(0.55);
 		draw_set_color(c_black);
@@ -118,6 +121,15 @@ function gm3d_editor_draw(_ed) {
 		draw_text(display_get_gui_width() * 0.5, 24, "Press F1 for the 3D in-game editor");
 		draw_set_halign(fa_left);
 	}
+	if (_ed.show_fps == true) {
+		draw_set_halign(fa_right);
+		draw_set_valign(fa_top);
+		draw_set_color(c_white);
+		draw_set_alpha(1);
+		draw_text(_ed.gw - 40, 40, "FPS: " + string(round(fps_real)));
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+	}
 	draw_set_color(c_white);
 	draw_set_alpha(1);
 	draw_set_halign(fa_left);
@@ -128,6 +140,7 @@ function gm3d_editor_draw(_ed) {
 function gm3d_editor_cleanup(_ed) {
 	__gm3d_ed_outline_cleanup(_ed);
 	__gm3d_ed_gpupick_cleanup(_ed);
+	__gm3d_ed_thumbs_free(_ed);
 	__gm3d_ed_ui_save(_ed);
 	__gm3d_ed_drop_preview_clear(_ed);
 	__gm3d_ed_view_restore(_ed);
@@ -456,6 +469,7 @@ function __gm3d_ed_create(_inst, _rt) {
 		active: true,
 		dirty: false,
 		assets: [],
+		thumbs_done: false,
 		sel: [],
 		tracked: [],
 		ndc_yup: true,
@@ -493,6 +507,8 @@ function __gm3d_ed_create(_inst, _rt) {
 		rename_name: undefined,
 		rename_pos: undefined,
 		confirm: undefined,
+		about: undefined,
+		show_fps: false,
 		undo: [],
 		redo: [],
 		imgui: undefined,
@@ -511,7 +527,7 @@ function __gm3d_ed_create(_inst, _rt) {
 		cube_moved: false,
 		cube_gx: 0,
 		cube_gy: 0,
-		cube_off: [85, 100],
+		cube_off: [375, 100],
 		vp: undefined,
 		cam_anim: undefined,
 		cam_home: undefined,
@@ -562,6 +578,9 @@ function __gm3d_ed_step(_ed, _dt) {
 	if (!_ed.active) {
 		return;
 	}
+	if (keyboard_check_pressed(vk_f9)) {
+		_ed.show_fps = !_ed.show_fps;
+	}
 
 	__gm3d_ed_view_sync(_ed);
 	if (_ed.open_snapshot == undefined && _ed.dirty != true) {
@@ -572,10 +591,11 @@ function __gm3d_ed_step(_ed, _dt) {
 	_ed.vp = _vp;
 
 	var _modal = false;
-	_modal = _ed.confirm != undefined;
+	_modal = _ed.confirm != undefined || _ed.about != undefined;
 	if (_modal) {
 		if (!_input.typing && keyboard_check_pressed(_keys.cancel)) {
 			_ed.confirm = undefined;
+			_ed.about = undefined;
 		}
 		return;
 	}

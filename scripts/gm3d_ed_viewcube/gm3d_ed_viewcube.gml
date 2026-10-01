@@ -1,6 +1,6 @@
 // Resets viewcube screen offset position.
 function __gm3d_ed_cube_home(_ed) {
-	_ed.cube_off = [85, 100];
+	_ed.cube_off = [375, 100];
 }
 
 // Builds viewcube geometry and orientation data.

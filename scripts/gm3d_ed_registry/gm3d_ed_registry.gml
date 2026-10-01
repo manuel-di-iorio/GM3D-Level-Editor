@@ -24,7 +24,192 @@ function gm3d_editor_asset_clear(_ed) {
 	if (_ed == undefined) {
 		return;
 	}
+	__gm3d_ed_thumbs_free(_ed);
 	_ed.assets = [];
+}
+
+// Frees editor-captured thumbnails, keeping caller-owned ones.
+function __gm3d_ed_thumbs_free(_ed) {
+	if (_ed == undefined || !is_array(_ed.assets)) {
+		return;
+	}
+	for (var _i = 0; _i < array_length(_ed.assets); _i++) {
+		var _a = _ed.assets[_i];
+		if (!is_struct(_a) || !variable_struct_exists(_a, "thumb_owned") || _a.thumb_owned != true) {
+			continue;
+		}
+		try {
+			if (sprite_exists(_a.thumb)) {
+				sprite_delete(_a.thumb);
+			}
+		} catch (_e) {
+		}
+		_a.thumb = -1;
+		_a.thumb_owned = undefined;
+	}
+}
+
+// Captures library thumbnails once at startup.
+function gm3d_editor_capture_thumbnails(_ed) {
+	if (_ed == undefined || _ed.thumbs_done == true) {
+		return;
+	}
+	if (!is_array(_ed.assets) || array_length(_ed.assets) == 0) {
+		return;
+	}
+	_ed.thumbs_done = true;
+	var _size = 256;
+	var _surf = undefined;
+	try {
+		_surf = surface_create(_size, _size);
+	} catch (_eS) {
+		_surf = undefined;
+	}
+	if (_surf == undefined || !surface_exists(_surf)) {
+		return;
+	}
+	var _ts = undefined;
+	try {
+		_ts = GM3D_Scene.createEmpty();
+	} catch (_eC) {
+		_ts = undefined;
+	}
+	if (_ts == undefined) {
+		surface_free(_surf);
+		return;
+	}
+	var _renderer = undefined;
+	try {
+		_renderer = new GM3D_Renderer();
+	} catch (_eR) {
+		_renderer = undefined;
+	}
+	if (_renderer == undefined) {
+		_ts.destroy();
+		surface_free(_surf);
+		return;
+	}
+	var _env = _ts.createNode("__thumb_env");
+	var _envc = new GM3D_EnvironmentVolumeComponent();
+	_env.addComponent(_envc);
+	try {
+		_envc.setSize(new GM3D_Vec3(20000, 20000, 20000));
+		_envc.setAmbientColor(make_colour_rgb(70, 70, 85));
+		_envc.setFogEnabled(false);
+	} catch (_eE) {
+		_ts.destroy();
+		surface_free(_surf);
+		return;
+	}
+	var _sun = _ts.createNode("__thumb_sun");
+	var _sunc = new GM3D_LightComponent();
+	_sun.addComponent(_sunc);
+	try {
+		_sunc.setType(GM3D_ELightType.Directional);
+		_sunc.setColor(c_white);
+		_sunc.setIntensity(1.0);
+		_sunc.setShadowEnabled(true);
+		_sunc.setShadowResolution(1024);
+		_sunc.setShadowDistance(30.0);
+		_sunc.setShadowNormalOffset(0.05);
+	} catch (_eL) {
+		_ts.destroy();
+		surface_free(_surf);
+		return;
+	}
+	var _cam = _ts.createNode("__thumb_cam");
+	var _camc = new GM3D_CameraComponent();
+	_cam.addComponent(_camc);
+	try {
+		_camc.setProjection(GM3D_ECameraProjection.Perspective);
+		_camc.setFovY(degtorad(40));
+		_camc.setNear(0.1);
+		_camc.setFar(10000);
+		_camc.setScreenRect([0.0, 0.0, 1.0, 1.0]);
+		_camc.setEnabled(true);
+	} catch (_eC2) {
+		_ts.destroy();
+		surface_free(_surf);
+		return;
+	}
+	try {
+			for (var _i = 0; _i < array_length(_ed.assets); _i++) {
+			var _a = _ed.assets[_i];
+			if (!is_struct(_a) || _a.model == undefined) {
+				continue;
+			}
+			var _node = undefined;
+			try {
+				_node = _a.model.spawnInto(_ts, undefined);
+			} catch (_eN) {
+				_node = undefined;
+			}
+			if (_node == undefined) {
+				continue;
+			}
+			_node.setLocalPosition(new GM3D_Vec3(0, 0, 0));
+			_node.setLocalScale(new GM3D_Vec3(1, 1, 1));
+			try {
+				if (variable_struct_exists(_ed.rt, "on_spawn")) {
+					_ed.rt.on_spawn(_ed.inst, _node, _a.name, _a.model);
+				}
+			} catch (_eO) {
+			}
+			__gm3d_ed_thumb_frame(_ed, _ts, _cam, _a.model);
+			_ts.update(0);
+			try {
+				surface_set_target(_surf);
+				draw_clear_alpha(c_black, 0);
+				_renderer.render(_ts);
+				surface_reset_target();
+				var _spr = sprite_create_from_surface(_surf, 0, 0, _size, _size, false, true, 0, 0);
+				if (sprite_exists(_spr)) {
+					_a.thumb = _spr;
+					_a.thumb_owned = true;
+				}
+			} catch (_eR2) {
+				try {
+					surface_reset_target();
+				} catch (_eT) {
+				}
+			}
+			__gm3d_ed_destroy_subtree(_node);
+			_ts.update(0);
+			}
+	} catch (_eL) {
+	}
+	_ts.destroy();
+	surface_free(_surf);
+	_renderer = undefined;
+}
+
+// Frames a library model for thumbnail capture.
+function __gm3d_ed_thumb_frame(_ed, _ts, _cam, _model) {
+	var _ctr = new GM3D_Vec3(0, 1, 0);
+	var _rad = 2.0;
+	try {
+		var _bs = _model.getBoundingSphere();
+		if (is_struct(_bs) && variable_struct_exists(_bs, "origin") && variable_struct_exists(_bs, "radius")) {
+			var _c = _bs.origin;
+			_ctr = new GM3D_Vec3(_c.x, _c.y, _c.z);
+			_rad = max(_bs.radius, 0.1);
+		}
+	} catch (_e) {
+	}
+	var _back = new GM3D_Vec3(1, 0.55, 1.25);
+	_back.normalize();
+	var _tan = max(tan(degtorad(20)), 0.001);
+	var _dist = max(_rad * 1.15 * sqrt(1 + _tan * _tan) / _tan, 1.5);
+	_cam.setLocalPosition(new GM3D_Vec3(_ctr.x + _back.x * _dist, _ctr.y + _back.y * _dist, _ctr.z + _back.z * _dist));
+	var _cp = _cam.getLocalPosition();
+	var _fwd = new GM3D_Vec3(_cp.x - _ctr.x, _cp.y - _ctr.y, _cp.z - _ctr.z);
+	_fwd.normalize();
+	var _up = GM3D_Vec3.up();
+	if (abs(_fwd.dot(_up)) >= 0.999) {
+		_up = GM3D_Vec3.forward();
+	}
+	var _rot = GM3D_Quaternion.fromLookRotation(_fwd, _up);
+	_cam.setLocalRotation(_rot.normalizeSafe(0.000001));
 }
 
 // Clears current node selection.

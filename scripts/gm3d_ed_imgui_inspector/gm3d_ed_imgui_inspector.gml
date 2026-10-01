@@ -23,6 +23,17 @@ function __gm3d_ed_axis_val(_ed, _mode, _idx) {
 	return { mixed: _mixed, val: _v };
 }
 
+// Opens collapsible section by default on first use.
+function __gm3d_ed_imgui_sec_open(_ed) {
+	if (!__gm3d_ed_imgui_has_widget(_ed, "SetNextItemOpen")) {
+		return;
+	}
+	try {
+		ImGui.SetNextItemOpen(true, ImGuiCond.FirstUseEver);
+	} catch (_e) {
+	}
+}
+
 // Draws Inspector window for current selection.
 function __gm3d_ed_imgui_inspector(_ed) {
 	var _ui = _ed.imgui;
@@ -47,6 +58,7 @@ function __gm3d_ed_imgui_inspector(_ed) {
 	} else {
 		var _title = _n == 1 ? __gm3d_ed_label_get(_ed, _ed.sel[0]) : string(_n) + " objects";
 		ImGui.Text(_title);
+		ImGui.Spacing();
 		var _skind = undefined;
 		var _stype = undefined;
 		if (_n == 1) {
@@ -79,32 +91,58 @@ function __gm3d_ed_imgui_inspector(_ed) {
 			}
 		}
 		if (_show_p || _show_r || _show_s) {
-			ImGui.Separator();
-		}
-		if (_show_p) {
-			__gm3d_ed_imgui_axis_row(_ed, 0, "Position");
-		}
-		if (_show_r) {
-			__gm3d_ed_imgui_axis_row(_ed, 1, "Rotation");
-		}
-		if (_show_s) {
-			__gm3d_ed_imgui_axis_row(_ed, 2, "Scale");
+			ImGui.Spacing();
+			__gm3d_ed_imgui_sec_open(_ed);
+			if (ImGui.CollapsingHeader("Transform")) {
+				if (_show_p) {
+					__gm3d_ed_imgui_axis_row(_ed, 0, "Position");
+				}
+				if (_show_r) {
+					__gm3d_ed_imgui_axis_row(_ed, 1, "Rotation");
+				}
+				if (_show_s) {
+					__gm3d_ed_imgui_axis_row(_ed, 2, "Scale");
+				}
+			}
 		}
 		if (_n == 1 && _skind != undefined) {
 			var _sen = __gm3d_ed_registry_find(_ed, _ed.sel[0]);
 			if (_sen != undefined && is_struct(_sen.data)) {
 				if (_skind == "light") {
-					__gm3d_ed_imgui_light_sec(_ed, _ed.sel[0], _sen);
+					ImGui.Spacing();
+					__gm3d_ed_imgui_sec_open(_ed);
+					if (ImGui.CollapsingHeader("Light")) {
+						__gm3d_ed_imgui_light_sec(_ed, _ed.sel[0], _sen);
+					}
+					if (_sen.data.type == "directional") {
+						ImGui.Spacing();
+						__gm3d_ed_imgui_sec_open(_ed);
+						if (ImGui.CollapsingHeader("Shadows")) {
+							__gm3d_ed_imgui_light_shadow_sec(_ed, _ed.sel[0], _sen);
+						}
+					}
 				} else if (_skind == "camera") {
-					__gm3d_ed_imgui_camera_sec(_ed, _ed.sel[0], _sen);
+					ImGui.Spacing();
+					__gm3d_ed_imgui_sec_open(_ed);
+					if (ImGui.CollapsingHeader("Camera")) {
+						__gm3d_ed_imgui_camera_sec(_ed, _ed.sel[0], _sen);
+					}
 				} else if (_skind == "environment") {
-					__gm3d_ed_imgui_env_sec(_ed, _ed.sel[0], _sen);
+					ImGui.Spacing();
+					__gm3d_ed_imgui_sec_open(_ed);
+					if (ImGui.CollapsingHeader("Environment")) {
+						__gm3d_ed_imgui_env_sec(_ed, _ed.sel[0], _sen);
+					}
 				}
 			}
 			if (_skind == "asset") {
 				var _aen = __gm3d_ed_registry_find(_ed, _ed.sel[0]);
 				if (_aen != undefined && is_struct(_aen.data)) {
-					__gm3d_ed_imgui_asset_sec(_ed, _ed.sel[0], _aen);
+					ImGui.Spacing();
+					__gm3d_ed_imgui_sec_open(_ed);
+					if (ImGui.CollapsingHeader("Shadows")) {
+						__gm3d_ed_imgui_asset_sec(_ed, _ed.sel[0], _aen);
+					}
 				}
 			}
 		}
@@ -268,8 +306,6 @@ function __gm3d_ed_imgui_color_edit(_ed, _key, _label, _packed) {
 // Edits asset shadow flags in Inspector.
 function __gm3d_ed_imgui_asset_sec(_ed, _node, _en) {
 	var _d = _en.data;
-	ImGui.Separator();
-	ImGui.Text("Shadows");
 	var _nc = ImGui.Checkbox("Cast shadows", _d.castShadows == true);
 	if (_nc != (_d.castShadows == true)) {
 		var _hb = __gm3d_ed_history_snap(_ed);
@@ -289,8 +325,6 @@ function __gm3d_ed_imgui_asset_sec(_ed, _node, _en) {
 // Edits light properties in Inspector.
 function __gm3d_ed_imgui_light_sec(_ed, _node, _en) {
 	var _d = _en.data;
-	ImGui.Separator();
-	ImGui.Text("Light");
 	if (ImGui.RadioButton("Directional", _d.type == "directional")) {
 		var _hb = __gm3d_ed_history_snap(_ed);
 		_d.type = "directional";
@@ -354,38 +388,39 @@ function __gm3d_ed_imgui_light_sec(_ed, _node, _en) {
 			__gm3d_ed_props_end(_ed, _hb7);
 		}
 	}
-	if (_d.type == "directional") {
-		ImGui.Separator();
-		ImGui.Text("Shadows");
-		var _nsh = ImGui.Checkbox("Cast shadows", _d.shadow == true);
-		if (_nsh != (_d.shadow == true)) {
-			var _hb8 = __gm3d_ed_history_snap(_ed);
-			_d.shadow = _nsh;
+}
+
+// Edits light shadow properties in Inspector.
+function __gm3d_ed_imgui_light_shadow_sec(_ed, _node, _en) {
+	var _d = _en.data;
+	var _nsh = ImGui.Checkbox("Cast shadows", _d.shadow == true);
+	if (_nsh != (_d.shadow == true)) {
+		var _hb8 = __gm3d_ed_history_snap(_ed);
+		_d.shadow = _nsh;
+		__gm3d_ed_light_apply(_node, _d);
+		__gm3d_ed_props_end(_ed, _hb8);
+	}
+	if (_d.shadow == true) {
+		var _nsr = __gm3d_ed_imgui_prop_float(_ed, "light_shadow_res", "Resolution", _d.shadowRes, 120);
+		if (_nsr != undefined) {
+			var _hb9 = __gm3d_ed_history_snap(_ed);
+			_d.shadowRes = clamp(round(_nsr), 128, 4096);
 			__gm3d_ed_light_apply(_node, _d);
-			__gm3d_ed_props_end(_ed, _hb8);
+			__gm3d_ed_props_end(_ed, _hb9);
 		}
-		if (_d.shadow == true) {
-			var _nsr = __gm3d_ed_imgui_prop_float(_ed, "light_shadow_res", "Resolution", _d.shadowRes, 120);
-			if (_nsr != undefined) {
-				var _hb9 = __gm3d_ed_history_snap(_ed);
-				_d.shadowRes = clamp(round(_nsr), 128, 4096);
-				__gm3d_ed_light_apply(_node, _d);
-				__gm3d_ed_props_end(_ed, _hb9);
-			}
-			var _nsd = __gm3d_ed_imgui_prop_float(_ed, "light_shadow_dist", "Distance", _d.shadowDist, 120);
-			if (_nsd != undefined) {
-				var _hb10 = __gm3d_ed_history_snap(_ed);
-				_d.shadowDist = max(_nsd, 1);
-				__gm3d_ed_light_apply(_node, _d);
-				__gm3d_ed_props_end(_ed, _hb10);
-			}
-			var _nsn = __gm3d_ed_imgui_prop_float(_ed, "light_shadow_normal", "Normal bias", _d.shadowNormal, 120);
-			if (_nsn != undefined) {
-				var _hb11 = __gm3d_ed_history_snap(_ed);
-				_d.shadowNormal = clamp(_nsn, 0, 1);
-				__gm3d_ed_light_apply(_node, _d);
-				__gm3d_ed_props_end(_ed, _hb11);
-			}
+		var _nsd = __gm3d_ed_imgui_prop_float(_ed, "light_shadow_dist", "Distance", _d.shadowDist, 120);
+		if (_nsd != undefined) {
+			var _hb10 = __gm3d_ed_history_snap(_ed);
+			_d.shadowDist = max(_nsd, 1);
+			__gm3d_ed_light_apply(_node, _d);
+			__gm3d_ed_props_end(_ed, _hb10);
+		}
+		var _nsn = __gm3d_ed_imgui_prop_float(_ed, "light_shadow_normal", "Normal bias", _d.shadowNormal, 120);
+		if (_nsn != undefined) {
+			var _hb11 = __gm3d_ed_history_snap(_ed);
+			_d.shadowNormal = clamp(_nsn, 0, 1);
+			__gm3d_ed_light_apply(_node, _d);
+			__gm3d_ed_props_end(_ed, _hb11);
 		}
 	}
 }
@@ -393,8 +428,6 @@ function __gm3d_ed_imgui_light_sec(_ed, _node, _en) {
 // Edits camera properties in Inspector.
 function __gm3d_ed_imgui_camera_sec(_ed, _node, _en) {
 	var _d = _en.data;
-	ImGui.Separator();
-	ImGui.Text("Camera");
 	if (ImGui.RadioButton("Perspective", _d.projection != "ortho")) {
 		var _hb = __gm3d_ed_history_snap(_ed);
 		_d.projection = "perspective";
@@ -459,8 +492,6 @@ function __gm3d_ed_imgui_camera_sec(_ed, _node, _en) {
 // Edits environment properties in Inspector.
 function __gm3d_ed_imgui_env_sec(_ed, _node, _en) {
 	var _d = _en.data;
-	ImGui.Separator();
-	ImGui.Text("Environment");
 	var _nen = ImGui.Checkbox("Enabled", _d.enabled == true);
 	if (_nen != (_d.enabled == true)) {
 		var _hb = __gm3d_ed_history_snap(_ed);

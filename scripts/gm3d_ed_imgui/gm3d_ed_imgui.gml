@@ -135,9 +135,14 @@ function __gm3d_ed_imgui_draw(_ed) {
 	_ed.imgui._pw = _ed.gw;
 	_ed.imgui._ph = _ed.gh;
 	var _modal_ui = false;
-	_modal_ui = _ed.confirm != undefined;
+	_modal_ui = _ed.confirm != undefined || _ed.about != undefined;
 	if (_modal_ui) {
-		__gm3d_ed_imgui_confirm(_ed);
+		if (_ed.confirm != undefined) {
+			__gm3d_ed_imgui_confirm(_ed);
+		}
+		if (_ed.about != undefined) {
+			__gm3d_ed_imgui_about(_ed);
+		}
 		return;
 	}
 	var _rst = _ed.imgui.reset_layout == true;
@@ -151,6 +156,7 @@ function __gm3d_ed_imgui_draw(_ed) {
 	__gm3d_ed_imgui_scene_win(_ed);
 	__gm3d_ed_imgui_inspector(_ed);
 	__gm3d_ed_imgui_confirm(_ed);
+	__gm3d_ed_imgui_about(_ed);
 	if (_rst || _rsz) {
 		_ed.imgui.cond = ImGuiCond.FirstUseEver;
 		_ed.imgui.reset_layout = false;
@@ -436,6 +442,39 @@ function __gm3d_ed_imgui_confirm(_ed) {
 	__gm3d_ed_imgui_pop(_pushed);
 }
 
+// Shows about dialog.
+function __gm3d_ed_imgui_about(_ed) {
+	var _a = _ed.about;
+	if (_a == undefined) {
+		return;
+	}
+	var _gw = max(640, _ed.gw);
+	var _gh = max(400, _ed.gh);
+	ImGui.SetNextWindowPos(_gw * 0.5 - 190, _gh * 0.5 - 70, ImGuiCond.Always);
+	ImGui.SetNextWindowSize(380, 125, ImGuiCond.Always);
+	__gm3d_ed_imgui_bg_alpha(0.95);
+	var _pushed = 0;
+	ImGui.PushStyleColor(ImGuiCol.TitleBg, make_colour_rgb(33, 36, 47), 1);
+	_pushed++;
+	ImGui.PushStyleColor(ImGuiCol.TitleBgActive, make_colour_rgb(33, 36, 47), 1);
+	_pushed++;
+	var _begun = ImGui.Begin("About GM3D Level Editor", _a, ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoResize);
+	if (!_begun) {
+		__gm3d_ed_imgui_pop(_pushed);
+		ImGui.End();
+		return;
+	}
+	ImGui.Text("Designed and crafted by Emmanuel Di Iorio,");
+	ImGui.Text("aka Xeryan.");
+	ImGui.Text("Released under the MIT License - 2026.");
+	ImGui.Text("Third-party assets belong to their owners.");
+	if (ImGui.Button("OK", 0, 0)) {
+		_ed.about = undefined;
+	}
+	ImGui.End();
+	__gm3d_ed_imgui_pop(_pushed);
+}
+
 // Pops specified number of style colors.
 function __gm3d_ed_imgui_pop(_n) {
 	for (var _i = 0; _i < _n; _i++) {
@@ -445,18 +484,19 @@ function __gm3d_ed_imgui_pop(_n) {
 
 // Computes default panel positions and sizes.
 function __gm3d_ed_imgui_place(_ed) {
-	var _gw = max(640, _ed.gw);
-	var _gh = max(400, _ed.gh);
+	var _gw = max(800, _ed.gw);
+	var _gh = max(500, _ed.gh);
 	var _top = 30;
-	var _lw = 250;
-	var _lh = clamp((_gh - _top - 16) * 0.55, 220, 640);
-	var _iw = 300;
-	var _ih = clamp((_gh - _top - 16) * 0.4, 220, 360);
 	var _gap = 8;
+	var _lw = 250;
+	var _iw = 300;
+	var _mh = clamp((_gh - _top - _gap * 2) * 0.32, 150, 240);
+	var _ih = max(280, _gh - _mh - _top - _gap - 8);
+	var _mx = _lw + _gap * 2;
 	return {
-		assets: { x: 8, y: _top + _lh + _gap, w: _lw, h: max(140, _gh - (_top + _lh + _gap) - 8) },
-		scn: { x: 8, y: _top, w: _lw, h: _lh },
-		insp: { x: _gw - _iw - 8, y: _gh - _ih - 8, w: _iw, h: _ih },
+		scn: { x: 8, y: _top, w: _lw, h: max(200, _gh - _top - 8) },
+		insp: { x: _gw - _iw - 8, y: _top, w: _iw, h: _ih },
+		assets: { x: _mx, y: _gh - _mh - 8, w: max(200, _gw - _mx - 8), h: _mh },
 	};
 }
 
@@ -595,6 +635,18 @@ function __gm3d_ed_imgui_menu(_ed) {
 		}
 		ImGui.EndMenu();
 	}
+	if (ImGui.BeginMenu("Help")) {
+		if (ImGui.MenuItem("Report a Bug/Feature Request")) {
+			try {
+				url_open("https://github.com/manuel-di-iorio/GM3D-Level-Editor/issues");
+			} catch (_eU) {
+			}
+		}
+		if (ImGui.MenuItem("About")) {
+			_ed.about = { open: true };
+		}
+		ImGui.EndMenu();
+	}
 	ImGui.EndMainMenuBar();
 	_mbar = false;
 
@@ -626,9 +678,24 @@ function __gm3d_ed_imgui_assets(_ed) {
 function __gm3d_ed_imgui_asset_list(_ed) {
 	var _ui = _ed.imgui;
 
-	_ui.models_view = "list";
-	ImGui.SetNextItemWidth(-1);
+	if (!variable_struct_exists(_ui, "models_view")) {
+		_ui.models_view = "cards";
+	}
+	var _fw = 80;
+	try {
+		_fw = max(80, ImGui.GetContentRegionAvailX() - 108);
+	} catch (_eFw) {
+	}
+	ImGui.SetNextItemWidth(_fw);
 	_ui.filter = __gm3d_ed_imgui_text_hint("##filter", "Filter models...", _ui.filter);
+	ImGui.SameLine();
+	if (__gm3d_ed_imgui_small_btn(_ed, "List", _ui.models_view == "list")) {
+		_ui.models_view = "list";
+	}
+	ImGui.SameLine();
+	if (__gm3d_ed_imgui_small_btn(_ed, "Cards", _ui.models_view == "cards")) {
+		_ui.models_view = "cards";
+	}
 	ImGui.Separator();
 	var _flt = string_lower(_ui.filter);
 	if (_ui.models_view == "cards") {
@@ -668,7 +735,7 @@ function __gm3d_ed_imgui_small_btn(_ed, _label, _active) {
 		ImGui.PushStyleColor(ImGuiCol.Button, make_colour_rgb(47, 111, 237), 1);
 		_pushed++;
 	}
-	var _hit = ImGui.Button(_label, 56, 24);
+	var _hit = ImGui.Button(_label, 46, 0);
 	__gm3d_ed_imgui_pop(_pushed);
 	return _hit;
 }
