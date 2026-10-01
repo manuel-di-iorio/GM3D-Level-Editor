@@ -731,11 +731,12 @@ body.setAllowSleeping(true);
 
 var shape = new GM3D_PhysicsShapeComponent();
 shape.setShapeType(GM3D_EPhysicsShapeType.Box); // Box Sphere Capsule Cylinder Mesh ConvexHull ConvexDecomposition
+// NOTE: the API index declares the setter range as [0,5], which would exclude ConvexDecomposition=6 — verify at runtime
 shape.setHalfExtents(new GM3D_Vec3(hx, hy, hz)); // sphere/capsule/cylinder: x=radius y=half-height
 shape.setLocalOffset(offset);
 shape.setLocalRotation(rot);
-shape.setFriction(0.95);
-shape.setRestitution(0.0);
+shape.setFriction(0.95); // clamped [0,1]
+shape.setRestitution(0.0); // clamped [0,1]
 
 node.addComponent(body);
 node.addComponent(shape);
@@ -756,22 +757,22 @@ world.destroy();
 ```
 
 Registration: `addNode / removeNode / rebuildNode / addTree`.
-Simulation control: `activateBody / deactivateBody / isBodyActive`, `get/setBodyPositionRotation`, `get/setLinearVelocity/AngularVelocity`, `addForce / addTorque / addLinearImpulse / addAngularImpulse` (+ `AtPoint` variants), `setBodyFriction/Restitution/MotionQuality/AllowSleeping/DOFLock`, `setMass/LinearDamping/AngularDamping/GravityFactor/IsSensor` per node.
+Simulation control: `activateBody / deactivateBody / isBodyActive`, `getBodyPosition / getBodyRotation`, `setBodyPositionRotation(node, pos, rot, activate)`, `get/setLinearVelocity/AngularVelocity`, `addForce / addTorque / addLinearImpulse / addAngularImpulse` (+ `AtPoint` variants), `get/setBodyFriction/Restitution/MotionQuality/AllowSleeping/DOFLock`, `setMass/LinearDamping/AngularDamping/GravityFactor/IsSensor` per node.
 Layers: `setLayerCollision(a, b, collides)` / `getLayerCollision`.
-Groups: `setCollisionGroupPair`.
-Gravity: `setGravity / getGravity`. Debug: `setDebugDrawEnabled`.
+Groups: `setCollisionGroupPair(subA, subB, collides)`.
+Gravity: `setGravity / getGravity`. Debug: `setDebugDrawEnabled / getDebugDrawEnabled`. World props: `fixedTimeStep`, `maxSubSteps`, `interpolationAlpha` (read-only).
 
 ### Queries
 
 ```gml
 var hit = world.raycast(origin, dir, maxDist, layerMask, ignoreNodes);
 // → GM3D_RaycastHit { node, point, normal, distance } or undefined
-var hits = world.raycastAll(origin, dir, maxDist, mask, ignore, maxHits);
+var hits = world.raycastAll(origin, dir, maxDist, mask, ignore, maxHits); // default 256
 var swept = world.shapeCast(shapeType, halfExtents, origin, rot, sweep, mask, ignore, max);
 var ov = world.overlapSphere(center, radius, mask, ignore, max);
 var ov = world.overlapBox(center, halfExtents, rot, mask, ignore, max);
 var ov = world.overlapCapsule(center, radius, halfHeight, rot, mask, ignore, max);
-var ov = world.overlapPoint(point, mask, ignore, max);
+var ov = world.overlapPoint(point, mask, ignore, max); // default 256
 // → GM3D_OverlapHit { node, closestPoint }
 var cp = world.getClosestPointOnBody(node, worldPoint);
 ```
@@ -848,8 +849,9 @@ var state = physicsWorld.getCharacterGroundState(playerNode);
 var vel = physicsWorld.getCharacterVelocity(playerNode);
 var nrm = physicsWorld.getCharacterGroundNormal(playerNode);
 var groundNode = physicsWorld.getCharacterGroundNode(playerNode);
-// + setCharacterShape, characterJump(jumpSpeed), setCharacterStickToGroundEnabled,
-//   getCharacterContacts, setCharacterVelocity
+// + setCharacterShape(node, radius, halfHeight, maxPen), characterJump(node, jumpSpeed),
+//   setCharacterStickToGroundEnabled(node, enabled), getCharacterContacts(node),
+//   removeCharacter(node)
 ```
 
 Avatar animation follows state: `idle / walk / run / sprint / jump / fall` clips selected by name, `play` + `setSpeed` scaled by horizontal speed. Camera: third-person smoothed follow + occlusion raycast, eye-level follow + head-bob.
@@ -878,9 +880,9 @@ var dims = sampleGetWheelDimensionsFromMesh(wheelNode, 0.33, 0.24);
 var wheel = new GM3D_PhysicsVehicleWheelComponent();
 wheel.setRadius(dims.radius);
 wheel.setWidth(dims.width);
-wheel.setMaxSteerAngle(isFront ? 0.5 : 0.0);
+wheel.setMaxSteerAngle(isFront ? 0.5 : 0.0); // values < 0 ignored
 wheel.setTrackSide(isLeft ? GM3D_EPhysicsTrackSide.Left : GM3D_EPhysicsTrackSide.Right);
-// + suspension dir/axes/lengths/frequency/damping, inertia,
+// + suspension dir/axes/lengths/frequency (<=0 ignored)/damping, inertia (<=0 ignored),
 //   friction curves, stiffness, brake torques, driven flag
 
 // 3. powertrain / differentials / anti-roll bars
@@ -925,12 +927,14 @@ Per-frame:
 physicsWorld.setVehicleInput(veh, throttle, steering, brake, handBrake);
 // throttle/steering in [-1,1], brake/handBrake in [0,1]
 if (speed > 2) physicsWorld.addForce(carNode, downforce);
-// + tracked input, clutch, engine running, lean controllers,
+// + tracked input (setTrackedVehicleInput needs non-zero left/right ratios),
+//   clutch, engine running, lean controllers,
 //   wheel steer/brake/omega overrides, collision tester
 var kmh = physicsWorld.getVehicleSpeedMPS(veh) * 3.6;
 var rpm = physicsWorld.getVehicleEngineRPM(veh);
 var gear = physicsWorld.getVehicleCurrentGear(veh);
-// + wheel/track state getters, rebuildVehicle/removeVehicle
+// + wheel/track state getters (getVehicleWheelState → steer rad, omega rad/s,
+//   suspension m, impulses N*s), rebuildVehicle/removeVehicle
 ```
 
 Motorcycle (`Motorcycle` component: lean angles/springs/smoothing) and tracked (`Tracked` component: per-side wheels/inertia/damping/brake/ratios) variants exist in the index but have no sample yet.

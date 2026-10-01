@@ -180,6 +180,10 @@ function __gm3d_ed_imgui_kind_icon(_ed, _nd, _nk, _ishid, _i) {
 		return;
 	}
 	var _tint = _ishid ? make_colour_rgb(105, 115, 135) : c_white;
+	if (_sn == "sprGM3DIconDirectionalLight") {
+		ImGui.Dummy(1, 0);
+		ImGui.SameLine(0, 0);
+	}
 	try {
 		ImGui.Image(_spr, 0, _tint, 1, _iw, _ih);
 	} catch (_e2) {
