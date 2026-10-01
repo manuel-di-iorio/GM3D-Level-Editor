@@ -3,8 +3,8 @@
   "%Name":"sAnimated",
   "name":"sAnimated",
   "parent":{
-    "name":"GM3D_Editor",
-    "path":"GM3D_Editor.yyp",
+    "name":"GM3D-Level-Editor",
+    "path":"GM3D-Level-Editor.yyp",
   },
   "resourceType":"GMShader",
   "resourceVersion":"2.0",

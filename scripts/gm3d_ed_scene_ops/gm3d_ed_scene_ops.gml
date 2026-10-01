@@ -481,13 +481,88 @@ function __gm3d_ed_focus_node(_ed, _node) {
 function __gm3d_ed_scene_select(_ed, _node) {
 	_ed.sel = [_node];
 	_ed.giz.drag = -1;
+	_ed.scene_anchor = _node;
 	__gm3d_ed_sel_apply_tool(_ed);
 }
 
-// Handles scene list click and doubleclick.
-function __gm3d_ed_scene_click(_ed, _nd, _row) {
+// Toggles single node in current selection (Ctrl+Click).
+function __gm3d_ed_scene_toggle(_ed, _node) {
+	__gm3d_ed_sel_toggle(_ed, _node);
+	_ed.giz.drag = -1;
+	_ed.scene_anchor = _node;
+	__gm3d_ed_sel_apply_tool(_ed);
+}
+
+// Selects visible range between anchor and clicked node (Shift+Click).
+function __gm3d_ed_scene_range(_ed, _visible, _anchor_node, _clicked_node, _additive) {
+	if (!is_array(_visible) || array_length(_visible) == 0 || _clicked_node == undefined) {
+		return false;
+	}
+	var _ai = -1;
+	var _ci = -1;
+	for (var _i = 0; _i < array_length(_visible); _i++) {
+		if (_visible[_i] == _anchor_node) {
+			_ai = _i;
+		}
+		if (_visible[_i] == _clicked_node) {
+			_ci = _i;
+		}
+	}
+	if (_ci < 0) {
+		return false;
+	}
+	if (_ai < 0) {
+		__gm3d_ed_scene_select(_ed, _clicked_node);
+		return true;
+	}
+	var _a = min(_ai, _ci);
+	var _b = max(_ai, _ci);
+	if (!_additive) {
+		_ed.sel = [];
+	}
+	for (var _k = _a; _k <= _b; _k++) {
+		var _cand = _visible[_k];
+		if (!__gm3d_ed_sel_has(_ed, _cand)) {
+			array_push(_ed.sel, _cand);
+		}
+	}
+	_ed.giz.drag = -1;
+	__gm3d_ed_sel_apply_tool(_ed);
+	return true;
+}
+
+// Handles scene list click, Ctrl toggle and Shift range, plus doubleclick.
+function __gm3d_ed_scene_click(_ed, _nd, _row, _visible = undefined) {
 	var _now = current_time;
-	if (_ed.scene_click_idx == _row && _now - _ed.scene_click_time <= 400) {
+	var _ctrl = false;
+	var _shift = false;
+	try {
+		_ctrl = keyboard_check(vk_control);
+	} catch (_eC) {
+		_ctrl = false;
+	}
+	try {
+		_shift = keyboard_check(vk_shift);
+	} catch (_eS) {
+		_shift = false;
+	}
+	if (!variable_struct_exists(_ed, "scene_anchor")) {
+		_ed.scene_anchor = undefined;
+	}
+	if (_ctrl && !_shift) {
+		__gm3d_ed_scene_toggle(_ed, _nd);
+		_ed.scene_click_idx = _row;
+		_ed.scene_click_time = _now;
+		return;
+	}
+	if (_shift && is_array(_visible)) {
+		if (__gm3d_ed_scene_range(_ed, _visible, _ed.scene_anchor, _nd, _ctrl)) {
+			_ed.scene_click_idx = _row;
+			_ed.scene_click_time = _now;
+			return;
+		}
+	}
+	if (_ed.scene_click_idx == _row && _now - _ed.scene_click_time <= 400 && !_ctrl && !_shift) {
 		__gm3d_ed_scene_select(_ed, _nd);
 		__gm3d_ed_focus_node(_ed, _nd);
 		_ed.scene_click_idx = -1;
@@ -521,11 +596,15 @@ function __gm3d_ed_scene_list_commit(_ed, _ren, _foc, _dup, _del) {
 		__gm3d_ed_focus_node(_ed, _foc);
 	}
 	if (_dup != undefined) {
-		__gm3d_ed_scene_select(_ed, _dup);
+		if (!__gm3d_ed_sel_has(_ed, _dup) || array_length(_ed.sel) <= 1) {
+			__gm3d_ed_scene_select(_ed, _dup);
+		}
 		__gm3d_ed_duplicate_sel(_ed);
 	}
 	if (_del != undefined) {
-		__gm3d_ed_scene_select(_ed, _del);
+		if (!__gm3d_ed_sel_has(_ed, _del) || array_length(_ed.sel) <= 1) {
+			__gm3d_ed_scene_select(_ed, _del);
+		}
 		__gm3d_ed_delete_sel(_ed);
 	}
 }

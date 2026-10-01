@@ -143,50 +143,6 @@ function __gm3d_ed_imgui_icon_shifted(_spr, _tint, _iw, _ih, _dy) {
 	return true;
 }
 
-// Draws node kind visibility filter toggle.
-function __gm3d_ed_imgui_kind_filter(_ed, _sprname, _id, _tip, _val) {
-	static _ok = {};
-	var _spr = -1;
-	try {
-		_spr = asset_get_index(_sprname);
-	} catch (_e) {
-		_spr = -1;
-	}
-	var _usable = _spr != -1 && _ok[$ _sprname] != false;
-	if (_usable) {
-		var _tint = _val ? c_white : make_colour_rgb(110, 120, 140);
-		var _iw = 0;
-		var _ih = 0;
-		try {
-			_iw = sprite_get_width(_spr);
-			_ih = sprite_get_height(_spr);
-		} catch (_e0) {
-		}
-		var _dy = 3;
-		if (_sprname == "sprGM3DIconCamera") {
-			_dy = 5;
-		} else if (_sprname == "sprGM3DIconDirectionalLight") {
-			_dy = 2;
-		}
-		if (!__gm3d_ed_imgui_icon_shifted(_spr, _tint, _iw, _ih, _dy)) {
-			try {
-				ImGui.Image(_spr, 0, _tint, 1, _iw, _ih);
-			} catch (_e2) {
-				_ok[$ _sprname] = false;
-				_usable = false;
-			}
-		}
-	}
-	if (!_usable) {
-		ImGui.Text(_id);
-	}
-	if (ImGui.IsItemHovered()) {
-		ImGui.SetTooltip(_tip);
-	}
-	ImGui.SameLine(0, 7);
-	return ImGui.Checkbox("##kf" + _id, _val);
-}
-
 // Draws node type icon with tooltip.
 function __gm3d_ed_imgui_kind_icon(_ed, _nd, _nk, _ishid, _i) {
 	var _sn = "sprGM3DIconObject";
@@ -239,29 +195,71 @@ function __gm3d_ed_imgui_kind_icon(_ed, _nd, _nk, _ishid, _i) {
 // Draws filterable scene list with selection actions.
 function __gm3d_ed_imgui_scene_list(_ed) {
 	var _ui = _ed.imgui;
-	ImGui.SetNextItemWidth(-1);
-	_ui.scene_filter = __gm3d_ed_imgui_text_hint("##scenefilter", "Filter nodes...", _ui.scene_filter);
 	if (!variable_struct_exists(_ui, "show_kind")) {
 		_ui.show_kind = { m: true, l: true, c: true, e: true };
+	}
+	if (!variable_struct_exists(_ui, "show_kind_open")) {
+		_ui.show_kind_open = false;
 	}
 	if (!variable_struct_exists(_ui, "scene_eye_idx")) {
 		_ui.scene_eye_idx = -1;
 		_ui.scene_eye_till = 0;
 	}
 	var _sk = _ui.show_kind;
-	_sk.m = __gm3d_ed_imgui_kind_filter(_ed, "sprGM3DIconObject", "M", "Show models", _sk.m);
-	ImGui.SameLine(0, 14);
-	_sk.l = __gm3d_ed_imgui_kind_filter(_ed, "sprGM3DIconDirectionalLight", "L", "Show lights", _sk.l);
-	ImGui.SameLine(0, 14);
-	_sk.c = __gm3d_ed_imgui_kind_filter(_ed, "sprGM3DIconCamera", "C", "Show cameras", _sk.c);
-	ImGui.SameLine(0, 14);
-	_sk.e = __gm3d_ed_imgui_kind_filter(_ed, "sprGM3DIconPointLight", "E", "Show environment", _sk.e);
+	var _fw = 80;
+	try {
+		_fw = max(80, ImGui.GetContentRegionAvailX() - 70);
+	} catch (_eFw) {
+	}
+	ImGui.SetNextItemWidth(_fw);
+	_ui.scene_filter = __gm3d_ed_imgui_text_hint("##scenefilter", "Filter nodes...", _ui.scene_filter);
+	ImGui.SameLine();
+	var _can_popup = __gm3d_ed_imgui_has_widget(_ed, "BeginPopup") && __gm3d_ed_imgui_has_widget(_ed, "OpenPopup");
+	if (_can_popup) {
+		if (__gm3d_ed_imgui_small_btn_w(_ed, "Filters", false, 56)) {
+			try {
+				ImGui.OpenPopup("##scenekindfilters");
+			} catch (_ePop) {
+			}
+		}
+		if (ImGui.IsItemHovered()) {
+			ImGui.SetTooltip("Filter asset types");
+		}
+		var _opened = false;
+		try {
+			_opened = ImGui.BeginPopup("##scenekindfilters");
+		} catch (_eB) {
+			_opened = false;
+		}
+		if (_opened) {
+			_sk.m = ImGui.Checkbox("Models", _sk.m);
+			_sk.l = ImGui.Checkbox("Lights", _sk.l);
+			_sk.c = ImGui.Checkbox("Cameras", _sk.c);
+			_sk.e = ImGui.Checkbox("Environment", _sk.e);
+			try {
+				ImGui.EndPopup();
+			} catch (_eE) {
+			}
+		}
+	} else {
+		if (__gm3d_ed_imgui_small_btn_w(_ed, "Filters", _ui.show_kind_open == true, 56)) {
+			_ui.show_kind_open = !_ui.show_kind_open;
+		}
+		if (ImGui.IsItemHovered()) {
+			ImGui.SetTooltip("Filter asset types");
+		}
+		if (_ui.show_kind_open == true) {
+			_sk.m = ImGui.Checkbox("Models", _sk.m);
+			_sk.l = ImGui.Checkbox("Lights", _sk.l);
+			_sk.c = ImGui.Checkbox("Cameras", _sk.c);
+			_sk.e = ImGui.Checkbox("Environment", _sk.e);
+		}
+	}
 	ImGui.Separator();
 	if (_ed.rt == undefined) {
 		ImGui.TextDisabled("No scene");
 		return;
 	}
-	var _roots = [];
 	var _del = undefined;
 	var _dup = undefined;
 	var _foc = undefined;
@@ -270,29 +268,39 @@ function __gm3d_ed_imgui_scene_list(_ed) {
 		_ed.scene_click_idx = -1;
 		_ed.scene_click_time = -10000;
 	}
+	if (!variable_struct_exists(_ed, "scene_anchor")) {
+		_ed.scene_anchor = undefined;
+	}
 	var _flt = "";
 	_flt = string_lower(_ui.scene_filter);
 
-	_roots = __gm3d_ed_tracked_nodes(_ed);
-	for (var _i = 0; _i < array_length(_roots); _i++) {
-		var _nd = _roots[_i];
+	var _roots = __gm3d_ed_tracked_nodes(_ed);
+	var _visible = [];
+	for (var _r = 0; _r < array_length(_roots); _r++) {
+		var _vn = _roots[_r];
+		var _vl = __gm3d_ed_label_get(_ed, _vn);
+		var _vk = __gm3d_ed_kind_of(_ed, _vn);
+		if (_vk == "light" && !_sk.l) {
+			continue;
+		}
+		if (_vk == "camera" && !_sk.c) {
+			continue;
+		}
+		if (_vk == "environment" && !_sk.e) {
+			continue;
+		}
+		if (_vk != "light" && _vk != "camera" && _vk != "environment" && !_sk.m) {
+			continue;
+		}
+		if (_flt != "" && string_pos(_flt, string_lower(_vl)) <= 0) {
+			continue;
+		}
+		array_push(_visible, _vn);
+	}
+	for (var _i = 0; _i < array_length(_visible); _i++) {
+		var _nd = _visible[_i];
 		var _dl = __gm3d_ed_label_get(_ed, _nd);
 		var _nk = __gm3d_ed_kind_of(_ed, _nd);
-		if (_nk == "light" && !_sk.l) {
-			continue;
-		}
-		if (_nk == "camera" && !_sk.c) {
-			continue;
-		}
-		if (_nk == "environment" && !_sk.e) {
-			continue;
-		}
-		if (_nk != "light" && _nk != "camera" && _nk != "environment" && !_sk.m) {
-			continue;
-		}
-		if (_flt != "" && string_pos(_flt, string_lower(_dl)) <= 0) {
-			continue;
-		}
 		ImGui.PushID(_i);
 		var _renaming = false;
 
@@ -324,7 +332,7 @@ function __gm3d_ed_imgui_scene_list(_ed) {
 			ImGui.SameLine();
 			var _sel = __gm3d_ed_sel_has(_ed, _nd);
 			if (ImGui.Selectable(_dl, _sel)) {
-				__gm3d_ed_scene_click(_ed, _nd, _i);
+				__gm3d_ed_scene_click(_ed, _nd, _i, _visible);
 			}
 			if (ImGui.IsItemHovered()) {
 				_ui.scene_eye_idx = _i;
@@ -342,13 +350,16 @@ function __gm3d_ed_imgui_scene_list(_ed) {
 			if (!__gm3d_ed_sel_has(_ed, _nd)) {
 				__gm3d_ed_scene_select(_ed, _nd);
 			}
-			if (ImGui.MenuItem("Focus", "F")) {
-				_foc = _nd;
-				ImGui.CloseCurrentPopup();
-			}
-			if (ImGui.MenuItem("Rename", "F2")) {
-				_ren = _nd;
-				ImGui.CloseCurrentPopup();
+			var _single = array_length(_ed.sel) <= 1;
+			if (_single) {
+				if (ImGui.MenuItem("Focus", "F")) {
+					_foc = _nd;
+					ImGui.CloseCurrentPopup();
+				}
+				if (ImGui.MenuItem("Rename", "F2")) {
+					_ren = _nd;
+					ImGui.CloseCurrentPopup();
+				}
 			}
 			if (ImGui.MenuItem("Duplicate", "Ctrl+D")) {
 				_dup = _nd;

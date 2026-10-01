@@ -217,6 +217,9 @@ function __gm3d_ed_sel_clear(_ed) {
 	_ed.sel = [];
 	_ed.giz.drag = -1;
 	_ed.giz.hover = -1;
+	if (variable_struct_exists(_ed, "scene_anchor")) {
+		_ed.scene_anchor = undefined;
+	}
 }
 
 // Checks if node is selected.

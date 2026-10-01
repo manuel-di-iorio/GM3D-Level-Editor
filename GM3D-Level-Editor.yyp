@@ -1,6 +1,6 @@
 {
   "$GMProject":"v1",
-  "%Name":"GM3D_Editor",
+  "%Name":"GM3D-Level-Editor",
   "AudioGroups":[
     {"$GMAudioGroup":"v1","%Name":"audiogroup_default","exportDir":"","name":"audiogroup_default","resourceType":"GMAudioGroup","resourceVersion":"2.0","targets":-1,},
   ],
@@ -34,7 +34,7 @@
   "MetaData":{
     "IDEVersion":"2026.0.0.16",
   },
-  "name":"GM3D_Editor",
+  "name":"GM3D-Level-Editor",
   "resources":[
     {"id":{"name":"oEditor","path":"objects/oEditor/oEditor.yy",},},
     {"id":{"name":"rTest","path":"rooms/rTest/rTest.yy",},},

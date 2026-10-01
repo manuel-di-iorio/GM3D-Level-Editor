@@ -17,17 +17,19 @@ function __gm3d_ed_gizmo_pivot(_sel) {
 }
 
 // Returns active gizmo axes in world or local orientation.
+// In local mode the reference is always the first selected node's local rotation.
 function __gm3d_ed_gizmo_dirs(_ed) {
 	if (_ed.giz.orient == 1 && array_length(_ed.sel) > 0) {
-		var _last = _ed.sel[array_length(_ed.sel) - 1];
-		var _wq = undefined;
+		var _first = _ed.sel[0];
+		var _lq = undefined;
 		try {
-			_wq = _last.getWorldRotation();
+			_lq = _first.getLocalRotation();
 		} catch (_e) {
-			_wq = undefined;
+			_lq = undefined;
 		}
-        _wq ??= _last.getLocalRotation();
-		return __gm3d_ed_quat_basis(_wq);
+		if (_lq != undefined) {
+			return __gm3d_ed_quat_basis(_lq);
+		}
 	}
 	return [new GM3D_Vec3(1, 0, 0), GM3D_Vec3.up(), GM3D_Vec3.forward()];
 }

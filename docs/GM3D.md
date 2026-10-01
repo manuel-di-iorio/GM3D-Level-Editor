@@ -1,6 +1,6 @@
 # GM3D in GameMaker
 
-Operational guide to the GMRT runtime 3D module (0.22.1), based on the official project [YoYoGames/GM3D-Samples](https://github.com/YoYoGames/GM3D-Samples) and the reference included in the repository (`notes/GM3D_API.md`).
+Operational guide to the GMRT runtime 3D module (0.22.4), based on the official project [YoYoGames/GM3D-Samples](https://github.com/YoYoGames/GM3D-Samples) and the reference included in the repository (`notes/GM3D_API.md`).
 
 ## Contents
 

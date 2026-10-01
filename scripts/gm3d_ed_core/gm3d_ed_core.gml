@@ -126,7 +126,7 @@ function gm3d_editor_draw(_ed) {
 		draw_set_valign(fa_top);
 		draw_set_color(c_white);
 		draw_set_alpha(1);
-		draw_text(_ed.gw - 40, 40, "FPS: " + string(round(fps_real)));
+		draw_text(max(60, _ed.gw - 460), 40, "FPS: " + string(round(fps_real)));
 		draw_set_halign(fa_left);
 		draw_set_valign(fa_top);
 	}
@@ -504,6 +504,7 @@ function __gm3d_ed_create(_inst, _rt) {
 		},
 		scene_click_idx: -1,
 		scene_click_time: -10000,
+		scene_anchor: undefined,
 		rename_name: undefined,
 		rename_pos: undefined,
 		confirm: undefined,

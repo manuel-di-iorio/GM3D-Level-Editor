@@ -464,8 +464,7 @@ function __gm3d_ed_imgui_about(_ed) {
 		ImGui.End();
 		return;
 	}
-	ImGui.Text("Designed and crafted by Emmanuel Di Iorio,");
-	ImGui.Text("aka Xeryan.");
+	ImGui.Text("Developed by Emmanuel Di Iorio aka Xeryan.");
 	ImGui.Text("Released under the MIT License - 2026.");
 	ImGui.Text("Third-party assets belong to their owners.");
 	if (ImGui.Button("OK", 0, 0)) {
@@ -730,12 +729,17 @@ function __gm3d_ed_imgui_asset_list(_ed) {
 
 // Draws small button with active highlight.
 function __gm3d_ed_imgui_small_btn(_ed, _label, _active) {
+	return __gm3d_ed_imgui_small_btn_w(_ed, _label, _active, 46);
+}
+
+// Draws small button with active highlight and custom width.
+function __gm3d_ed_imgui_small_btn_w(_ed, _label, _active, _w) {
 	var _pushed = 0;
 	if (_active) {
 		ImGui.PushStyleColor(ImGuiCol.Button, make_colour_rgb(47, 111, 237), 1);
 		_pushed++;
 	}
-	var _hit = ImGui.Button(_label, 46, 0);
+	var _hit = ImGui.Button(_label, _w, 0);
 	__gm3d_ed_imgui_pop(_pushed);
 	return _hit;
 }
