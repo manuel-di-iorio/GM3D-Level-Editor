@@ -26,7 +26,7 @@
   "origin":4,
   "parent":{
     "name":"Icons",
-    "path":"folders/GM3D Level Editor/Icons.yy",
+    "path":"folders/GM3D Level Editor/ImGUI/Icons.yy",
   },
   "preMultiplyAlpha":false,
   "resourceType":"GMSprite",
