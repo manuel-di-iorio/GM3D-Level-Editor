@@ -17,6 +17,7 @@
   "ForcedPrefabProjectReferences":[],
   "IncludedFiles":[
     {"$GMIncludedFile":"","%Name":"__gm3dEditorGrid.glb","CopyToMask":-1,"filePath":"datafiles","name":"__gm3dEditorGrid.glb","resourceType":"GMIncludedFile","resourceVersion":"2.0",},
+    {"$GMIncludedFile":"","%Name":"__gm3dEditorSkybox.glb","CopyToMask":-1,"filePath":"datafiles","name":"__gm3dEditorSkybox.glb","resourceType":"GMIncludedFile","resourceVersion":"2.0",},
     {"$GMIncludedFile":"","%Name":"animal-fox.glb","CopyToMask":-1,"filePath":"datafiles/kenney_cube-pets_1.0","name":"animal-fox.glb","resourceType":"GMIncludedFile","resourceVersion":"2.0",},
     {"$GMIncludedFile":"","%Name":"colormap.png","CopyToMask":-1,"filePath":"datafiles/kenney_cube-pets_1.0/Textures","name":"colormap.png","resourceType":"GMIncludedFile","resourceVersion":"2.0",},
     {"$GMIncludedFile":"","%Name":"character-female-b.glb","CopyToMask":-1,"filePath":"datafiles/kenney_mini-characters","name":"character-female-b.glb","resourceType":"GMIncludedFile","resourceVersion":"2.0",},
@@ -67,6 +68,9 @@
     {"id":{"name":"shGM3DMask","path":"shaders/shGM3DMask/shGM3DMask.yy",},},
     {"id":{"name":"shGM3DMaskSkin","path":"shaders/shGM3DMaskSkin/shGM3DMaskSkin.yy",},},
     {"id":{"name":"shGM3DOutline","path":"shaders/shGM3DOutline/shGM3DOutline.yy",},},
+    {"id":{"name":"shGM3DSky","path":"shaders/shGM3DSky/shGM3DSky.yy",},},
+    {"id":{"name":"shGM3DUnlit","path":"shaders/shGM3DUnlit/shGM3DUnlit.yy",},},
+    {"id":{"name":"shGM3DUnlitSkin","path":"shaders/shGM3DUnlitSkin/shGM3DUnlitSkin.yy",},},
     {"id":{"name":"sStatic","path":"shaders/sStatic/sStatic.yy",},},
     {"id":{"name":"sStaticShadow","path":"shaders/sStaticShadow/sStaticShadow.yy",},},
     {"id":{"name":"sprGM3DIconCamera","path":"sprites/sprGM3DIconCamera/sprGM3DIconCamera.yy",},},

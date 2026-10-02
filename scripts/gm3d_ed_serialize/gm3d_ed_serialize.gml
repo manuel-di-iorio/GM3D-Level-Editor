@@ -342,6 +342,7 @@ function __gm3d_ed_is_num4(_d, _key) {
 
 // Clears scene and rebuilds from descriptors.
 function __gm3d_ed_rebuild(_ed, _nodes) {
+	_ed.unlit_quiet = false;
 	var _rep = { placed: 0, failed: 0, err: "" };
 	if (!is_array(_nodes)) {
 		_nodes = [];
@@ -364,6 +365,7 @@ function __gm3d_ed_rebuild(_ed, _nodes) {
 	_ed.rt.scene.update(0);
 	_ed.tracked = [];
 	var _placementData = [];
+	_ed.unlit_quiet = true;
 	for (var _i = 0; _i < array_length(_nodes); ++_i) {
 		var _d = _nodes[_i];
 		if (!is_struct(_d)) {
@@ -420,9 +422,11 @@ function __gm3d_ed_rebuild(_ed, _nodes) {
 		}
 		_rep.placed++;
 	}
+	_ed.unlit_quiet = false;
 	_ed.rt.scene.update(0);
 	__gm3d_ed_gamecam_ensure(_ed);
 	__gm3d_ed_cameras_mute(_ed);
+	__gm3d_ed_unlit_apply(_ed);
 	var _rt2 = __gm3d_ed_root_tracked(_ed);
 	for (var _h = 0; _h < array_length(_rt2); _h++) {
 		var _en2 = __gm3d_ed_registry_find(_ed, _rt2[_h]);

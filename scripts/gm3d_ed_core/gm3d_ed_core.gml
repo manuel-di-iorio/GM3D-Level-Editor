@@ -164,6 +164,8 @@ function gm3d_editor_cleanup(_ed = undefined) {
 	__gm3d_ed_view_restore(_ed);
 	__gm3d_ed_bg_restore(_ed);
 	__gm3d_ed_cameras_restore(_ed);
+	_ed.show_unlit = false;
+	__gm3d_ed_unlit_apply(_ed);
 	if (_ed.viewcam != undefined) {
 		try {
 			var _vcc0 = _ed.viewcam.getCameraComponent();
@@ -174,6 +176,12 @@ function gm3d_editor_cleanup(_ed = undefined) {
 		}
 	}
 	__gm3d_ed_grid_remove(_ed);
+	__gm3d_ed_sky_remove(_ed);
+	if (variable_struct_exists(_ed, "sky_src") && _ed.sky_src != undefined) {
+		_ed.sky_src.destroy();
+		_ed.sky_src = undefined;
+	}
+	_ed.sky_mat = undefined;
 	_ed.show_shadows = true;
 	__gm3d_ed_shadowpreview_apply(_ed);
 	_ed.grid_mat = undefined;
@@ -326,6 +334,7 @@ function __gm3d_ed_set_active(_ed, _on) {
 		__gm3d_ed_view_restore(_ed);
 		__gm3d_ed_bg_restore(_ed);
 		__gm3d_ed_grid_remove(_ed);
+		__gm3d_ed_sky_remove(_ed);
 		__gm3d_ed_cameras_restore(_ed);
 		if (_ed.viewcam != undefined) {
 			try {
@@ -339,6 +348,8 @@ function __gm3d_ed_set_active(_ed, _on) {
 		__gm3d_ed_cam_home(_ed);
 		_ed.show_shadows = true;
 		__gm3d_ed_shadowpreview_apply(_ed);
+		_ed.show_unlit = false;
+		__gm3d_ed_unlit_apply(_ed);
 		if (variable_struct_exists(_ed.rt, "on_close")) {
 			_ed.rt.on_close(_ed.inst);
 		}
@@ -589,6 +600,8 @@ function __gm3d_ed_create(_inst, _rt) {
 		snap_rot: 15,
 		show_grid: true,
 		show_shadows: true,
+		show_unlit: false,
+		unlit_quiet: false,
 		grid_step: 1,
 		grid_node: undefined,
 		grid_src: undefined,
@@ -651,6 +664,9 @@ function __gm3d_ed_step(_ed, _dt) {
 	_input.gesture_active = _input.owner != undefined && !__gm3d_ed_input_owner_is_camera(_input.owner);
 	__gm3d_ed_cam_anim_step(_ed, _dt);
 	__gm3d_ed_grid_ensure(_ed);
+	__gm3d_ed_grid_follow(_ed);
+	__gm3d_ed_sky_ensure(_ed);
+	__gm3d_ed_sky_sync(_ed);
 
 	__gm3d_ed_step_hotkeys(_ed, _input);
 	__gm3d_ed_step_cancel(_ed, _input);

@@ -14,6 +14,18 @@ function __gm3d_ed_is_grid(_ed, _node) {
 	return false;
 }
 
+// Checks if node is skybox dome.
+function __gm3d_ed_is_sky(_node) {
+	if (_node == undefined) {
+		return false;
+	}
+	try {
+		return is_string(_node.name) && _node.name == "__skybox";
+	} catch (_e) {
+		return false;
+	}
+}
+
 // Creates editor grid if enabled.
 function __gm3d_ed_grid_ensure(_ed) {
 	if (_ed == undefined || _ed.rt == undefined || _ed.rt.scene == undefined) {
@@ -60,9 +72,19 @@ function __gm3d_ed_grid_ensure(_ed) {
 		return;
 	}
 	_ed.grid_node = _n;
+	try {
+		_n.setLocalScale(new GM3D_Vec3(6, 1, 6));
+	} catch (_eS) {
+	}
 	__gm3d_ed_flags_apply(_n, false, true);
 	var _gmats = _ed.grid_src.getMaterials();
 	_ed.grid_mat = array_length(_gmats) > 0 ? _gmats[0] : undefined;
+	try {
+		if (_ed.grid_mat != undefined) {
+			_ed.grid_mat.setBlendEnable(false);
+		}
+	} catch (_eB) {
+	}
 	__gm3d_ed_grid_bg_sync(_ed);
 	__gm3d_ed_grid_step_sync(_ed);
 	_ed.rt.scene.update(0);
@@ -113,13 +135,20 @@ function __gm3d_ed_grid_set_step(_ed, _v) {
 	}
 }
 
-// Syncs grid background color.
+// Syncs grid background color (sky horizon when the dome is up).
 function __gm3d_ed_grid_bg_sync(_ed) {
 	if (_ed == undefined || !variable_struct_exists(_ed, "grid_mat") || _ed.grid_mat == undefined) {
 		return;
 	}
-	var _c = window_get_colour();
-	_ed.grid_mat.setFloatArray("u_grid_bg", [colour_get_red(_c) / 255, colour_get_green(_c) / 255, colour_get_blue(_c) / 255]);
+	var _bg = [0.84, 0.87, 0.91]; // must match u_skyHorizon in __gm3d_ed_sky_paint
+	if (__gm3d_ed_sky_find(_ed) == undefined) {
+		var _c = window_get_colour();
+		_bg = [colour_get_red(_c) / 255, colour_get_green(_c) / 255, colour_get_blue(_c) / 255];
+	}
+	try {
+		_ed.grid_mat.setFloatArray("u_grid_bg", _bg);
+	} catch (_e) {
+	}
 }
 
 // Removes editor grid node.
@@ -133,6 +162,224 @@ function __gm3d_ed_grid_remove(_ed) {
 		if (_ed.rt != undefined && _ed.rt.scene != undefined) {
 			_ed.rt.scene.update(0);
 		}
+	}
+}
+
+// Keeps grid quad centered under the camera (lines stay world-anchored,
+// so the grid feels infinite in every direction).
+function __gm3d_ed_grid_follow(_ed) {
+	if (_ed == undefined || _ed.rt == undefined || _ed.rt.cam == undefined) {
+		return;
+	}
+	if (!variable_struct_exists(_ed, "grid_node") || _ed.grid_node == undefined) {
+		return;
+	}
+	try {
+		var _cp = _ed.rt.cam.getLocalPosition();
+		var _gp = _ed.grid_node.getLocalPosition();
+		if (_gp.x != _cp.x || _gp.z != _cp.z) {
+			_ed.grid_node.setLocalPosition(new GM3D_Vec3(_cp.x, 0, _cp.z));
+		}
+	} catch (_e) {
+	}
+}
+
+// Finds skybox dome root node.
+function __gm3d_ed_sky_find(_ed) {
+	if (_ed == undefined || _ed.rt == undefined || _ed.rt.scene == undefined) {
+		return undefined;
+	}
+	try {
+		if (_ed.sky_node != undefined && is_string(_ed.sky_node.name) && _ed.sky_node.name == "__skybox") {
+			return _ed.sky_node;
+		}
+	} catch (_eC) {
+	}
+	try {
+		var _roots = _ed.rt.scene.getNodes();
+		for (var _i = 0; _i < array_length(_roots); _i++) {
+			try {
+				if (is_string(_roots[_i].name) && _roots[_i].name == "__skybox") {
+					return _roots[_i];
+				}
+			} catch (_eN) {
+			}
+		}
+	} catch (_eR) {
+	}
+	return undefined;
+}
+
+// Ensures editor skybox dome (editor-only, like the grid).
+function __gm3d_ed_sky_ensure(_ed) {
+	if (_ed == undefined || _ed.rt == undefined || _ed.rt.scene == undefined) {
+		return;
+	}
+	if (!variable_struct_exists(_ed, "sky_node")) {
+		_ed.sky_node = undefined;
+	}
+	if (!variable_struct_exists(_ed, "sky_src")) {
+		_ed.sky_src = undefined;
+	}
+	if (!variable_struct_exists(_ed, "sky_mat")) {
+		_ed.sky_mat = undefined;
+	}
+	if (_ed.sky_node != undefined) {
+		return;
+	}
+	if (_ed.sky_src == undefined) {
+		var _path = working_directory + "__gm3dEditorSkybox.glb";
+		if (!file_exists(_path)) {
+			return;
+		}
+		var _src = undefined;
+		try {
+			_src = GM3D_Scene.loadGltf(_path);
+		} catch (_eL) {
+			_src = undefined;
+		}
+		if (_src == undefined) {
+			return;
+		}
+		var _mats = [];
+		try {
+			_mats = _src.getMaterials();
+		} catch (_eM) {
+		}
+		for (var _i = 0; _i < array_length(_mats); ++_i) {
+			try {
+				_mats[_i].setShader(GM3D_ERenderPass.Forward, shGM3DSky);
+			} catch (_eS) {
+			}
+		}
+		try {
+			_src.freeze();
+		} catch (_eF) {
+		}
+		_ed.sky_src = _src;
+		_ed.sky_mat = array_length(_mats) > 0 ? _mats[0] : undefined;
+	}
+	var _n = undefined;
+	try {
+		_n = _ed.sky_src.spawnInto(_ed.rt.scene, undefined);
+	} catch (_eN) {
+	}
+	if (_n == undefined) {
+		return;
+	}
+	_ed.sky_node = _n;
+	try {
+		var _mc = _n.getMeshComponent();
+		if (_mc != undefined) {
+			_mc.setFlags(0);
+		}
+	} catch (_eF2) {
+	}
+	__gm3d_ed_sky_paint(_ed);
+	__gm3d_ed_grid_bg_sync(_ed);
+	_ed.rt.scene.update(0);
+}
+
+// Removes editor skybox dome.
+function __gm3d_ed_sky_remove(_ed) {
+	if (_ed == undefined || !variable_struct_exists(_ed, "sky_node")) {
+		return;
+	}
+	if (_ed.sky_node != undefined) {
+		_ed.sky_node.destroy();
+		_ed.sky_node = undefined;
+		if (_ed.rt != undefined && _ed.rt.scene != undefined) {
+			_ed.rt.scene.update(0);
+		}
+	}
+	__gm3d_ed_grid_bg_sync(_ed);
+}
+
+// Finds first tracked directional light world-forward direction.
+function __gm3d_ed_sky_sun_dir(_ed) {
+	if (_ed == undefined) {
+		return undefined;
+	}
+	var _troots = __gm3d_ed_root_tracked(_ed);
+	for (var _j = 0; _j < array_length(_troots); _j++) {
+		if (__gm3d_ed_kind_of(_ed, _troots[_j]) != "light") {
+			continue;
+		}
+		var _en = __gm3d_ed_registry_find(_ed, _troots[_j]);
+		if (_en == undefined || !is_struct(_en.data) || _en.data.type != "directional") {
+			continue;
+		}
+		try {
+			var _wf = _troots[_j].getWorldForward();
+			var _l = sqrt(_wf.x * _wf.x + _wf.y * _wf.y + _wf.z * _wf.z);
+			if (_l > 0.0001) {
+				return [_wf.x / _l, _wf.y / _l, _wf.z / _l];
+			}
+		} catch (_eW) {
+		}
+		break;
+	}
+	return undefined;
+}
+
+// Paints skybox palette and syncs sun glow.
+function __gm3d_ed_sky_paint(_ed) {
+	if (_ed == undefined || !variable_struct_exists(_ed, "sky_mat") || _ed.sky_mat == undefined) {
+		return;
+	}
+	var _m = _ed.sky_mat;
+	try {
+		_m.setFloatArray("u_skyTop", [0.25, 0.5, 0.83]);
+		_m.setFloatArray("u_skyHorizon", [0.84, 0.87, 0.91]);
+		_m.setFloatArray("u_skyBottom", [0.412, 0.388, 0.365]);
+		_m.setFloatArray("u_sunColor", [1.0, 1.0, 1.0]);
+		_m.setFloat("u_sunGlow", 1.0);
+	} catch (_eC) {
+	}
+	var _dir = __gm3d_ed_sky_sun_dir(_ed);
+	if (_dir == undefined) {
+		_dir = [0.3, 0.69, 0.39];
+	}
+	try {
+		_m.setFloatArray("u_sunDir", _dir);
+	} catch (_eD) {
+	}
+}
+
+// Follows camera with skybox dome and syncs sun glow.
+function __gm3d_ed_sky_sync(_ed) {
+	if (_ed == undefined || _ed.rt == undefined || _ed.rt.scene == undefined || _ed.rt.cam == undefined) {
+		return;
+	}
+	var _sky = __gm3d_ed_sky_find(_ed);
+	_ed.sky_node = _sky;
+	if (_sky == undefined) {
+		return;
+	}
+	try {
+		var _cp = _ed.rt.cam.getLocalPosition();
+		_sky.setLocalPosition(new GM3D_Vec3(_cp.x, _cp.y, _cp.z));
+	} catch (_eP) {
+		return;
+	}
+	var _mat = undefined;
+	try {
+		var _mc = _sky.getMeshComponent();
+		if (_mc != undefined) {
+			_mat = _mc.getMaterial();
+		}
+	} catch (_eM) {
+	}
+	if (_mat == undefined) {
+		return;
+	}
+	var _dir = __gm3d_ed_sky_sun_dir(_ed);
+	if (_dir == undefined) {
+		return;
+	}
+	try {
+		_mat.setFloatArray("u_sunDir", _dir);
+	} catch (_eU) {
 	}
 }
 

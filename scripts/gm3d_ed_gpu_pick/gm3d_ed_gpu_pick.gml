@@ -236,7 +236,7 @@ function __gm3d_ed_gpupick_render(_ed, _g, _all, _ignore) {
 			continue;
 		}
 		if ((_grid != undefined && _nd == _grid) || (_preview != undefined && _nd == _preview)
-		|| (_cam != undefined && _nd == _cam) || __gm3d_ed_is_grid(_ed, _nd)) {
+		|| (_cam != undefined && _nd == _cam) || __gm3d_ed_is_grid(_ed, _nd) || __gm3d_ed_is_sky(_nd)) {
 			continue;
 		}
 		if (__gm3d_ed_hidden_get(_ed, _nd)) {

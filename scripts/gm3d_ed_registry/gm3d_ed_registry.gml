@@ -315,6 +315,9 @@ function __gm3d_ed_kind_register(_ed, _node, _kind, _asset, _pos3, _label = unde
 		data: _data,
 		hidden: false,
 	});
+	if (_ed.unlit_quiet != true) {
+		__gm3d_ed_unlit_apply(_ed);
+	}
 }
 
 // Spawns model and registers it.

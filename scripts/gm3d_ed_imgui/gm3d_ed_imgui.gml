@@ -234,6 +234,11 @@ function __gm3d_ed_imgui_toolbar(_ed) {
 		__gm3d_ed_shadowpreview_apply(_ed);
 	}
 	ImGui.SameLine();
+	if (__gm3d_ed_imgui_tool_btn("Unlit flat view (on/off)", "Unlit", _ed.show_unlit == true)) {
+		_ed.show_unlit = (_ed.show_unlit != true);
+		__gm3d_ed_unlit_apply(_ed);
+	}
+	ImGui.SameLine();
 	if (__gm3d_ed_imgui_tool_btn("Reset camera to the initial view", "Home", false)) {
 		__gm3d_ed_cam_home(_ed, true);
 	}
