@@ -150,7 +150,7 @@ function __gm3d_ed_ensure_dir(_path) {
 // Writes serialized scene to JSON file.
 function __gm3d_ed_save_scene(_ed) {
 	var _nodes = __gm3d_ed_serialize_scene(_ed);
-	var _json = json_stringify({ version: 1, nodes: _nodes });
+	var _json = json_stringify({ version: 1, nodes: _nodes }, true);
 	var _path = __gm3d_ed_scene_path(_ed);
 	if (_path == "") {
 		return false;

@@ -485,7 +485,7 @@ function __gm3d_ed_gpupick_execute(_ed) {
 	if (_g == undefined || _g.pending == undefined || _g.failed) {
 		return;
 	}
-	if (_ed.confirm != undefined) {
+	if (_ed.confirm != undefined || _ed.scene_dlg != undefined) {
 		_g.pending = undefined;
 		return;
 	}

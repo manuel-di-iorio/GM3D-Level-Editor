@@ -127,13 +127,16 @@ function __gm3d_ed_imgui_draw(_ed) {
 	_ed.imgui._pw = _ed.gw;
 	_ed.imgui._ph = _ed.gh;
 	var _modal_ui = false;
-	_modal_ui = _ed.confirm != undefined || _ed.about != undefined;
+	_modal_ui = _ed.confirm != undefined || _ed.about != undefined || _ed.scene_dlg != undefined;
 	if (_modal_ui) {
 		if (_ed.confirm != undefined) {
 			__gm3d_ed_imgui_confirm(_ed);
 		}
 		if (_ed.about != undefined) {
 			__gm3d_ed_imgui_about(_ed);
+		}
+		if (_ed.scene_dlg != undefined) {
+			__gm3d_ed_imgui_scene_dlg(_ed);
 		}
 		return;
 	}
@@ -149,6 +152,7 @@ function __gm3d_ed_imgui_draw(_ed) {
 	__gm3d_ed_imgui_inspector(_ed);
 	__gm3d_ed_imgui_confirm(_ed);
 	__gm3d_ed_imgui_about(_ed);
+	__gm3d_ed_imgui_scene_dlg(_ed);
 	if (_rst || _rsz) {
 		_ed.imgui.cond = ImGuiCond.FirstUseEver;
 		_ed.imgui.reset_layout = false;
@@ -324,7 +328,7 @@ function __gm3d_ed_ui_save(_ed) {
 	if (_ed == undefined) {
 		return;
 	}
-	__gm3d_ed_write_text_file(__gm3d_ed_ui_path(), json_stringify({ cube_off: _ed.cube_off }));
+	__gm3d_ed_write_text_file(__gm3d_ed_ui_path(), json_stringify({ cube_off: _ed.cube_off }, true));
 }
 
 // Loads view cube offset from file.
@@ -393,7 +397,7 @@ function __gm3d_ed_imgui_confirm(_ed) {
 	ImGui.Text("Do you want to save changes");
 	ImGui.Text("before " + _what + "?");
 	if (ImGui.Button("Save", 0, 0)) {
-		if (__gm3d_ed_save_or_ask(_ed)) {
+		if (__gm3d_ed_save_or_ask(_ed, _c.action)) {
 			__gm3d_ed_confirm_do(_ed, _c.action);
 		}
 		_ed.confirm = undefined;
@@ -444,6 +448,115 @@ function __gm3d_ed_imgui_about(_ed) {
 	}
 	ImGui.End();
 	__gm3d_ed_imgui_pop(_pushed);
+}
+
+// Shows save/load scene dialog (name only, fixed folder).
+function __gm3d_ed_imgui_scene_dlg(_ed) {
+	var _dlg = _ed.scene_dlg;
+	if (_dlg == undefined) {
+		return;
+	}
+	if (_dlg.open == false) {
+		_ed.scene_dlg = undefined;
+		return;
+	}
+	var _is_save = _dlg.mode != "load";
+	var _gw = max(640, _ed.gw);
+	var _gh = max(400, _ed.gh);
+	var _ww = 400;
+	var _wh = _is_save ? 120 : 250;
+	ImGui.SetNextWindowPos(_gw * 0.5 - _ww * 0.5, _gh * 0.5 - _wh * 0.5, ImGuiCond.Always);
+	ImGui.SetNextWindowSize(_ww, _wh, ImGuiCond.Always);
+	__gm3d_ed_imgui_bg_alpha(0.95);
+	var _pushed = 0;
+	ImGui.PushStyleColor(ImGuiCol.TitleBg, make_colour_rgb(33, 36, 47), 1);
+	_pushed++;
+	ImGui.PushStyleColor(ImGuiCol.TitleBgActive, make_colour_rgb(33, 36, 47), 1);
+	_pushed++;
+	var _begun = ImGui.Begin(_is_save ? "Save scene" : "Load scene", _dlg, ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoResize);
+	if (!_begun) {
+		__gm3d_ed_imgui_pop(_pushed);
+		ImGui.End();
+		return;
+	}
+	ImGui.Text("Scene name:");
+	if (!variable_struct_exists(_dlg, "buf") || !is_string(_dlg.buf)) {
+		_dlg.buf = __gm3d_ed_imgui_pad(_dlg.name);
+	}
+	var _out = ImGui.InputText("##scene_dlg_name", _dlg.buf, ImGuiInputTextFlags.AutoSelectAll);
+	if (is_string(_out)) {
+		_dlg.buf = _out;
+		_dlg.name = string_trim(_out);
+	}
+	if (_dlg.error != "" && _dlg.name != _dlg.err_name) {
+		_dlg.error = "";
+		_dlg.err_name = "";
+	}
+	var _shown = 0;
+	if (!_is_save) {
+		ImGui.Separator();
+		ImGui.TextDisabled("Existing:");
+		for (var _i = 0; _i < array_length(_dlg.list); _i++) {
+			if (_shown >= 3) {
+				break;
+			}
+			var _n = _dlg.list[_i];
+			if (ImGui.Selectable(_n, _dlg.name == _n)) {
+				_dlg.name = _n;
+				_dlg.buf = __gm3d_ed_imgui_pad(_n);
+			}
+			if (ImGui.IsMouseDoubleClicked(0) && ImGui.IsItemHovered()) {
+				__gm3d_ed_scene_dlg_do_load(_ed);
+			}
+			_shown++;
+		}
+	}
+	if (_dlg.error != "") {
+		ImGui.Text("Error: " + _dlg.error);
+	} else if (_is_save && __gm3d_ed_scene_dlg_exists(_ed, _dlg.name)) {
+		ImGui.TextDisabled("Exists - saving will overwrite.");
+	} else if (!_is_save && array_length(_dlg.list) == 0) {
+		ImGui.TextDisabled("No saved scenes yet.");
+	} else if (!_is_save && array_length(_dlg.list) > _shown) {
+		ImGui.TextDisabled("... +" + string(array_length(_dlg.list) - _shown) + " more (type the name)");
+	} else {
+		ImGui.Text("");
+	}
+	if (ImGui.Button(_is_save ? "Save" : "Load", 0, 0)) {
+		if (_is_save) {
+			__gm3d_ed_scene_dlg_do_save(_ed);
+		} else {
+			__gm3d_ed_scene_dlg_do_load(_ed);
+		}
+	}
+	ImGui.SameLine();
+	if (ImGui.Button("Cancel", 0, 0)) {
+		_ed.scene_dlg = undefined;
+	}
+	if (_ed.scene_dlg != undefined && keyboard_check_pressed(vk_enter)) {
+		if (_is_save) {
+			__gm3d_ed_scene_dlg_do_save(_ed);
+		} else {
+			__gm3d_ed_scene_dlg_do_load(_ed);
+		}
+	}
+	ImGui.End();
+	__gm3d_ed_imgui_pop(_pushed);
+}
+
+// Checks if sanitized name matches a listed scene.
+function __gm3d_ed_scene_dlg_exists(_ed, _name) {
+	var _clean = string_lower(__gm3d_ed_sanitize_scene_name(_name));
+	if (_clean == "") {
+		return false;
+	}
+	var _list = _ed.scene_dlg.list;
+	for (var _i = 0; _i < array_length(_list); _i++) {
+		if (string_lower(_list[_i]) == _clean) {
+			return true;
+		}
+	}
+	return false;
 }
 
 // Pops specified number of style colors.

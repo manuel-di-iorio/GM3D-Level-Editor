@@ -163,7 +163,9 @@ function __gm3d_ed_step_cancel(_ed, _input) {
 	var _keys = _input.keys;
 	var _typing = _input.typing;
 	if (!_typing && keyboard_check_pressed(_keys.cancel)) {
-		if (_ed.confirm != undefined) {
+		if (_ed.scene_dlg != undefined) {
+			_ed.scene_dlg = undefined;
+		} else if (_ed.confirm != undefined) {
 			_ed.confirm = undefined;
 		} else if (_ed.rename_name != undefined) {
 			__gm3d_ed_rename_cancel(_ed);

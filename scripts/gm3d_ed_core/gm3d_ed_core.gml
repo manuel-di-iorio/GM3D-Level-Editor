@@ -69,7 +69,7 @@ function gm3d_editor_draw() {
 		_vp = __gm3d_ed_viewport(_ed);
 	}
 	var _modal = false;
-	_modal = _ed.confirm != undefined || _ed.about != undefined;
+	_modal = _ed.confirm != undefined || _ed.about != undefined || _ed.scene_dlg != undefined;
 	if (_modal) {
 		draw_set_alpha(0.55);
 		draw_set_color(c_black);
@@ -468,6 +468,7 @@ function __gm3d_ed_create(_inst, _rt) {
 		rename_pos: undefined,
 		confirm: undefined,
 		about: undefined,
+		scene_dlg: undefined,
 		show_fps: false,
 		undo: [],
 		redo: [],
@@ -558,11 +559,12 @@ function __gm3d_ed_step(_ed, _dt) {
 	_ed.vp = _vp;
 
 	var _modal = false;
-	_modal = _ed.confirm != undefined || _ed.about != undefined;
+	_modal = _ed.confirm != undefined || _ed.about != undefined || _ed.scene_dlg != undefined;
 	if (_modal) {
 		if (!_input.typing && keyboard_check_pressed(_keys.cancel)) {
 			_ed.confirm = undefined;
 			_ed.about = undefined;
+			_ed.scene_dlg = undefined;
 		}
 		return;
 	}

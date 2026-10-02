@@ -7,7 +7,7 @@ Embeddable 3D level editor for GameMaker on the GM3D runtime, using the built-in
 ## Requirements
 
 - GameMaker with GMRT 0.22.4 (from the Package Manager)
-- Tick "Disable file system sandbox" in Game Options > Windows, or scenes will not be able to be saved/loaded from anywhere.
+- Scenes save inside the working directory (`__gm3dEditor/scenes/*.json`), so the file system sandbox can stay enabled.
 
 ## Quick start
 
@@ -91,7 +91,7 @@ var _models = {
     Tree: my_load_model("models/tree.glb"),
     Rock: my_load_model("models/rock.glb"),
 };
-var _rep = gm3d_load(my_scene, "level1.json", _models);
+var _rep = gm3d_load(my_scene, "__gm3dEditor/scenes/level1.json", _models);
 // _rep = { placed: 9, failed: 0 } — unknown assets count as failed, the rest still loads
 // After loading, assign Forward+Shadow shaders per spawned node (see Shadows above).
 ```

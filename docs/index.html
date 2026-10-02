@@ -60,7 +60,7 @@
     <h2>Requirements</h2>
     <ul class="checks">
       <li>GameMaker with <strong>GMRT 0.22.4</strong> (from the Package Manager)</li>
-      <li>Tick <strong>“Disable file system sandbox”</strong> in Game Options &gt; Windows, or scenes cannot be saved/loaded from anywhere</li>
+      <li>Scenes save inside the working directory (<code>__gm3dEditor/scenes/*.json</code>), so the file system sandbox can stay enabled</li>
     </ul>
   </section>
 
@@ -141,7 +141,7 @@ gm3d_editor_cleanup();</code></pre>
     Tree: my_load_model("models/tree.glb"),
     Rock: my_load_model("models/rock.glb"),
 };
-var _rep = gm3d_load(my_scene, "level1.json", _models);
+var _rep = gm3d_load(my_scene, "__gm3dEditor/scenes/level1.json", _models);
 // _rep = { placed: 9, failed: 0 }
 // After loading, assign Forward+Shadow shaders per spawned node (see Shadows above).</code></pre>
     </div>
