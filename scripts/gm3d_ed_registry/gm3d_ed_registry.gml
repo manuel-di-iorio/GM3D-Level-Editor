@@ -11,11 +11,8 @@ function gm3d_editor_asset_add(_name, _model, _thumb = -1) {
 		return;
 	}
 	var _entry = { name: _name, model: _model };
-	try {
-		if (_thumb != -1 && sprite_exists(_thumb)) {
-			_entry.thumb = _thumb;
-		}
-	} catch (_e) {
+	if (_thumb != -1 && sprite_exists(_thumb)) {
+		_entry.thumb = _thumb;
 	}
 	array_push(_ed.assets, _entry);
 }
@@ -40,11 +37,8 @@ function __gm3d_ed_thumbs_free(_ed) {
 		if (!is_struct(_a) || !variable_struct_exists(_a, "thumb_owned") || _a.thumb_owned != true) {
 			continue;
 		}
-		try {
-			if (sprite_exists(_a.thumb)) {
-				sprite_delete(_a.thumb);
-			}
-		} catch (_e) {
+		if (sprite_exists(_a.thumb)) {
+			sprite_delete(_a.thumb);
 		}
 		_a.thumb = -1;
 		_a.thumb_owned = undefined;
@@ -63,30 +57,18 @@ function gm3d_editor_capture_thumbnails() {
 	_ed.thumbs_done = true;
 	var _size = 256;
 	var _surf = undefined;
-	try {
-		_surf = surface_create(_size, _size);
-	} catch (_eS) {
-		_surf = undefined;
-	}
+	_surf = surface_create(_size, _size);
 	if (_surf == undefined || !surface_exists(_surf)) {
 		return;
 	}
 	var _ts = undefined;
-	try {
-		_ts = GM3D_Scene.createEmpty();
-	} catch (_eC) {
-		_ts = undefined;
-	}
+	_ts = GM3D_Scene.createEmpty();
 	if (_ts == undefined) {
 		surface_free(_surf);
 		return;
 	}
 	var _renderer = undefined;
-	try {
-		_renderer = new GM3D_Renderer();
-	} catch (_eR) {
-		_renderer = undefined;
-	}
+	_renderer = new GM3D_Renderer();
 	if (_renderer == undefined) {
 		_ts.destroy();
 		surface_free(_surf);
@@ -95,92 +77,57 @@ function gm3d_editor_capture_thumbnails() {
 	var _env = _ts.createNode("__thumb_env");
 	var _envc = new GM3D_EnvironmentVolumeComponent();
 	_env.addComponent(_envc);
-	try {
-		_envc.setSize(new GM3D_Vec3(20000, 20000, 20000));
-		_envc.setAmbientColor(make_colour_rgb(70, 70, 85));
-		_envc.setFogEnabled(false);
-	} catch (_eE) {
-		_ts.destroy();
-		surface_free(_surf);
-		return;
-	}
+	_envc.setSize(new GM3D_Vec3(20000, 20000, 20000));
+	_envc.setAmbientColor(make_colour_rgb(70, 70, 85));
+	_envc.setFogEnabled(false);
 	var _sun = _ts.createNode("__thumb_sun");
 	var _sunc = new GM3D_LightComponent();
 	_sun.addComponent(_sunc);
-	try {
-		_sunc.setType(GM3D_ELightType.Directional);
-		_sunc.setColor(c_white);
-		_sunc.setIntensity(1.0);
-		_sunc.setShadowEnabled(true);
-		_sunc.setShadowResolution(1024);
-		_sunc.setShadowDistance(30.0);
-		_sunc.setShadowNormalOffset(0.05);
-	} catch (_eL) {
-		_ts.destroy();
-		surface_free(_surf);
-		return;
-	}
+	_sunc.setType(GM3D_ELightType.Directional);
+	_sunc.setColor(c_white);
+	_sunc.setIntensity(1.0);
+	_sunc.setShadowEnabled(true);
+	_sunc.setShadowResolution(1024);
+	_sunc.setShadowDistance(30.0);
+	_sunc.setShadowNormalOffset(0.05);
 	var _cam = _ts.createNode("__thumb_cam");
 	var _camc = new GM3D_CameraComponent();
 	_cam.addComponent(_camc);
-	try {
-		_camc.setProjection(GM3D_ECameraProjection.Perspective);
-		_camc.setFovY(degtorad(40));
-		_camc.setNear(0.1);
-		_camc.setFar(10000);
-		_camc.setScreenRect([0.0, 0.0, 1.0, 1.0]);
-		_camc.setEnabled(true);
-	} catch (_eC2) {
-		_ts.destroy();
-		surface_free(_surf);
-		return;
-	}
-	try {
-			for (var _i = 0; _i < array_length(_ed.assets); _i++) {
-			var _a = _ed.assets[_i];
-			if (!is_struct(_a) || _a.model == undefined) {
-				continue;
-			}
-			var _node = undefined;
-			try {
-				_node = _a.model.spawnInto(_ts, undefined);
-			} catch (_eN) {
-				_node = undefined;
-			}
-			if (_node == undefined) {
-				continue;
-			}
-			_node.setLocalPosition(new GM3D_Vec3(0, 0, 0));
-			_node.setLocalScale(new GM3D_Vec3(1, 1, 1));
-			try {
-				if (variable_struct_exists(_ed.rt, "on_spawn")) {
-					_ed.rt.on_spawn(_ed.inst, _node, _a.name, _a.model);
-				}
-			} catch (_eO) {
-			}
-			__gm3d_ed_thumb_frame(_ed, _ts, _cam, _a.model);
-			_ts.update(0);
-			try {
-				surface_set_target(_surf);
-				draw_clear_alpha(c_black, 0);
-				_renderer.render(_ts);
-				surface_reset_target();
-				var _spr = sprite_create_from_surface(_surf, 0, 0, _size, _size, false, true, 0, 0);
-				if (sprite_exists(_spr)) {
-					_a.thumb = _spr;
-					_a.thumb_owned = true;
-				}
-			} catch (_eR2) {
-				try {
-					surface_reset_target();
-				} catch (_eT) {
-				}
-			}
-			__gm3d_ed_destroy_subtree(_node);
-			_ts.update(0);
-			}
-	} catch (_eL) {
-	}
+	_camc.setProjection(GM3D_ECameraProjection.Perspective);
+	_camc.setFovY(degtorad(40));
+	_camc.setNear(0.1);
+	_camc.setFar(10000);
+	_camc.setScreenRect([0.0, 0.0, 1.0, 1.0]);
+	_camc.setEnabled(true);
+		for (var _i = 0; _i < array_length(_ed.assets); _i++) {
+		var _a = _ed.assets[_i];
+		if (!is_struct(_a) || _a.model == undefined) {
+			continue;
+		}
+		var _node = undefined;
+		_node = _a.model.spawnInto(_ts, undefined);
+		if (_node == undefined) {
+			continue;
+		}
+		_node.setLocalPosition(new GM3D_Vec3(0, 0, 0));
+		_node.setLocalScale(new GM3D_Vec3(1, 1, 1));
+		if (variable_struct_exists(_ed.rt, "on_spawn")) {
+			_ed.rt.on_spawn(_ed.inst, _node, _a.name, _a.model);
+		}
+		__gm3d_ed_thumb_frame(_ed, _ts, _cam, _a.model);
+		_ts.update(0);
+		surface_set_target(_surf);
+		draw_clear_alpha(c_black, 0);
+		_renderer.render(_ts);
+		surface_reset_target();
+		var _spr = sprite_create_from_surface(_surf, 0, 0, _size, _size, false, true, 0, 0);
+		if (sprite_exists(_spr)) {
+			_a.thumb = _spr;
+			_a.thumb_owned = true;
+		}
+		__gm3d_ed_destroy_subtree(_node);
+		_ts.update(0);
+		}
 	_ts.destroy();
 	surface_free(_surf);
 	_renderer = undefined;
@@ -190,14 +137,11 @@ function gm3d_editor_capture_thumbnails() {
 function __gm3d_ed_thumb_frame(_ed, _ts, _cam, _model) {
 	var _ctr = new GM3D_Vec3(0, 1, 0);
 	var _rad = 2.0;
-	try {
-		var _bs = _model.getBoundingSphere();
-		if (is_struct(_bs) && variable_struct_exists(_bs, "origin") && variable_struct_exists(_bs, "radius")) {
-			var _c = _bs.origin;
-			_ctr = new GM3D_Vec3(_c.x, _c.y, _c.z);
-			_rad = max(_bs.radius, 0.1);
-		}
-	} catch (_e) {
+	var _bs = _model.getBoundingSphere();
+	if (is_struct(_bs) && variable_struct_exists(_bs, "origin") && variable_struct_exists(_bs, "radius")) {
+		var _c = _bs.origin;
+		_ctr = new GM3D_Vec3(_c.x, _c.y, _c.z);
+		_rad = max(_bs.radius, 0.1);
 	}
 	var _back = new GM3D_Vec3(1, 0.55, 1.25);
 	_back.normalize();
@@ -334,11 +278,8 @@ function __gm3d_ed_reg_index_add(_ed, _name) {
 	}
 	var _en = _ed.tracked[array_length(_ed.tracked) - 1];
 	var _b = undefined;
-	try {
-		if (variable_struct_exists(_ed.reg_by_name, _name)) {
-			_b = _ed.reg_by_name[$ _name];
-		}
-	} catch (_e) {
+	if (variable_struct_exists(_ed.reg_by_name, _name)) {
+		_b = _ed.reg_by_name[$ _name];
 	}
 	if (!is_array(_b)) {
 		_b = [];
@@ -360,10 +301,7 @@ function __gm3d_ed_reg_index_sync(_ed, _name) {
 		for (var _i = 0; _i < array_length(_ed.tracked); _i++) {
 			var _re = _ed.tracked[_i];
 			var _rn = undefined;
-			try {
-				_rn = _re.name;
-			} catch (_e) {
-			}
+			_rn = _re.name;
 			if (_rn == _name) {
 				array_push(_b, _re);
 			}
@@ -372,11 +310,8 @@ function __gm3d_ed_reg_index_sync(_ed, _name) {
 	if (array_length(_b) > 0) {
 		_ed.reg_by_name[$ _name] = _b;
 	} else {
-		try {
-			if (variable_struct_exists(_ed.reg_by_name, _name)) {
-				variable_struct_remove(_ed.reg_by_name, _name);
-			}
-		} catch (_e2) {
+		if (variable_struct_exists(_ed.reg_by_name, _name)) {
+			variable_struct_remove(_ed.reg_by_name, _name);
 		}
 	}
 }
@@ -396,19 +331,13 @@ function __gm3d_ed_reg_index_ensure(_ed) {
 	for (var _i = 0; _i < array_length(_ed.tracked); _i++) {
 		var _re = _ed.tracked[_i];
 		var _rn = undefined;
-		try {
-			_rn = _re.name;
-		} catch (_e) {
-		}
+		_rn = _re.name;
 		if (!is_string(_rn)) {
 			continue;
 		}
 		var _b = undefined;
-		try {
-			if (variable_struct_exists(_ed.reg_by_name, _rn)) {
-				_b = _ed.reg_by_name[$ _rn];
-			}
-		} catch (_e2) {
+		if (variable_struct_exists(_ed.reg_by_name, _rn)) {
+			_b = _ed.reg_by_name[$ _rn];
 		}
 		if (!is_array(_b)) {
 			_b = [];
@@ -502,11 +431,7 @@ function __gm3d_ed_rows_follow(_ed, _nodes) {
 		}
 		var _nm = _nd.name;
 		var _pp = undefined;
-		try {
-			_pp = _nd.getLocalPosition();
-		} catch (_e) {
-			continue;
-		}
+		_pp = _nd.getLocalPosition();
 		var _reg = _ed.tracked;
 		if (!is_array(_reg)) {
 			continue;
@@ -582,22 +507,15 @@ function __gm3d_ed_registry_find(_ed, _node) {
 	}
 	var _nm = undefined;
 	var _pp = undefined;
-	try {
-		_nm = _node.name;
-		_pp = _node.getLocalPosition();
-	} catch (_e) {
-		return undefined;
-	}
+	_nm = _node.name;
+	_pp = _node.getLocalPosition();
 	if (!is_string(_nm) || _pp == undefined) {
 		return undefined;
 	}
 	__gm3d_ed_reg_index_ensure(_ed);
 	var _bucket = undefined;
-	try {
-		if (variable_struct_exists(_ed.reg_by_name, _nm)) {
-			_bucket = _ed.reg_by_name[$ _nm];
-		}
-	} catch (_e2) {
+	if (variable_struct_exists(_ed.reg_by_name, _nm)) {
+		_bucket = _ed.reg_by_name[$ _nm];
 	}
 	if (is_array(_bucket)) {
 		var _best = undefined;
@@ -718,29 +636,19 @@ function __gm3d_ed_tracked_nodes(_ed) {
 		return _out;
 	}
 	var _roots = [];
-	try {
-		_roots = _ed.rt.scene.getNodes();
-	} catch (_eR) {
-		return _out;
-	}
+	_roots = _ed.rt.scene.getNodes();
 	var _used = [];
 	var _by_name = {};
 	for (var _u = 0; _u < array_length(_roots); _u++) {
 		array_push(_used, false);
 		var _rn = undefined;
-		try {
-			_rn = _roots[_u].name;
-		} catch (_eN) {
-		}
+		_rn = _roots[_u].name;
 		if (!is_string(_rn)) {
 			continue;
 		}
 		var _rb = undefined;
-		try {
-			if (variable_struct_exists(_by_name, _rn)) {
-				_rb = _by_name[$ _rn];
-			}
-		} catch (_eB) {
+		if (variable_struct_exists(_by_name, _rn)) {
+			_rb = _by_name[$ _rn];
 		}
 		if (!is_array(_rb)) {
 			_rb = [];
@@ -754,11 +662,8 @@ function __gm3d_ed_tracked_nodes(_ed) {
 			continue;
 		}
 		var _bucket = undefined;
-		try {
-			if (variable_struct_exists(_by_name, _en.name)) {
-				_bucket = _by_name[$ _en.name];
-			}
-		} catch (_eQ) {
+		if (variable_struct_exists(_by_name, _en.name)) {
+			_bucket = _by_name[$ _en.name];
 		}
 		if (!is_array(_bucket)) {
 			continue;
@@ -826,23 +731,14 @@ function __gm3d_ed_kind_of(_ed, _node) {
 	if (_en != undefined && is_string(_en.kind) && _en.kind != "") {
 		return _en.kind;
 	}
-	try {
-		if (_node.getLightComponent() != undefined) {
-			return "light";
-		}
-	} catch (_e) {
+	if (_node.getLightComponent() != undefined) {
+		return "light";
 	}
-	try {
-		if (_node.getCameraComponent() != undefined) {
-			return "camera";
-		}
-	} catch (_e) {
+	if (_node.getCameraComponent() != undefined) {
+		return "camera";
 	}
-	try {
-		if (_node.getEnvironmentVolumeComponent() != undefined) {
-			return "environment";
-		}
-	} catch (_e) {
+	if (_node.getEnvironmentVolumeComponent() != undefined) {
+		return "environment";
 	}
 	if (_en != undefined) {
 		return "asset";
@@ -953,19 +849,13 @@ function __gm3d_ed_hidden_set(_ed, _node, _hide) {
 	var _stack = [_node];
 	while (array_length(_stack) > 0) {
 		var _cur = array_pop(_stack);
-		try {
-			var _mc = _cur.getMeshComponent();
-			if (_mc != undefined) {
-				_mc.setEnabled(!_en.hidden);
-			}
-		} catch (_e) {
+		var _mc = _cur.getMeshComponent();
+		if (_mc != undefined) {
+			_mc.setEnabled(!_en.hidden);
 		}
-		try {
-			var _sk = _cur.getSkinnedMeshComponent();
-			if (_sk != undefined) {
-				_sk.setEnabled(!_en.hidden);
-			}
-		} catch (_e) {
+		var _sk = _cur.getSkinnedMeshComponent();
+		if (_sk != undefined) {
+			_sk.setEnabled(!_en.hidden);
 		}
 		var _kids = _cur.getChildren();
 		for (var _k = 0; _k < array_length(_kids); _k++) {

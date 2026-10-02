@@ -6,10 +6,7 @@ function __gm3d_ed_imgui_asset_list(_ed) {
 		_ui.models_view = "cards";
 	}
 	var _fw = 80;
-	try {
-		_fw = max(80, ImGui.GetContentRegionAvailX() - 108);
-	} catch (_eFw) {
-	}
+	_fw = max(80, ImGui.GetContentRegionAvailX() - 108);
 	ImGui.SetNextItemWidth(_fw);
 	_ui.filter = __gm3d_ed_imgui_text_hint("##filter", "Filter models...", _ui.filter);
 	ImGui.SameLine();
@@ -74,10 +71,7 @@ function __gm3d_ed_imgui_asset_cards(_ed, _flt) {
 	var _cs = 60;
 	var _gap = 12;
 	var _avail = 200;
-	try {
-		_avail = ImGui.GetContentRegionAvailX();
-	} catch (_e) {
-	}
+	_avail = ImGui.GetContentRegionAvailX();
 	var _cols = max(1, floor((_avail + _gap) / (_cs + _gap)));
 	var _shown = 0;
 	for (var _i = 0; _i < array_length(_ed.assets); _i++) {
@@ -103,22 +97,14 @@ function __gm3d_ed_imgui_trunc_text(_text, _maxw) {
 	var _out = _text;
 	if (_maxw > 8 && string_length(_text) > 3) {
 		var _full = -1;
-		try {
-			_full = ImGui.CalcTextWidth(_text);
-		} catch (_e) {
-		}
+		_full = ImGui.CalcTextWidth(_text);
 		if (_full > _maxw) {
 			_out = "..";
 			var _n = string_length(_text) - 1;
 			while (_n > 1) {
 				var _t = string_copy(_text, 1, _n) + "..";
 				var _w = _maxw + 1;
-				try {
-					_w = ImGui.CalcTextWidth(_t);
-				} catch (_e2) {
-					_out = _text;
-					break;
-				}
+				_w = ImGui.CalcTextWidth(_t);
 				if (_w <= _maxw) {
 					_out = _t;
 					break;
@@ -139,44 +125,33 @@ function __gm3d_ed_imgui_asset_card(_ed, _a, _i, _cs) {
 	var _sx = undefined;
 	var _sy = undefined;
 	var _dl = undefined;
-	try {
-		_sx = ImGui.GetCursorScreenPosX();
-		_sy = ImGui.GetCursorScreenPosY();
-		_dl = ImGui.GetWindowDrawList();
-	} catch (_e0) {
-	}
+	_sx = ImGui.GetCursorScreenPosX();
+	_sy = ImGui.GetCursorScreenPosY();
+	_dl = ImGui.GetWindowDrawList();
 	ImGui.PushID(_i);
 	var _okbtn = __gm3d_ed_imgui_has_widget(_ed, "InvisibleButton");
 	if (_okbtn) {
-		try {
-			ImGui.InvisibleButton("##card", _cs, _pad + _cs + _th + _pad);
-		} catch (_e1) {
-			_ed.imgui.widget_probe[$ "InvisibleButton"] = false;
-			ImGui.Dummy(_cs, _pad + _cs + _th + _pad);
-		}
+		ImGui.InvisibleButton("##card", _cs, _pad + _cs + _th + _pad);
 	} else {
 		ImGui.Dummy(_cs, _pad + _cs + _th + _pad);
 	}
 	var _hov = ImGui.IsItemHovered();
 	if (_sx != undefined && _dl != undefined) {
-		try {
-			var _qx = _sx;
-			var _qy0 = _sy + _qy;
-			var _thumb = -1;
-			if (variable_struct_exists(_a, "thumb") && sprite_exists(_a.thumb)) {
-				_thumb = _a.thumb;
-			}
-			if (_thumb != -1) {
-				ImGui.DrawListAddImage(_dl, _thumb, 0, _qx, _qy0, _qx + _cs, _qy0 + _cs, c_white);
-			} else {
-				var _fill = _hov ? make_colour_rgb(84, 96, 120) : make_colour_rgb(70, 80, 100);
-				ImGui.DrawListAddRectFilled(_dl, _qx, _qy0, _qx + _cs, _qy0 + _cs, _fill);
-			}
-			var _edge = _hov ? make_colour_rgb(120, 140, 175) : make_colour_rgb(50, 58, 76);
-			ImGui.DrawListAddRect(_dl, _qx, _qy0, _qx + _cs, _qy0 + _cs, _edge);
-			ImGui.DrawListAddText(_dl, _qx + 4, _qy0 + _cs + 1, __gm3d_ed_imgui_trunc_text(_a.name, _cs - 6), c_white);
-		} catch (_e2) {
+		var _qx = _sx;
+		var _qy0 = _sy + _qy;
+		var _thumb = -1;
+		if (variable_struct_exists(_a, "thumb") && sprite_exists(_a.thumb)) {
+			_thumb = _a.thumb;
 		}
+		if (_thumb != -1) {
+			ImGui.DrawListAddImage(_dl, _thumb, 0, _qx, _qy0, _qx + _cs, _qy0 + _cs, c_white);
+		} else {
+			var _fill = _hov ? make_colour_rgb(84, 96, 120) : make_colour_rgb(70, 80, 100);
+			ImGui.DrawListAddRectFilled(_dl, _qx, _qy0, _qx + _cs, _qy0 + _cs, _fill);
+		}
+		var _edge = _hov ? make_colour_rgb(120, 140, 175) : make_colour_rgb(50, 58, 76);
+		ImGui.DrawListAddRect(_dl, _qx, _qy0, _qx + _cs, _qy0 + _cs, _edge);
+		ImGui.DrawListAddText(_dl, _qx + 4, _qy0 + _cs + 1, __gm3d_ed_imgui_trunc_text(_a.name, _cs - 6), c_white);
 	}
 	if (_ed.drag_lib == undefined && _hov) {
 		ImGui.SetTooltip(_a.name);

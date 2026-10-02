@@ -53,19 +53,14 @@ foreach ($svg in Get-ChildItem (Join-Path $root 'sprites') -Recurse -Filter *.sv
   $html = Join-Path $tmp ($svg.BaseName + '.html')
   Set-Content $html ("<html><body style='margin:0;padding:0'><img src='file:///$($svg.FullName -replace '\\','/')' width='$w' height='$h'></body></html>") -Encoding Ascii
   Remove-Item $png -ErrorAction SilentlyContinue
-  $prevEap = $ErrorActionPreference
-  $ErrorActionPreference = 'Continue'
-  try { & $edge --headless --disable-gpu --no-first-run --no-default-browser-check --user-data-dir=$profile --screenshot=$png --window-size=$w,$h --default-background-color=00000000 $html *>$null } catch { }
-  $ErrorActionPreference = $prevEap
+  & $edge --headless --disable-gpu --no-first-run --no-default-browser-check --user-data-dir=$profile --screenshot=$png --window-size=$w,$h --default-background-color=00000000 $html *>$null
   $deadline = (Get-Date).AddSeconds(30)
   while (-not (Test-Path $png) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 250 }
   $ok = $false
   if (Test-Path $png) {
-    try {
-      $img = [System.Drawing.Bitmap]::FromFile($png)
-      $ok = ($img.Width -eq $w -and $img.Height -eq $h)
-      $img.Dispose()
-    } catch { $ok = $false }
+    $img = [System.Drawing.Bitmap]::FromFile($png)
+    $ok = ($img.Width -eq $w -and $img.Height -eq $h)
+    $img.Dispose()
   }
   if ($ok) { $made++; Write-Output "OK  $($svg.Name) -> ${w}x${h}" }
   else { $failed += $svg.FullName; Write-Warning "FAIL $($svg.FullName)" }

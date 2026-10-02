@@ -21,32 +21,21 @@ function gm3d_load(_scene, _fname, _models) {
 		return _rep;
 	}
 	var _data = undefined;
-	try {
-		_data = json_parse(_json);
-	} catch (_e) {
-		return _rep;
-	}
+	_data = json_parse(_json);
 	if (!is_struct(_data) || !variable_struct_exists(_data, "nodes") || !is_array(_data.nodes)) {
 		return _rep;
 	}
 	var _nodes = _data.nodes;
 	for (var _i = 0; _i < array_length(_nodes); ++_i) {
 		var _ok = false;
-		try {
-			_ok = __gm3d_load_node(_scene, _models, _nodes[_i]) != undefined;
-		} catch (_e2) {
-			_ok = false;
-		}
+		_ok = __gm3d_load_node(_scene, _models, _nodes[_i]) != undefined;
 		if (_ok) {
 			_rep.placed++;
 		} else {
 			_rep.failed++;
 		}
 	}
-	try {
-		_scene.update(0);
-	} catch (_e3) {
-	}
+	_scene.update(0);
 	return _rep;
 }
 
@@ -106,154 +95,79 @@ function __gm3d_load_prop(_scene, _p, _kind, _name) {
 		var _lc = new GM3D_LightComponent();
 		_node.addComponent(_lc);
 		var _l = _p.light;
-		try {
-			_lc.setType(_l.type == "point" ? GM3D_ELightType.Point : _l.type == "spot" ? GM3D_ELightType.Spot : GM3D_ELightType.Directional);
-		} catch (_e) {
-		}
+		_lc.setType(_l.type == "point" ? GM3D_ELightType.Point : _l.type == "spot" ? GM3D_ELightType.Spot : GM3D_ELightType.Directional);
 		if (is_array(_l.color) && array_length(_l.color) == 3) {
-			try {
-				_lc.setColor(make_colour_rgb(clamp(_l.color[0], 0, 255), clamp(_l.color[1], 0, 255), clamp(_l.color[2], 0, 255)));
-			} catch (_e2) {
-			}
+			_lc.setColor(make_colour_rgb(clamp(_l.color[0], 0, 255), clamp(_l.color[1], 0, 255), clamp(_l.color[2], 0, 255)));
 		}
 		if (is_real(_l.intensity)) {
-			try {
-				_lc.setIntensity(max(_l.intensity, 0));
-			} catch (_e3) {
-			}
+			_lc.setIntensity(max(_l.intensity, 0));
 		}
 		if (is_real(_l.range) && _l.range > 0) {
-			try {
-				_lc.setRange(_l.range);
-			} catch (_e4) {
-			}
+			_lc.setRange(_l.range);
 		}
 		if (is_real(_l.innerCone)) {
-			try {
-				_lc.setInnerConeAngle(degtorad(clamp(_l.innerCone, 0, 89)));
-			} catch (_e5) {
-			}
+			_lc.setInnerConeAngle(degtorad(clamp(_l.innerCone, 0, 89)));
 		}
 		if (is_real(_l.outerCone)) {
-			try {
-				_lc.setOuterConeAngle(degtorad(clamp(_l.outerCone, 1, 89)));
-			} catch (_e6) {
-			}
+			_lc.setOuterConeAngle(degtorad(clamp(_l.outerCone, 1, 89)));
 		}
-		try {
-			_lc.setEnabled(!variable_struct_exists(_l, "enabled") || _l.enabled == true);
-		} catch (_e7) {
-		}
+		_lc.setEnabled(!variable_struct_exists(_l, "enabled") || _l.enabled == true);
 		if (variable_struct_exists(_l, "shadow") && is_struct(_l.shadow)) {
 			var _sh = _l.shadow;
-			try {
-				_lc.setShadowEnabled(!variable_struct_exists(_sh, "enabled") || _sh.enabled == true);
-			} catch (_es1) {
-			}
+			_lc.setShadowEnabled(!variable_struct_exists(_sh, "enabled") || _sh.enabled == true);
 			if (variable_struct_exists(_sh, "resolution") && is_real(_sh.resolution) && _sh.resolution > 0) {
-				try {
-					_lc.setShadowResolution(clamp(round(_sh.resolution), 128, 4096));
-				} catch (_es2) {
-				}
+				_lc.setShadowResolution(clamp(round(_sh.resolution), 128, 4096));
 			}
 			if (variable_struct_exists(_sh, "distance") && is_real(_sh.distance) && _sh.distance > 0) {
-				try {
-					_lc.setShadowDistance(max(_sh.distance, 1));
-				} catch (_es3) {
-				}
+				_lc.setShadowDistance(max(_sh.distance, 1));
 			}
 			if (variable_struct_exists(_sh, "normalOffset") && is_real(_sh.normalOffset) && _sh.normalOffset >= 0) {
-				try {
-					_lc.setShadowNormalOffset(clamp(_sh.normalOffset, 0, 1));
-				} catch (_es4) {
-				}
+				_lc.setShadowNormalOffset(clamp(_sh.normalOffset, 0, 1));
 			}
 		}
 	} else if (_kind == "camera" && is_struct(_p.camera)) {
 		var _cc = new GM3D_CameraComponent();
 		_node.addComponent(_cc);
 		var _c = _p.camera;
-		try {
-			_cc.setProjection(_c.projection == "ortho" ? GM3D_ECameraProjection.Orthographic : GM3D_ECameraProjection.Perspective);
-		} catch (_e8) {
-		}
+		_cc.setProjection(_c.projection == "ortho" ? GM3D_ECameraProjection.Orthographic : GM3D_ECameraProjection.Perspective);
 		if (_c.projection == "ortho") {
 			if (is_real(_c.orthoWidth) && _c.orthoWidth > 0) {
-				try {
-					_cc.setOrthoWidth(_c.orthoWidth);
-				} catch (_e9) {
-				}
+				_cc.setOrthoWidth(_c.orthoWidth);
 			}
 			if (is_real(_c.orthoHeight) && _c.orthoHeight > 0) {
-				try {
-					_cc.setOrthoHeight(_c.orthoHeight);
-				} catch (_e10) {
-				}
+				_cc.setOrthoHeight(_c.orthoHeight);
 			}
 		} else if (is_real(_c.fovY) && _c.fovY > 0) {
-			try {
-				_cc.setFovY(degtorad(clamp(_c.fovY, 1, 179)));
-			} catch (_e11) {
-			}
+			_cc.setFovY(degtorad(clamp(_c.fovY, 1, 179)));
 		}
 		if (is_real(_c.near) && _c.near > 0) {
-			try {
-				_cc.setNear(_c.near);
-			} catch (_e12) {
-			}
+			_cc.setNear(_c.near);
 		}
 		if (is_real(_c.far) && _c.far > 0) {
-			try {
-				_cc.setFar(_c.far);
-			} catch (_e13) {
-			}
+			_cc.setFar(_c.far);
 		}
-		try {
-			_cc.setEnabled(!variable_struct_exists(_c, "enabled") || _c.enabled == true);
-		} catch (_e14) {
-		}
+		_cc.setEnabled(!variable_struct_exists(_c, "enabled") || _c.enabled == true);
 	} else if (_kind == "environment" && is_struct(_p.environment)) {
 		var _ec = new GM3D_EnvironmentVolumeComponent();
 		_node.addComponent(_ec);
 		var _e = _p.environment;
 		if (is_array(_e.size) && array_length(_e.size) == 3) {
-			try {
-				_ec.setSize(new GM3D_Vec3(max(_e.size[0], 0.01), max(_e.size[1], 0.01), max(_e.size[2], 0.01)));
-			} catch (_e15) {
-			}
+			_ec.setSize(new GM3D_Vec3(max(_e.size[0], 0.01), max(_e.size[1], 0.01), max(_e.size[2], 0.01)));
 		}
 		if (is_array(_e.ambient) && array_length(_e.ambient) == 3) {
-			try {
-				_ec.setAmbientColor(make_colour_rgb(clamp(_e.ambient[0], 0, 255), clamp(_e.ambient[1], 0, 255), clamp(_e.ambient[2], 0, 255)));
-			} catch (_e16) {
-			}
+			_ec.setAmbientColor(make_colour_rgb(clamp(_e.ambient[0], 0, 255), clamp(_e.ambient[1], 0, 255), clamp(_e.ambient[2], 0, 255)));
 		}
-		try {
-			_ec.setFogEnabled(variable_struct_exists(_e, "fogEnabled") && _e.fogEnabled == true);
-		} catch (_e17) {
-		}
+		_ec.setFogEnabled(variable_struct_exists(_e, "fogEnabled") && _e.fogEnabled == true);
 		if (is_array(_e.fogColor) && array_length(_e.fogColor) == 3) {
-			try {
-				_ec.setFogColor(make_colour_rgb(clamp(_e.fogColor[0], 0, 255), clamp(_e.fogColor[1], 0, 255), clamp(_e.fogColor[2], 0, 255)));
-			} catch (_e18) {
-			}
+			_ec.setFogColor(make_colour_rgb(clamp(_e.fogColor[0], 0, 255), clamp(_e.fogColor[1], 0, 255), clamp(_e.fogColor[2], 0, 255)));
 		}
 		if (is_real(_e.fogStart)) {
-			try {
-				_ec.setFogStart(_e.fogStart);
-			} catch (_e19) {
-			}
+			_ec.setFogStart(_e.fogStart);
 		}
 		if (is_real(_e.fogEnd)) {
-			try {
-				_ec.setFogEnd(_e.fogEnd);
-			} catch (_e20) {
-			}
+			_ec.setFogEnd(_e.fogEnd);
 		}
-		try {
-			_ec.setEnabled(!variable_struct_exists(_e, "enabled") || _e.enabled == true);
-		} catch (_e21) {
-		}
+		_ec.setEnabled(!variable_struct_exists(_e, "enabled") || _e.enabled == true);
 	} else {
 		_node.destroy();
 		return undefined;
@@ -263,29 +177,23 @@ function __gm3d_load_prop(_scene, _p, _kind, _name) {
 
 // Parses vector from descriptor with fallback.
 function __gm3d_load_vec3(_p, _field, _fx, _fy, _fz) {
-	try {
-		var _a = _p[$ _field];
-		if (is_array(_a) && array_length(_a) == 3 && is_real(_a[0]) && is_real(_a[1]) && is_real(_a[2])) {
-			return new GM3D_Vec3(_a[0], _a[1], _a[2]);
-		}
-	} catch (_e) {
+	var _a = _p[$ _field];
+	if (is_array(_a) && array_length(_a) == 3 && is_real(_a[0]) && is_real(_a[1]) && is_real(_a[2])) {
+		return new GM3D_Vec3(_a[0], _a[1], _a[2]);
 	}
 	return new GM3D_Vec3(_fx, _fy, _fz);
 }
 
 // Parses quaternion from descriptor with fallback.
 function __gm3d_load_quat(_p) {
-	try {
-		var _a = _p.rotation;
-		if (is_array(_a) && array_length(_a) == 4 && is_real(_a[0]) && is_real(_a[1]) && is_real(_a[2]) && is_real(_a[3])) {
-			var _q = new GM3D_Quaternion();
-			_q.x = _a[0];
-			_q.y = _a[1];
-			_q.z = _a[2];
-			_q.w = _a[3];
-			return _q.normalizeSafe(0.000001);
-		}
-	} catch (_e) {
+	var _a = _p.rotation;
+	if (is_array(_a) && array_length(_a) == 4 && is_real(_a[0]) && is_real(_a[1]) && is_real(_a[2]) && is_real(_a[3])) {
+		var _q = new GM3D_Quaternion();
+		_q.x = _a[0];
+		_q.y = _a[1];
+		_q.z = _a[2];
+		_q.w = _a[3];
+		return _q.normalizeSafe(0.000001);
 	}
 	var _q0 = new GM3D_Quaternion();
 	return _q0;

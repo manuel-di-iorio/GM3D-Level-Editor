@@ -39,21 +39,13 @@ function __gm3d_ed_imgui_dragfloat(_label, _val, _speed) {
 	static _has = undefined;
 	if (_has == undefined) {
 		_has = false;
-		try {
-			_has = variable_struct_exists(ImGui, "DragFloat");
-		} catch (_eP) {
-			_has = false;
-		}
+		_has = variable_struct_exists(ImGui, "DragFloat");
 	}
 	if (!_has) {
 		return ImGui.InputFloat(_label, _val, 0, 0);
 	}
 	var _out = _val;
-	try {
-		_out = ImGui.DragFloat(_label, _val, _speed, 0, 0);
-	} catch (_eD) {
-		return ImGui.InputFloat(_label, _val, 0, 0);
-	}
+	_out = ImGui.DragFloat(_label, _val, _speed, 0, 0);
 	if (!is_real(_out)) {
 		return _val;
 	}
@@ -254,13 +246,7 @@ function __gm3d_ed_imgui_snap_combo(_ed) {
 	ImGui.SetNextItemWidth(62);
 	var _prev = string(_ed.snap_pos);
 	var _open = false;
-	try {
-		_open = ImGui.BeginCombo("##snapcombo", _prev);
-	} catch (_e) {
-		_ed.imgui.widget_probe[$ "BeginCombo"] = false;
-		_ed.snap_pos = max(0.01, __gm3d_ed_imgui_dragfloat("##snappos_fb", _ed.snap_pos, 0.005));
-		return;
-	}
+	_open = ImGui.BeginCombo("##snapcombo", _prev);
 	if (!_open) {
 		if (ImGui.IsItemHovered()) {
 			ImGui.SetTooltip("Snap increments (move / rotate deg)");
@@ -275,10 +261,7 @@ function __gm3d_ed_imgui_snap_combo(_ed) {
 			_ed.snap_pos = _p;
 		}
 		if (_sel) {
-			try {
-				ImGui.SetItemDefaultFocus();
-			} catch (_e2) {
-			}
+			ImGui.SetItemDefaultFocus();
 		}
 	}
 	ImGui.Separator();
@@ -288,10 +271,7 @@ function __gm3d_ed_imgui_snap_combo(_ed) {
 	ImGui.TextDisabled("Rotate step (deg)");
 	ImGui.SetNextItemWidth(120);
 	_ed.snap_rot = max(0.5, __gm3d_ed_imgui_dragfloat("##snaprot_custom", _ed.snap_rot, 0.1));
-	try {
-		ImGui.EndCombo();
-	} catch (_e3) {
-	}
+	ImGui.EndCombo();
 }
 
 // Edits grid cell size via presets.
@@ -307,14 +287,7 @@ function __gm3d_ed_imgui_grid_combo(_ed) {
 	ImGui.SetNextItemWidth(62);
 	var _prev = string(_ed.grid_step) + "m";
 	var _open = false;
-	try {
-		_open = ImGui.BeginCombo("##gridcombo", _prev);
-	} catch (_e) {
-		_ed.imgui.widget_probe[$ "BeginCombo"] = false;
-		var _fb2 = __gm3d_ed_imgui_dragfloat("##gridstep_fb", _ed.grid_step, 0.01);
-		__gm3d_ed_grid_set_step(_ed, clamp(_fb2, 0.1, 8));
-		return;
-	}
+	_open = ImGui.BeginCombo("##gridcombo", _prev);
 	if (!_open) {
 		if (ImGui.IsItemHovered()) {
 			ImGui.SetTooltip("Grid cell size (world units)");
@@ -330,10 +303,7 @@ function __gm3d_ed_imgui_grid_combo(_ed) {
 			__gm3d_ed_grid_set_step(_ed, _p);
 		}
 		if (_sel) {
-			try {
-				ImGui.SetItemDefaultFocus();
-			} catch (_e2) {
-			}
+			ImGui.SetItemDefaultFocus();
 		}
 	}
 	ImGui.Separator();
@@ -341,10 +311,7 @@ function __gm3d_ed_imgui_grid_combo(_ed) {
 	ImGui.SetNextItemWidth(120);
 	var _c = __gm3d_ed_imgui_dragfloat("##gridstep_custom", _ed.grid_step, 0.01);
 	__gm3d_ed_grid_set_step(_ed, clamp(_c, 0.1, 8));
-	try {
-		ImGui.EndCombo();
-	} catch (_e3) {
-	}
+	ImGui.EndCombo();
 }
 
 // Returns UI settings file path.
@@ -641,10 +608,7 @@ function __gm3d_ed_imgui_menu(_ed) {
 	}
 	if (ImGui.BeginMenu("Help")) {
 		if (ImGui.MenuItem("Report a Bug/Feature Request")) {
-			try {
-				url_open("https://github.com/manuel-di-iorio/GM3D-Level-Editor/issues");
-			} catch (_eU) {
-			}
+			url_open("https://github.com/manuel-di-iorio/GM3D-Level-Editor/issues");
 		}
 		if (ImGui.MenuItem("About")) {
 			_ed.about = { open: true };

@@ -176,44 +176,26 @@ function demo_assign_instance_shaders(_node) {
 		if (_cur == undefined) {
 			continue;
 		}
-		try {
-			var _mc = _cur.getMeshComponent();
-			if (_mc != undefined) {
-				var _mm = undefined;
-				try {
-					_mm = _mc.getMaterial();
-				} catch (_eM) {
-					_mm = undefined;
-				}
-				if (_mm != undefined) {
-					_mm.setShader(GM3D_ERenderPass.Forward, sStatic);
-					_mm.setShader(GM3D_ERenderPass.Shadow, sStaticShadow);
-				}
+		var _mc = _cur.getMeshComponent();
+		if (_mc != undefined) {
+			var _mm = undefined;
+			_mm = _mc.getMaterial();
+			if (_mm != undefined) {
+				_mm.setShader(GM3D_ERenderPass.Forward, sStatic);
+				_mm.setShader(GM3D_ERenderPass.Shadow, sStaticShadow);
 			}
-		} catch (_e) {
 		}
-		try {
-			var _sk = _cur.getSkinnedMeshComponent();
-			if (_sk != undefined) {
-				var _sm = undefined;
-				try {
-					_sm = _sk.getMaterial();
-				} catch (_eSM) {
-					_sm = undefined;
-				}
-				if (_sm != undefined) {
-					_sm.setShader(GM3D_ERenderPass.Forward, sAnimated);
-					_sm.setShader(GM3D_ERenderPass.Shadow, sAnimatedShadow);
-				}
+		var _sk = _cur.getSkinnedMeshComponent();
+		if (_sk != undefined) {
+			var _sm = undefined;
+			_sm = _sk.getMaterial();
+			if (_sm != undefined) {
+				_sm.setShader(GM3D_ERenderPass.Forward, sAnimated);
+				_sm.setShader(GM3D_ERenderPass.Shadow, sAnimatedShadow);
 			}
-		} catch (_e2) {
 		}
 		var _kids = [];
-		try {
-			_kids = _cur.getChildren();
-		} catch (_e3) {
-			_kids = [];
-		}
+		_kids = _cur.getChildren();
 		for (var _k = 0; _k < array_length(_kids); _k++) {
 			array_push(_stack, _kids[_k]);
 		}
@@ -244,12 +226,9 @@ function demo_find_anim(_node) {
 	if (_node == undefined) {
 		return undefined;
 	}
-	try {
-		var _found = _node.findAnimationComponent();
-		if (_found != undefined) {
-			return _found;
-		}
-	} catch (_eFind) {
+	var _found = _node.findAnimationComponent();
+	if (_found != undefined) {
+		return _found;
 	}
 	var _comp = _node.getAnimationComponent();
 	if (_comp != undefined) {
@@ -312,12 +291,8 @@ function demo_adapter(_self) {
 		scene: _self.scene,
 		cam: _self.camNode,
 		on_spawn: demo_on_spawn,
-		on_close: demo_on_close,
 	};
 }
-
-// Handles demo editor close callback.
-function demo_on_close(_self) {}
 
 // Positions camera from stored settings.
 function demo_place_camera(_self) {

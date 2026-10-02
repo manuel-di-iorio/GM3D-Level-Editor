@@ -30,10 +30,7 @@ function __gm3d_ed_outline_warn(_ed, _o, _msg) {
 		return;
 	}
 	_o.warned = true;
-	try {
-		show_debug_message("[gm3d_ed_outline] disabled: " + string(_msg));
-	} catch (_e) {
-	}
+	show_debug_message("[gm3d_ed_outline] disabled: " + string(_msg));
 }
 
 // Ensures outline mask materials exist.
@@ -44,22 +41,14 @@ function __gm3d_ed_outline_mats(_ed, _o) {
 	if (_o.mats_ok == false) {
 		return false;
 	}
-	try {
-		var _w = new GM3D_Material("gm3d_ed_mask");
-		_w.setShader(GM3D_ERenderPass.Forward, shGM3DMask);
-		var _ws = new GM3D_Material("gm3d_ed_mask_skin");
-		_ws.setShader(GM3D_ERenderPass.Forward, shGM3DMaskSkin);
-		_o.white = _w;
-		_o.whiteSkin = _ws;
-		_o.mats_ok = true;
-		return true;
-	} catch (_e) {
-		_o.mats_ok = false;
-		_o.white = undefined;
-		_o.whiteSkin = undefined;
-		__gm3d_ed_outline_warn(_ed, _o, "GM3D_Material/setShader unavailable");
-		return false;
-	}
+	var _w = new GM3D_Material("gm3d_ed_mask");
+	_w.setShader(GM3D_ERenderPass.Forward, shGM3DMask);
+	var _ws = new GM3D_Material("gm3d_ed_mask_skin");
+	_ws.setShader(GM3D_ERenderPass.Forward, shGM3DMaskSkin);
+	_o.white = _w;
+	_o.whiteSkin = _ws;
+	_o.mats_ok = true;
+	return true;
 }
 
 // Checks entry in selection list.
@@ -83,23 +72,15 @@ function __gm3d_ed_outline_mask_surface(_o, _w, _h) {
 	if (_o.mask != undefined && surface_exists(_o.mask) && _o.mw == _w && _o.mh == _h) {
 		return true;
 	}
-	try {
-		if (_o.mask != undefined && surface_exists(_o.mask)) {
-			surface_free(_o.mask);
-		}
-	} catch (_eF) {
+	if (_o.mask != undefined && surface_exists(_o.mask)) {
+		surface_free(_o.mask);
 	}
 	_o.mask = undefined;
 	_o.mw = 0;
 	_o.mh = 0;
-	try {
-		_o.mask = surface_create(_w, _h);
-		_o.mw = _w;
-		_o.mh = _h;
-	} catch (_eC) {
-		_o.mask = undefined;
-		return false;
-	}
+	_o.mask = surface_create(_w, _h);
+	_o.mw = _w;
+	_o.mh = _h;
 	if (!surface_exists(_o.mask)) {
 		_o.mask = undefined;
 		return false;
@@ -117,11 +98,7 @@ function __gm3d_ed_outline_warmup(_ed, _o) {
 		return;
 	}
 	var _app = undefined;
-	try {
-		_app = application_surface;
-	} catch (_eA) {
-		_app = undefined;
-	}
+	_app = application_surface;
 	if (_app == undefined || !surface_exists(_app)) {
 		return;
 	}
@@ -142,11 +119,7 @@ function __gm3d_ed_outline_capture(_ed) {
 		return;
 	}
 	var _renderer = undefined;
-	try {
-		_renderer = _ed.inst.renderer;
-	} catch (_eR) {
-		_renderer = undefined;
-	}
+	_renderer = _ed.inst.renderer;
 	if (_renderer == undefined) {
 		return;
 	}
@@ -176,11 +149,7 @@ function __gm3d_ed_outline_capture(_ed) {
 	}
 
 	var _app = undefined;
-	try {
-		_app = application_surface;
-	} catch (_eA) {
-		_app = undefined;
-	}
+	_app = application_surface;
 	if (_app == undefined || !surface_exists(_app)) {
 		return;
 	}
@@ -192,90 +161,60 @@ function __gm3d_ed_outline_capture(_ed) {
 
 	var _grid = undefined;
 	var _preview = undefined;
-	try {
-		if (variable_struct_exists(_ed, "grid_node")) {
-			_grid = _ed.grid_node;
-		}
-		if (variable_struct_exists(_ed, "drag_preview")) {
-			_preview = _ed.drag_preview;
-		}
-	} catch (_eX) {
+	if (variable_struct_exists(_ed, "grid_node")) {
+		_grid = _ed.grid_node;
+	}
+	if (variable_struct_exists(_ed, "drag_preview")) {
+		_preview = _ed.drag_preview;
 	}
 
 	var _swapped = [];
 	var _muted = [];
 	var _ok = true;
-	try {
-		var _nodes = _ed.rt.scene.getNodes();
-		for (var _n = 0; _n < array_length(_nodes); _n++) {
-			var _cur = _nodes[_n];
-			if (_cur == undefined) {
-				continue;
-			}
-			var _root = __gm3d_ed_walk_root(_cur);
-			if ((_grid != undefined && _root == _grid) || (_preview != undefined && _root == _preview)) {
-				__gm3d_ed_walk_mute_node(_cur, _muted);
-				continue;
-			}
-			var _entry = undefined;
-			try {
-				_entry = __gm3d_ed_registry_find(_ed, _root);
-			} catch (_eF2) {
-				_entry = undefined;
-			}
-			if (_entry != undefined && _entry.hidden == true) {
-				continue;
-			}
-			if (!__gm3d_ed_outline_is_sel(_entry, _selEntries)) {
-				__gm3d_ed_walk_mute_node(_cur, _muted);
-				continue;
-			}
-			var _list = [];
-			__gm3d_ed_walk_collect_comps(_cur, _list);
-			for (var _c = 0; _c < array_length(_list); _c++) {
-				var _comp = _list[_c].comp;
-				var _orig = undefined;
-				try {
-					_orig = _comp.getMaterial();
-				} catch (_eG) {
-					_orig = undefined;
-				}
-				if (_orig == undefined || _orig == _o.white || _orig == _o.whiteSkin) {
-					continue;
-				}
-				array_push(_swapped, { comp: _comp, orig: _orig });
-				_comp.setMaterial(_list[_c].skinned ? _o.whiteSkin : _o.white);
-			}
+	var _nodes = _ed.rt.scene.getNodes();
+	for (var _n = 0; _n < array_length(_nodes); _n++) {
+		var _cur = _nodes[_n];
+		if (_cur == undefined) {
+			continue;
 		}
-	} catch (_eS) {
-		_ok = false;
-		__gm3d_ed_outline_warn(_ed, _o, "scene walk / setMaterial unavailable");
+		var _root = __gm3d_ed_walk_root(_cur);
+		if ((_grid != undefined && _root == _grid) || (_preview != undefined && _root == _preview)) {
+			__gm3d_ed_walk_mute_node(_cur, _muted);
+			continue;
+		}
+		var _entry = undefined;
+		_entry = __gm3d_ed_registry_find(_ed, _root);
+		if (_entry != undefined && _entry.hidden == true) {
+			continue;
+		}
+		if (!__gm3d_ed_outline_is_sel(_entry, _selEntries)) {
+			__gm3d_ed_walk_mute_node(_cur, _muted);
+			continue;
+		}
+		var _list = [];
+		__gm3d_ed_walk_collect_comps(_cur, _list);
+		for (var _c = 0; _c < array_length(_list); _c++) {
+			var _comp = _list[_c].comp;
+			var _orig = undefined;
+			_orig = _comp.getMaterial();
+			if (_orig == undefined || _orig == _o.white || _orig == _o.whiteSkin) {
+				continue;
+			}
+			array_push(_swapped, { comp: _comp, orig: _orig });
+			_comp.setMaterial(_list[_c].skinned ? _o.whiteSkin : _o.white);
+		}
 	}
 
 	if (_ok) {
-		try {
-			surface_set_target(_o.mask);
-			draw_clear(c_black);
-			_renderer.render(_ed.rt.scene);
-			surface_reset_target();
-			_o.has = true;
-		} catch (_eM) {
-			try {
-				surface_reset_target();
-			} catch (_eR2) {
-			}
-			_o.has = false;
-		}
+		surface_set_target(_o.mask);
+		draw_clear(c_black);
+		_renderer.render(_ed.rt.scene);
+		surface_reset_target();
+		_o.has = true;
 	}
 
-	try {
-		__gm3d_ed_walk_restore(_swapped, _muted);
-	} catch (_eB) {
-	}
-	try {
-		_ed.rt.scene.update(0);
-	} catch (_eU) {
-	}
+	__gm3d_ed_walk_restore(_swapped, _muted);
+	_ed.rt.scene.update(0);
 }
 
 // Draws outline glow from mask.
@@ -292,12 +231,8 @@ function __gm3d_ed_outline_composite(_ed) {
 	}
 	var _gw = 0;
 	var _gh = 0;
-	try {
-		_gw = display_get_gui_width();
-		_gh = display_get_gui_height();
-	} catch (_eG) {
-		return;
-	}
+	_gw = display_get_gui_width();
+	_gh = display_get_gui_height();
 	if (_gw <= 0 || _gh <= 0) {
 		return;
 	}
@@ -307,54 +242,37 @@ function __gm3d_ed_outline_composite(_ed) {
 	var _u_strength = -1;
 	var _u_glow = -1;
 	var _u_thresh = -1;
-	try {
-		_u_color = shader_get_uniform(shGM3DOutline, "u_color");
-		_u_texel = shader_get_uniform(shGM3DOutline, "u_texel");
-		_u_thick = shader_get_uniform(shGM3DOutline, "u_thickness");
-		_u_strength = shader_get_uniform(shGM3DOutline, "u_strength");
-		_u_glow = shader_get_uniform(shGM3DOutline, "u_glow");
-		_u_thresh = shader_get_uniform(shGM3DOutline, "u_threshold");
-	} catch (_eU) {
-		return;
-	}
+	_u_color = shader_get_uniform(shGM3DOutline, "u_color");
+	_u_texel = shader_get_uniform(shGM3DOutline, "u_texel");
+	_u_thick = shader_get_uniform(shGM3DOutline, "u_thickness");
+	_u_strength = shader_get_uniform(shGM3DOutline, "u_strength");
+	_u_glow = shader_get_uniform(shGM3DOutline, "u_glow");
+	_u_thresh = shader_get_uniform(shGM3DOutline, "u_threshold");
 	var _was_blend = true;
-	try {
-		_was_blend = gpu_get_blendenable();
-	} catch (_eB) {
-		_was_blend = true;
+	_was_blend = gpu_get_blendenable();
+	shader_set(shGM3DOutline);
+	if (_u_color != -1) {
+		shader_set_uniform_f(_u_color, _o.color[0], _o.color[1], _o.color[2]);
 	}
-	try {
-		shader_set(shGM3DOutline);
-		if (_u_color != -1) {
-			shader_set_uniform_f(_u_color, _o.color[0], _o.color[1], _o.color[2]);
-		}
-		if (_u_texel != -1 && _o.mw > 0 && _o.mh > 0) {
-			shader_set_uniform_f(_u_texel, 1.0 / _o.mw, 1.0 / _o.mh);
-		}
-		if (_u_thick != -1) {
-			shader_set_uniform_f(_u_thick, _o.thickness);
-		}
-		if (_u_strength != -1) {
-			shader_set_uniform_f(_u_strength, _o.strength);
-		}
-		if (_u_glow != -1) {
-			shader_set_uniform_f(_u_glow, _o.glow);
-		}
-		if (_u_thresh != -1) {
-			shader_set_uniform_f(_u_thresh, _o.threshold);
-		}
-		gpu_set_blendenable(true);
-		draw_surface_stretched(_o.mask, 0, 0, _gw, _gh);
-	} catch (_eD) {
+	if (_u_texel != -1 && _o.mw > 0 && _o.mh > 0) {
+		shader_set_uniform_f(_u_texel, 1.0 / _o.mw, 1.0 / _o.mh);
 	}
-	try {
-		shader_reset();
-	} catch (_eR) {
+	if (_u_thick != -1) {
+		shader_set_uniform_f(_u_thick, _o.thickness);
 	}
-	try {
-		gpu_set_blendenable(_was_blend);
-	} catch (_eB2) {
+	if (_u_strength != -1) {
+		shader_set_uniform_f(_u_strength, _o.strength);
 	}
+	if (_u_glow != -1) {
+		shader_set_uniform_f(_u_glow, _o.glow);
+	}
+	if (_u_thresh != -1) {
+		shader_set_uniform_f(_u_thresh, _o.threshold);
+	}
+	gpu_set_blendenable(true);
+	draw_surface_stretched(_o.mask, 0, 0, _gw, _gh);
+	shader_reset();
+	gpu_set_blendenable(_was_blend);
 	draw_set_alpha(1);
 	draw_set_color(c_white);
 }
@@ -365,23 +283,14 @@ function __gm3d_ed_outline_cleanup(_ed) {
 		return;
 	}
 	var _o = _ed.outline;
-	try {
-		if (_o.mask != undefined && surface_exists(_o.mask)) {
-			surface_free(_o.mask);
-		}
-	} catch (_e) {
+	if (_o.mask != undefined && surface_exists(_o.mask)) {
+		surface_free(_o.mask);
 	}
-	try {
-		if (_o.white != undefined) {
-			_o.white.destroy();
-		}
-	} catch (_e2) {
+	if (_o.white != undefined) {
+		_o.white.destroy();
 	}
-	try {
-		if (_o.whiteSkin != undefined) {
-			_o.whiteSkin.destroy();
-		}
-	} catch (_e3) {
+	if (_o.whiteSkin != undefined) {
+		_o.whiteSkin.destroy();
 	}
 	_ed.outline = undefined;
 }

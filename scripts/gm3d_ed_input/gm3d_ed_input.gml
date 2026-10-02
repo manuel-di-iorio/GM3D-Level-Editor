@@ -454,11 +454,8 @@ function __gm3d_ed_wrap_step(_ed, _mx, _my) {
 	_w.ly = _my;
 	var _ww = 0;
 	var _wh = 0;
-	try {
-		_ww = window_get_width();
-		_wh = window_get_height();
-	} catch (_eW) {
-	}
+	_ww = window_get_width();
+	_wh = window_get_height();
 	if (_ww > 16 && _wh > 16) {
 		var _nx = _mx;
 		var _ny = _my;
@@ -473,10 +470,7 @@ function __gm3d_ed_wrap_step(_ed, _mx, _my) {
 			_ny = 8;
 		}
 		if (_nx != _mx || _ny != _my) {
-			try {
-				window_mouse_set(round(_nx), round(_ny));
-			} catch (_eW2) {
-			}
+			window_mouse_set(round(_nx), round(_ny));
 
 			_w.lx = _nx;
 			_w.ly = _ny;
@@ -492,20 +486,12 @@ function __gm3d_ed_wrap_camera(_ed) {
 	}
 	var _mx = 0;
 	var _my = 0;
-	try {
-		_mx = device_mouse_x_to_gui(0);
-		_my = device_mouse_y_to_gui(0);
-	} catch (_eG) {
-		return;
-	}
+	_mx = device_mouse_x_to_gui(0);
+	_my = device_mouse_y_to_gui(0);
 	var _ww = 0;
 	var _wh = 0;
-	try {
-		_ww = window_get_width();
-		_wh = window_get_height();
-	} catch (_eW) {
-		return;
-	}
+	_ww = window_get_width();
+	_wh = window_get_height();
 	if (_ww <= 16 || _wh <= 16) {
 		return;
 	}
@@ -522,10 +508,7 @@ function __gm3d_ed_wrap_camera(_ed) {
 		_ny = 8;
 	}
 	if (_nx != _mx || _ny != _my) {
-		try {
-			window_mouse_set(round(_nx), round(_ny));
-		} catch (_eW2) {
-		}
+		window_mouse_set(round(_nx), round(_ny));
 	}
 }
 
@@ -534,11 +517,8 @@ function __gm3d_ed_drag_in_viewport(_ed, _mx, _my) {
 	if (_mx < 0 || _mx > _ed.gw || _my < 0 || _my > _ed.gh) {
 		return false;
 	}
-	try {
-		if (ImGui.IsWindowHovered(ImGuiHoveredFlags.AnyWindow)) {
-			return false;
-		}
-	} catch (_e) {
+	if (ImGui.IsWindowHovered(ImGuiHoveredFlags.AnyWindow)) {
+		return false;
 	}
 	return true;
 }

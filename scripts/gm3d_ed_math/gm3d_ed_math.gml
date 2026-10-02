@@ -155,11 +155,7 @@ function __gm3d_ed_quat_to_euler(_q) {
 	var _qz = _q.z;
 	var _qw = _q.w;
 	var _bad = false;
-	try {
-		_bad = is_nan(_qx) || is_nan(_qy) || is_nan(_qz) || is_nan(_qw);
-	} catch (_e) {
-		_bad = true;
-	}
+	_bad = is_nan(_qx) || is_nan(_qy) || is_nan(_qz) || is_nan(_qw);
 	if (_bad) {
 		return [0, 0, 0];
 	}

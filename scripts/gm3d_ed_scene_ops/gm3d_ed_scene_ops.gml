@@ -418,16 +418,8 @@ function __gm3d_ed_scene_click(_ed, _nd, _row, _visible = undefined) {
 	var _now = current_time;
 	var _ctrl = false;
 	var _shift = false;
-	try {
-		_ctrl = keyboard_check(vk_control);
-	} catch (_eC) {
-		_ctrl = false;
-	}
-	try {
-		_shift = keyboard_check(vk_shift);
-	} catch (_eS) {
-		_shift = false;
-	}
+	_ctrl = keyboard_check(vk_control);
+	_shift = keyboard_check(vk_shift);
 	if (!variable_struct_exists(_ed, "scene_anchor")) {
 		_ed.scene_anchor = undefined;
 	}

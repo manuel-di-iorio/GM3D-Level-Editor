@@ -120,11 +120,7 @@ function __gm3d_ed_overlay_sprite(_sp, _sprname, _tint) {
 	static _smap = {};
 	if (!variable_struct_exists(_smap, _sprname)) {
 		var _idx = -1;
-		try {
-			_idx = asset_get_index(_sprname);
-		} catch (_e) {
-			_idx = -1;
-		}
+		_idx = asset_get_index(_sprname);
 		_smap[$ _sprname] = _idx;
 	}
 	var _spr = _smap[$ _sprname];
@@ -137,19 +133,11 @@ function __gm3d_ed_overlay_sprite(_sp, _sprname, _tint) {
 	var _h = 0;
 	var _ox = 0;
 	var _oy = 0;
-	try {
-		_w = sprite_get_width(_spr);
-		_h = sprite_get_height(_spr);
-		_ox = sprite_get_xoffset(_spr);
-		_oy = sprite_get_yoffset(_spr);
-	} catch (_e2) {
-		return false;
-	}
-	try {
-		draw_sprite_ext(_spr, 0, _sp[0] + _sc * (_ox - _w * 0.5), _sp[1] + _sc * (_oy - _h * 0.5), _sc, _sc, 0, _tint, 1);
-	} catch (_e3) {
-		return false;
-	}
+	_w = sprite_get_width(_spr);
+	_h = sprite_get_height(_spr);
+	_ox = sprite_get_xoffset(_spr);
+	_oy = sprite_get_yoffset(_spr);
+	draw_sprite_ext(_spr, 0, _sp[0] + _sc * (_ox - _w * 0.5), _sp[1] + _sc * (_oy - _h * 0.5), _sc, _sc, 0, _tint, 1);
 	return true;
 }
 

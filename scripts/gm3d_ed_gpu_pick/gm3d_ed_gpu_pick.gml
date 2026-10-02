@@ -32,10 +32,7 @@ function __gm3d_ed_gpupick_fail(_ed, _g, _msg) {
 		_g.failed_msg = _msg;
 		_g.pending = undefined;
 	}
-	try {
-		show_debug_message("[gm3d_ed_gpu_pick] disabled: " + string(_msg));
-	} catch (_e) {
-	}
+	show_debug_message("[gm3d_ed_gpu_pick] disabled: " + string(_msg));
 }
 
 // Encodes pick ID into color.
@@ -72,18 +69,12 @@ function __gm3d_ed_gpupick_mat(_ed, _g, _id, _skinned) {
 	if (_en[$ _key] != undefined) {
 		return _en[$ _key];
 	}
-	try {
-		var _m = new GM3D_Material("gm3d_ed_pick_" + string(_id) + (_skinned ? "_k" : "_s"));
-		_m.setShader(GM3D_ERenderPass.Forward, _skinned ? shGM3DIdSkin : shGM3DId);
-		_m.setFloatArray("u_id", __gm3d_ed_gpupick_id_encode(_id));
-		_en[$ _key] = _m;
-		_g.mats_ok = true;
-		return _m;
-	} catch (_e) {
-		_g.mats_ok = false;
-		__gm3d_ed_gpupick_fail(_ed, _g, "GM3D_Material/setShader/setFloatArray unavailable");
-		return undefined;
-	}
+	var _m = new GM3D_Material("gm3d_ed_pick_" + string(_id) + (_skinned ? "_k" : "_s"));
+	_m.setShader(GM3D_ERenderPass.Forward, _skinned ? shGM3DIdSkin : shGM3DId);
+	_m.setFloatArray("u_id", __gm3d_ed_gpupick_id_encode(_id));
+	_en[$ _key] = _m;
+	_g.mats_ok = true;
+	return _m;
 }
 
 // Ensures pick surface and buffer sizes.
@@ -95,17 +86,11 @@ function __gm3d_ed_gpupick_surf(_ed, _g, _w, _h) {
 	&& _g.buf != undefined && _g.bw == _w && _g.bh == _h) {
 		return true;
 	}
-	try {
-		if (_g.surf != undefined && surface_exists(_g.surf)) {
-			surface_free(_g.surf);
-		}
-	} catch (_eF) {
+	if (_g.surf != undefined && surface_exists(_g.surf)) {
+		surface_free(_g.surf);
 	}
-	try {
-		if (_g.buf != undefined) {
-			buffer_delete(_g.buf);
-		}
-	} catch (_eB) {
+	if (_g.buf != undefined) {
+		buffer_delete(_g.buf);
 	}
 	_g.surf = undefined;
 	_g.buf = undefined;
@@ -113,26 +98,15 @@ function __gm3d_ed_gpupick_surf(_ed, _g, _w, _h) {
 	_g.sh = 0;
 	_g.bw = 0;
 	_g.bh = 0;
-	try {
-		_g.surf = surface_create(_w, _h);
-	} catch (_eC) {
-		_g.surf = undefined;
-	}
+	_g.surf = surface_create(_w, _h);
 	if (_g.surf == undefined || !surface_exists(_g.surf)) {
 		_g.surf = undefined;
 		return false;
 	}
-	try {
-		_g.buf = buffer_create(_w * _h * 4, buffer_fixed, 1);
-	} catch (_eD) {
-		_g.buf = undefined;
-	}
+	_g.buf = buffer_create(_w * _h * 4, buffer_fixed, 1);
 	if (_g.buf == undefined) {
-		try {
-			if (surface_exists(_g.surf)) {
-				surface_free(_g.surf);
-			}
-		} catch (_eF2) {
+		if (surface_exists(_g.surf)) {
+			surface_free(_g.surf);
 		}
 		_g.surf = undefined;
 		return false;
@@ -160,31 +134,17 @@ function __gm3d_ed_gpupick_paint_tree(_ed, _g, _node, _id, _swapped, _muted, _mu
 				break;
 			}
 			var _orig = undefined;
-			try {
-				_orig = _comp.getMaterial();
-			} catch (_eG) {
-				_orig = undefined;
-			}
+			_orig = _comp.getMaterial();
 			if (_orig == undefined) {
 				__gm3d_ed_walk_mute_node(_node, _muted);
 				break;
 			}
 			array_push(_swapped, { comp: _comp, orig: _orig });
-			try {
-				_comp.setMaterial(_mat);
-			} catch (_eS) {
-				array_pop(_swapped);
-				__gm3d_ed_gpupick_fail(_ed, _g, "setMaterial unavailable");
-				return;
-			}
+			_comp.setMaterial(_mat);
 		}
 	}
 	var _kids = [];
-	try {
-		_kids = _node.getChildren();
-	} catch (_eK) {
-		_kids = [];
-	}
+	_kids = _node.getChildren();
 	for (var _k = 0; _k < array_length(_kids); _k++) {
 		if (_kids[_k] == undefined) {
 			continue;
@@ -196,11 +156,7 @@ function __gm3d_ed_gpupick_paint_tree(_ed, _g, _node, _id, _swapped, _muted, _mu
 // Renders ID pass and maps nodes.
 function __gm3d_ed_gpupick_render(_ed, _g, _all, _ignore) {
 	var _renderer = undefined;
-	try {
-		_renderer = _ed.inst.renderer;
-	} catch (_eR) {
-		_renderer = undefined;
-	}
+	_renderer = _ed.inst.renderer;
 	if (_renderer == undefined) {
 		__gm3d_ed_gpupick_fail(_ed, _g, "renderer unavailable");
 		return undefined;
@@ -208,17 +164,14 @@ function __gm3d_ed_gpupick_render(_ed, _g, _all, _ignore) {
 	var _cam = undefined;
 	var _grid = undefined;
 	var _preview = undefined;
-	try {
-		if (variable_struct_exists(_ed.rt, "cam")) {
-			_cam = _ed.rt.cam;
-		}
-		if (variable_struct_exists(_ed, "grid_node")) {
-			_grid = _ed.grid_node;
-		}
-		if (variable_struct_exists(_ed, "drag_preview")) {
-			_preview = _ed.drag_preview;
-		}
-	} catch (_eX) {
+	if (variable_struct_exists(_ed.rt, "cam")) {
+		_cam = _ed.rt.cam;
+	}
+	if (variable_struct_exists(_ed, "grid_node")) {
+		_grid = _ed.grid_node;
+	}
+	if (variable_struct_exists(_ed, "drag_preview")) {
+		_preview = _ed.drag_preview;
 	}
 	var _roots = [];
 	for (var _i = 0; _i < array_length(_all); _i++) {
@@ -227,11 +180,7 @@ function __gm3d_ed_gpupick_render(_ed, _g, _all, _ignore) {
 			continue;
 		}
 		var _is_root = false;
-		try {
-			_is_root = _nd.parent == undefined;
-		} catch (_eP) {
-			continue;
-		}
+		_is_root = _nd.parent == undefined;
 		if (!_is_root) {
 			continue;
 		}
@@ -248,52 +197,39 @@ function __gm3d_ed_gpupick_render(_ed, _g, _all, _ignore) {
 	var _muted = [];
 	var _nodes = [];
 	var _id = 0;
-	try {
-		for (var _r = 0; _r < array_length(_roots); _r++) {
-			if (_id >= 65025) {
-				__gm3d_ed_gpupick_fail(_ed, _g, "too many pickables (>65025)");
-				__gm3d_ed_walk_restore(_swapped, _muted);
-				return undefined;
-			}
-			var _skip = false;
-			if (is_array(_ignore)) {
-				for (var _q = 0; _q < array_length(_ignore); _q++) {
-					if (_ignore[_q] == _roots[_r]) {
-						_skip = true;
-						break;
-					}
+	for (var _r = 0; _r < array_length(_roots); _r++) {
+		if (_id >= 65025) {
+			__gm3d_ed_gpupick_fail(_ed, _g, "too many pickables (>65025)");
+			__gm3d_ed_walk_restore(_swapped, _muted);
+			return undefined;
+		}
+		var _skip = false;
+		if (is_array(_ignore)) {
+			for (var _q = 0; _q < array_length(_ignore); _q++) {
+				if (_ignore[_q] == _roots[_r]) {
+					_skip = true;
+					break;
 				}
 			}
-			if (_skip) {
-				__gm3d_ed_gpupick_paint_tree(_ed, _g, _roots[_r], 0, _swapped, _muted, true);
-				continue;
-			}
-			_id++;
-			array_push(_nodes, _roots[_r]);
-			__gm3d_ed_gpupick_paint_tree(_ed, _g, _roots[_r], _id, _swapped, _muted, false);
-			if (_g.failed) {
-				__gm3d_ed_walk_restore(_swapped, _muted);
-				return undefined;
-			}
 		}
-		surface_set_target(_g.surf);
-		draw_clear(c_black);
-		_renderer.render(_ed.rt.scene);
-		surface_reset_target();
-	} catch (_eM) {
-		try {
-			surface_reset_target();
-		} catch (_eT) {
+		if (_skip) {
+			__gm3d_ed_gpupick_paint_tree(_ed, _g, _roots[_r], 0, _swapped, _muted, true);
+			continue;
 		}
-		__gm3d_ed_walk_restore(_swapped, _muted);
-		__gm3d_ed_gpupick_fail(_ed, _g, "pick render failed");
-		return undefined;
+		_id++;
+		array_push(_nodes, _roots[_r]);
+		__gm3d_ed_gpupick_paint_tree(_ed, _g, _roots[_r], _id, _swapped, _muted, false);
+		if (_g.failed) {
+			__gm3d_ed_walk_restore(_swapped, _muted);
+			return undefined;
+		}
 	}
+	surface_set_target(_g.surf);
+	draw_clear(c_black);
+	_renderer.render(_ed.rt.scene);
+	surface_reset_target();
 	__gm3d_ed_walk_restore(_swapped, _muted);
-	try {
-		_ed.rt.scene.update(0);
-	} catch (_eU) {
-	}
+	_ed.rt.scene.update(0);
 	return { nodes: _nodes, w: _g.sw, h: _g.sh };
 }
 
@@ -309,14 +245,10 @@ function __gm3d_ed_gpupick_same_node(_a, _b) {
 	var _nb = undefined;
 	var _pa = undefined;
 	var _pb = undefined;
-	try {
-		_na = _a.name;
-		_nb = _b.name;
-		_pa = _a.getLocalPosition();
-		_pb = _b.getLocalPosition();
-	} catch (_e) {
-		return false;
-	}
+	_na = _a.name;
+	_nb = _b.name;
+	_pa = _a.getLocalPosition();
+	_pb = _b.getLocalPosition();
 	if (_na != _nb) {
 		return false;
 	}
@@ -330,23 +262,13 @@ function __gm3d_ed_gpupick_same_node(_a, _b) {
 function __gm3d_ed_gpupick_begin(_ed, _g) {
 	var _aw = 0;
 	var _ah = 0;
-	try {
-		_aw = surface_get_width(application_surface);
-		_ah = surface_get_height(application_surface);
-	} catch (_eA) {
-		_aw = 0;
-		_ah = 0;
-	}
+	_aw = surface_get_width(application_surface);
+	_ah = surface_get_height(application_surface);
 	if (!__gm3d_ed_gpupick_surf(_ed, _g, _aw, _ah)) {
 		__gm3d_ed_gpupick_fail(_ed, _g, "pick surface unavailable");
 		return undefined;
 	}
-	try {
-		return _ed.rt.scene.getNodes();
-	} catch (_eN) {
-		__gm3d_ed_gpupick_fail(_ed, _g, "scene getNodes unavailable");
-		return undefined;
-	}
+	return _ed.rt.scene.getNodes();
 }
 
 // Renders and reads picked node.
@@ -367,25 +289,16 @@ function __gm3d_ed_gpupick_probe(_ed, _g, _all, _ignore, _sx, _sy) {
 
 // Copies pick surface into buffer.
 function __gm3d_ed_gpupick_download(_ed, _g) {
-	try {
-		buffer_get_surface(_g.buf, _g.surf, 0);
-		return true;
-	} catch (_e) {
-		__gm3d_ed_gpupick_fail(_ed, _g, "buffer_get_surface unavailable");
-		return false;
-	}
+	buffer_get_surface(_g.buf, _g.surf, 0);
+	return true;
 }
 
 // Converts GUI coordinates to surface coordinates.
 function __gm3d_ed_gpupick_to_surf(_ed, _g, _mx, _my) {
 	var _gw = 0;
 	var _gh = 0;
-	try {
-		_gw = display_get_gui_width();
-		_gh = display_get_gui_height();
-	} catch (_eG) {
-		return undefined;
-	}
+	_gw = display_get_gui_width();
+	_gh = display_get_gui_height();
 	if (_gw <= 0 || _gh <= 0) {
 		return undefined;
 	}
@@ -400,13 +313,9 @@ function __gm3d_ed_gpupick_peek(_g, _sx, _sy) {
 	var _b0 = 0;
 	var _b1 = 0;
 	var _b2 = 0;
-	try {
-		_b0 = buffer_peek(_g.buf, _off, buffer_u8);
-		_b1 = buffer_peek(_g.buf, _off + 1, buffer_u8);
-		_b2 = buffer_peek(_g.buf, _off + 2, buffer_u8);
-	} catch (_e) {
-		return 0;
-	}
+	_b0 = buffer_peek(_g.buf, _off, buffer_u8);
+	_b1 = buffer_peek(_g.buf, _off + 1, buffer_u8);
+	_b2 = buffer_peek(_g.buf, _off + 2, buffer_u8);
 	return __gm3d_ed_gpupick_id_decode(_b0, _b1, _b2);
 }
 
@@ -442,12 +351,8 @@ function __gm3d_ed_gpupick_rect(_ed, _g, _r) {
 	}
 	var _gw = 0;
 	var _gh = 0;
-	try {
-		_gw = display_get_gui_width();
-		_gh = display_get_gui_height();
-	} catch (_eG) {
-		return [];
-	}
+	_gw = display_get_gui_width();
+	_gh = display_get_gui_height();
 	if (_gw <= 0 || _gh <= 0) {
 		return [];
 	}
@@ -510,22 +415,14 @@ function __gm3d_ed_gpupick_icon_at(_ed, _vp, _mx, _my) {
 	var _best = undefined;
 	var _bestd = 16;
 	var _nodes = [];
-	try {
-		_nodes = _ed.rt.scene.getNodes();
-	} catch (_e) {
-		return undefined;
-	}
+	_nodes = _ed.rt.scene.getNodes();
 	for (var _i = 0; _i < array_length(_nodes); _i++) {
 		var _node = _nodes[_i];
 		if (_node == undefined) {
 			continue;
 		}
 		var _is_root = false;
-		try {
-			_is_root = _node.parent == undefined;
-		} catch (_eP) {
-			continue;
-		}
+		_is_root = _node.parent == undefined;
 		if (!_is_root || __gm3d_ed_is_grid(_ed, _node) || __gm3d_ed_hidden_get(_ed, _node)) {
 			continue;
 		}
@@ -553,22 +450,14 @@ function __gm3d_ed_gpupick_icon_at(_ed, _vp, _mx, _my) {
 function __gm3d_ed_gpupick_icons_in_rect(_ed, _vp, _r) {
 	var _out = [];
 	var _nodes = [];
-	try {
-		_nodes = _ed.rt.scene.getNodes();
-	} catch (_e) {
-		return _out;
-	}
+	_nodes = _ed.rt.scene.getNodes();
 	for (var _i = 0; _i < array_length(_nodes); _i++) {
 		var _node = _nodes[_i];
 		if (_node == undefined) {
 			continue;
 		}
 		var _is_root = false;
-		try {
-			_is_root = _node.parent == undefined;
-		} catch (_eP) {
-			continue;
-		}
+		_is_root = _node.parent == undefined;
 		if (!_is_root || __gm3d_ed_is_grid(_ed, _node) || __gm3d_ed_hidden_get(_ed, _node)) {
 			continue;
 		}
@@ -719,17 +608,11 @@ function __gm3d_ed_gpupick_cleanup(_ed) {
 		return;
 	}
 	var _g = _ed.gpupick;
-	try {
-		if (_g.surf != undefined && surface_exists(_g.surf)) {
-			surface_free(_g.surf);
-		}
-	} catch (_e) {
+	if (_g.surf != undefined && surface_exists(_g.surf)) {
+		surface_free(_g.surf);
 	}
-	try {
-		if (_g.buf != undefined) {
-			buffer_delete(_g.buf);
-		}
-	} catch (_e2) {
+	if (_g.buf != undefined) {
+		buffer_delete(_g.buf);
 	}
 	if (is_array(_g.mats)) {
 		for (var _i = 0; _i < array_length(_g.mats); _i++) {
@@ -737,17 +620,11 @@ function __gm3d_ed_gpupick_cleanup(_ed) {
 			if (!is_struct(_en)) {
 				continue;
 			}
-			try {
-				if (_en.s != undefined) {
-					_en.s.destroy();
-				}
-			} catch (_e3) {
+			if (_en.s != undefined) {
+				_en.s.destroy();
 			}
-			try {
-				if (_en.k != undefined) {
-					_en.k.destroy();
-				}
-			} catch (_e4) {
+			if (_en.k != undefined) {
+				_en.k.destroy();
 			}
 		}
 	}

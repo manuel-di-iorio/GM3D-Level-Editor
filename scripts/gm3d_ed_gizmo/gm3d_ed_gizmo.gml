@@ -22,11 +22,7 @@ function __gm3d_ed_gizmo_dirs(_ed) {
 	if (_ed.giz.orient == 1 && array_length(_ed.sel) > 0) {
 		var _first = _ed.sel[0];
 		var _lq = undefined;
-		try {
-			_lq = _first.getLocalRotation();
-		} catch (_e) {
-			_lq = undefined;
-		}
+		_lq = _first.getLocalRotation();
 		if (_lq != undefined) {
 			return __gm3d_ed_quat_basis(_lq);
 		}
@@ -632,11 +628,7 @@ function __gm3d_ed_gizmo_drag_rotate(_ed, _vp, _g, _mx, _my) {
 				_qr7.multiply(_ed.sel[_k7i].getLocalRotation().clone());
 
 				var _bad7 = false;
-				try {
-					_bad7 = is_nan(_qr7.x) || is_nan(_qr7.y) || is_nan(_qr7.z) || is_nan(_qr7.w);
-				} catch (_eN) {
-					_bad7 = true;
-				}
+				_bad7 = is_nan(_qr7.x) || is_nan(_qr7.y) || is_nan(_qr7.z) || is_nan(_qr7.w);
 				if (_bad7) {
 					continue;
 				}

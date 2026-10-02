@@ -28,10 +28,7 @@ function __gm3d_ed_imgui_sec_open(_ed) {
 	if (!__gm3d_ed_imgui_has_widget(_ed, "SetNextItemOpen")) {
 		return;
 	}
-	try {
-		ImGui.SetNextItemOpen(true, ImGuiCond.FirstUseEver);
-	} catch (_e) {
-	}
+	ImGui.SetNextItemOpen(true, ImGuiCond.FirstUseEver);
 }
 
 // Draws Inspector window for current selection.
@@ -262,12 +259,8 @@ function __gm3d_ed_imgui_has_widget(_ed, _name) {
 		return _ed.imgui.widget_probe[$ _name] == true;
 	}
 	var _ok = false;
-	try {
-		var _f = ImGui[$ _name];
-		_ok = (_f != undefined);
-	} catch (_e) {
-		_ok = false;
-	}
+	var _f = ImGui[$ _name];
+	_ok = (_f != undefined);
 	_ed.imgui.widget_probe[$ _name] = _ok;
 	return _ok;
 }

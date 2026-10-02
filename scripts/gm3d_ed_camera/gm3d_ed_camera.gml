@@ -33,10 +33,7 @@ function __gm3d_ed_viewcam_ensure(_ed) {
 		}
 		var _cc = new GM3D_CameraComponent();
 		_node.addComponent(_cc);
-		try {
-			_cc.setEnabled(false);
-		} catch (_eDis) {
-		}
+		_cc.setEnabled(false);
 		_ed.viewcam = _node;
 	}
 	_ed.rt.cam = _ed.viewcam;
@@ -58,12 +55,9 @@ function __gm3d_ed_viewcam_seed_from(_ed, _src) {
 	_vc.setLocalPosition(new GM3D_Vec3(_p.x, _p.y, _p.z));
 	_vc.setLocalRotation(_q.clone());
 	__gm3d_ed_camera_apply(_vc, __gm3d_ed_camera_read(_src));
-	try {
-		var _cc = _vc.getCameraComponent();
-		if (_cc != undefined) {
-			_cc.setEnabled(true);
-		}
-	} catch (_eEn) {
+	var _cc = _vc.getCameraComponent();
+	if (_cc != undefined) {
+		_cc.setEnabled(true);
 	}
 	_ed.rt.scene.update(0);
 	__gm3d_ed_cam_remember(_ed);
@@ -79,12 +73,9 @@ function __gm3d_ed_viewcam_seed(_ed) {
 	if (_g == undefined) {
 		__gm3d_ed_viewcam_ensure(_ed);
 		if (_ed.viewcam != undefined) {
-			try {
-				var _ec = _ed.viewcam.getCameraComponent();
-				if (_ec != undefined) {
-					_ec.setEnabled(true);
-				}
-			} catch (_eEn0) {
+			var _ec = _ed.viewcam.getCameraComponent();
+			if (_ec != undefined) {
+				_ec.setEnabled(true);
 			}
 		}
 		__gm3d_ed_cam_remember(_ed);

@@ -167,12 +167,9 @@ function gm3d_editor_cleanup(_ed = undefined) {
 	_ed.show_unlit = false;
 	__gm3d_ed_unlit_apply(_ed);
 	if (_ed.viewcam != undefined) {
-		try {
-			var _vcc0 = _ed.viewcam.getCameraComponent();
-			if (_vcc0 != undefined) {
-				_vcc0.setEnabled(false);
-			}
-		} catch (_eV0) {
+		var _vcc0 = _ed.viewcam.getCameraComponent();
+		if (_vcc0 != undefined) {
+			_vcc0.setEnabled(false);
 		}
 	}
 	__gm3d_ed_grid_remove(_ed);
@@ -253,12 +250,8 @@ function __gm3d_ed_bg_restore(_ed) {
 function __gm3d_ed_view_sync(_ed) {
 	var _ww = 0;
 	var _wh = 0;
-	try {
-		_ww = window_get_width();
-		_wh = window_get_height();
-	} catch (_e) {
-		return;
-	}
+	_ww = window_get_width();
+	_wh = window_get_height();
 	if (_ww <= 0 || _wh <= 0) {
 		return;
 	}
@@ -270,33 +263,21 @@ function __gm3d_ed_view_sync(_ed) {
 	}
 	_ed.view_sync.w = _ww;
 	_ed.view_sync.h = _wh;
-	try {
-		if (surface_exists(application_surface)) {
-			surface_resize(application_surface, _ww, _wh);
-		}
-	} catch (_e2) {
+	if (surface_exists(application_surface)) {
+		surface_resize(application_surface, _ww, _wh);
 	}
-	try {
-		display_set_gui_size(_ww, _wh);
-	} catch (_e3) {
-	}
+	display_set_gui_size(_ww, _wh);
 }
 
 // Saves current surface and GUI sizes.
 function __gm3d_ed_view_save(_ed) {
 	var _v = { sw: -1, sh: -1, gw: -1, gh: -1 };
-	try {
-		if (surface_exists(application_surface)) {
-			_v.sw = surface_get_width(application_surface);
-			_v.sh = surface_get_height(application_surface);
-		}
-	} catch (_e) {
+	if (surface_exists(application_surface)) {
+		_v.sw = surface_get_width(application_surface);
+		_v.sh = surface_get_height(application_surface);
 	}
-	try {
-		_v.gw = display_get_gui_width();
-		_v.gh = display_get_gui_height();
-	} catch (_e2) {
-	}
+	_v.gw = display_get_gui_width();
+	_v.gh = display_get_gui_height();
 	_ed.view_prev = _v;
 }
 
@@ -307,17 +288,11 @@ function __gm3d_ed_view_restore(_ed) {
 	}
 	var _v = _ed.view_prev;
 	_ed.view_prev = undefined;
-	try {
-		if (_v.sw > 0 && _v.sh > 0 && surface_exists(application_surface)) {
-			surface_resize(application_surface, _v.sw, _v.sh);
-		}
-	} catch (_e) {
+	if (_v.sw > 0 && _v.sh > 0 && surface_exists(application_surface)) {
+		surface_resize(application_surface, _v.sw, _v.sh);
 	}
-	try {
-		if (_v.gw > 0 && _v.gh > 0) {
-			display_set_gui_size(_v.gw, _v.gh);
-		}
-	} catch (_e2) {
+	if (_v.gw > 0 && _v.gh > 0) {
+		display_set_gui_size(_v.gw, _v.gh);
 	}
 }
 
@@ -337,12 +312,9 @@ function __gm3d_ed_set_active(_ed, _on) {
 		__gm3d_ed_sky_remove(_ed);
 		__gm3d_ed_cameras_restore(_ed);
 		if (_ed.viewcam != undefined) {
-			try {
-				var _vcc = _ed.viewcam.getCameraComponent();
-				if (_vcc != undefined) {
-					_vcc.setEnabled(false);
-				}
-			} catch (_eV) {
+			var _vcc = _ed.viewcam.getCameraComponent();
+			if (_vcc != undefined) {
+				_vcc.setEnabled(false);
 			}
 		}
 		__gm3d_ed_cam_home(_ed);
@@ -546,6 +518,9 @@ function __gm3d_ed_create(_inst, _rt) {
 		grid_node: undefined,
 		grid_src: undefined,
 		grid_mat: undefined,
+		sky_node: undefined,
+		sky_src: undefined,
+		sky_mat: undefined,
 		prev_win_colour: undefined,
 		bg_layer: undefined,
 		gw: 1366,
