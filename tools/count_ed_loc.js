@@ -17,7 +17,8 @@ function collectGmlFiles(dir) {
 			out = out.concat(collectGmlFiles(full));
 		} else if (
 			e.isFile() &&
-			e.name.indexOf(PREFIX) === 0 &&
+			(e.name.indexOf(PREFIX) === 0 ||
+				e.name === "gm3d_load.gml") &&
 			e.name.slice(-EXT.length) === EXT
 		) {
 			out.push(full);

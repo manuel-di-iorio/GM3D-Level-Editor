@@ -1,9 +1,9 @@
 {
   "$GMScript":"v1",
-  "%Name":"gm3d_ed_math",
+  "%Name":"gm3d_ed_files",
   "isCompatibility":false,
   "isDnD":false,
-  "name":"gm3d_ed_math",
+  "name":"gm3d_ed_files",
   "parent":{
     "name":"Core",
     "path":"folders/GM3D Level Editor/Core.yy",

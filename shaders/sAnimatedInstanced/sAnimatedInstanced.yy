@@ -3,8 +3,8 @@
   "%Name":"sAnimatedInstanced",
   "name":"sAnimatedInstanced",
   "parent":{
-    "name":"GM3D-Level-Editor",
-    "path":"GM3D-Level-Editor.yyp",
+    "name":"Demo Shaders",
+    "path":"folders/Demo Shaders.yy",
   },
   "resourceType":"GMShader",
   "resourceVersion":"2.0",

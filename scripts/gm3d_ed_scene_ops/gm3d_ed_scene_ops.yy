@@ -5,8 +5,8 @@
   "isDnD":false,
   "name":"gm3d_ed_scene_ops",
   "parent":{
-    "name":"GM3D Level Editor",
-    "path":"folders/GM3D Level Editor.yy",
+    "name":"Scene",
+    "path":"folders/GM3D Level Editor/Scene.yy",
   },
   "resourceType":"GMScript",
   "resourceVersion":"2.0",

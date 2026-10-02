@@ -1,12 +1,12 @@
 {
   "$GMScript":"v1",
-  "%Name":"gm3d_ed_math",
+  "%Name":"gm3d_ed_imgui_assets",
   "isCompatibility":false,
   "isDnD":false,
-  "name":"gm3d_ed_math",
+  "name":"gm3d_ed_imgui_assets",
   "parent":{
-    "name":"Core",
-    "path":"folders/GM3D Level Editor/Core.yy",
+    "name":"ImGUI",
+    "path":"folders/GM3D Level Editor/ImGUI.yy",
   },
   "resourceType":"GMScript",
   "resourceVersion":"2.0",

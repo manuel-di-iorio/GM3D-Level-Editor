@@ -1,12 +1,12 @@
 {
   "$GMScript":"v1",
-  "%Name":"gm3d_ed_math",
+  "%Name":"gm3d_ed_stage",
   "isCompatibility":false,
   "isDnD":false,
-  "name":"gm3d_ed_math",
+  "name":"gm3d_ed_stage",
   "parent":{
-    "name":"Core",
-    "path":"folders/GM3D Level Editor/Core.yy",
+    "name":"Scene",
+    "path":"folders/GM3D Level Editor/Scene.yy",
   },
   "resourceType":"GMScript",
   "resourceVersion":"2.0",

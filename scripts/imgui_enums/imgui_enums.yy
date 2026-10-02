@@ -5,8 +5,8 @@
   "isDnD":false,
   "name":"imgui_enums",
   "parent":{
-    "name":"GM3D Level Editor",
-    "path":"folders/GM3D Level Editor.yy",
+    "name":"ImGUI",
+    "path":"folders/GM3D Level Editor/ImGUI.yy",
   },
   "resourceType":"GMScript",
   "resourceVersion":"2.0",

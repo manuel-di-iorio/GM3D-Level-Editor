@@ -420,72 +420,11 @@ function gm3d_editor_save(_fname) {
 	return false;
 }
 
-// Prompts filename and saves scene.
-function __gm3d_ed_save_as(_ed) {
-	var _f = "";
-	_f = get_save_filename("Scene JSON (*.json)|*.json", _ed.scene_file != "" ? _ed.scene_file : "scene.json");
-	if (_f == "") {
-		return false;
-	}
-	_ed.scene_file = _f;
-	var _ok = __gm3d_ed_save_scene(_ed);
-	return _ok;
-}
 
-// Saves scene or prompts for path.
-function __gm3d_ed_save_or_ask(_ed) {
-	if (_ed.scene_file == undefined || _ed.scene_file == "") {
-		return __gm3d_ed_save_as(_ed);
-	}
-	var _ok = __gm3d_ed_save_scene(_ed);
-	return _ok;
-}
 
-// Shows confirmation dialog if dirty.
-function __gm3d_ed_confirm_ask(_ed, _action) {
-	var _dirty = false;
-	_dirty = _ed.dirty == true;
-	if (!_dirty) {
-		__gm3d_ed_confirm_do(_ed, _action);
-		return;
-	}
-	_ed.confirm = { action: _action, open: true };
-}
 
-// Executes confirmed new load close action.
-function __gm3d_ed_confirm_do(_ed, _action) {
-	if (_action == "new") {
-		__gm3d_ed_new_scene(_ed);
-	} else if (_action == "load") {
-		__gm3d_ed_load_ask(_ed);
-	} else if (_action == "close") {
-		__gm3d_ed_set_active(_ed, false);
-	}
-}
 
-// Loads scene through OS dialog.
-function __gm3d_ed_load_ask(_ed) {
-	var _f = get_open_filename("Scene JSON (*.json)|*.json", "scene.json");
-	if (_f == "") {
-		return false;
-	}
-	var _old = _ed.scene_file;
-	_ed.scene_file = _f;
-	if (__gm3d_ed_load_scene(_ed)) {
-		return true;
-	}
-	_ed.scene_file = _old;
-	return false;
-}
 
-// Creates new empty scene.
-function gm3d_editor_new_scene() {
-	var _e = gm3d_editor_inst();
-	if (_e == undefined) {
-		return;
-	}
-	__gm3d_ed_new_scene(_e);
-}
 
 // Creates default editor state struct.
 function __gm3d_ed_create(_inst, _rt) {
@@ -683,104 +622,9 @@ function __gm3d_ed_step(_ed, _dt) {
 	__gm3d_ed_step_hover(_ed, _input);
 }
 
-// Begins infinite mouse wrap tracking.
-function __gm3d_ed_wrap_begin(_ed, _mx, _my) {
-	_ed.wrap = { on: true, vx: _mx, vy: _my, lx: _mx, ly: _my };
-}
 
-// Ends mouse wrap tracking.
-function __gm3d_ed_wrap_end(_ed) {
-	if (_ed != undefined) {
-		_ed.wrap = undefined;
-	}
-}
 
-// Updates wrapped mouse virtual coordinates.
-function __gm3d_ed_wrap_step(_ed, _mx, _my) {
-	var _w = _ed.wrap;
-	if (_w == undefined || !_w.on) {
-		return [_mx, _my];
-	}
-	_w.vx += _mx - _w.lx;
-	_w.vy += _my - _w.ly;
-	_w.lx = _mx;
-	_w.ly = _my;
-	var _ww = 0;
-	var _wh = 0;
-	try {
-		_ww = window_get_width();
-		_wh = window_get_height();
-	} catch (_eW) {
-	}
-	if (_ww > 16 && _wh > 16) {
-		var _nx = _mx;
-		var _ny = _my;
-		if (_mx < 8) {
-			_nx = _ww - 9;
-		} else if (_mx > _ww - 9) {
-			_nx = 8;
-		}
-		if (_my < 8) {
-			_ny = _wh - 9;
-		} else if (_my > _wh - 9) {
-			_ny = 8;
-		}
-		if (_nx != _mx || _ny != _my) {
-			try {
-				window_mouse_set(round(_nx), round(_ny));
-			} catch (_eW2) {
-			}
 
-			_w.lx = _nx;
-			_w.ly = _ny;
-		}
-	}
-	return [_w.vx, _w.vy];
-}
-
-// Wraps cursor at window edges.
-function __gm3d_ed_wrap_camera(_ed) {
-	if (_ed == undefined) {
-		return;
-	}
-	var _mx = 0;
-	var _my = 0;
-	try {
-		_mx = device_mouse_x_to_gui(0);
-		_my = device_mouse_y_to_gui(0);
-	} catch (_eG) {
-		return;
-	}
-	var _ww = 0;
-	var _wh = 0;
-	try {
-		_ww = window_get_width();
-		_wh = window_get_height();
-	} catch (_eW) {
-		return;
-	}
-	if (_ww <= 16 || _wh <= 16) {
-		return;
-	}
-	var _nx = _mx;
-	var _ny = _my;
-	if (_mx < 8) {
-		_nx = _ww - 9;
-	} else if (_mx > _ww - 9) {
-		_nx = 8;
-	}
-	if (_my < 8) {
-		_ny = _wh - 9;
-	} else if (_my > _wh - 9) {
-		_ny = 8;
-	}
-	if (_nx != _mx || _ny != _my) {
-		try {
-			window_mouse_set(round(_nx), round(_ny));
-		} catch (_eW2) {
-		}
-	}
-}
 
 // Updates asset drag preview position.
 function __gm3d_ed_drop_preview_update(_ed, _drop) {
@@ -819,16 +663,3 @@ function __gm3d_ed_drop_preview_clear(_ed) {
 	}
 }
 
-// Checks if mouse is inside viewport.
-function __gm3d_ed_drag_in_viewport(_ed, _mx, _my) {
-	if (_mx < 0 || _mx > _ed.gw || _my < 0 || _my > _ed.gh) {
-		return false;
-	}
-	try {
-		if (ImGui.IsWindowHovered(ImGuiHoveredFlags.AnyWindow)) {
-			return false;
-		}
-	} catch (_e) {
-	}
-	return true;
-}

@@ -429,3 +429,116 @@ function __gm3d_ed_step_hover(_ed, _input) {
 		}
 	}
 }
+
+// Begins infinite mouse wrap tracking.
+function __gm3d_ed_wrap_begin(_ed, _mx, _my) {
+	_ed.wrap = { on: true, vx: _mx, vy: _my, lx: _mx, ly: _my };
+}
+
+// Ends mouse wrap tracking.
+function __gm3d_ed_wrap_end(_ed) {
+	if (_ed != undefined) {
+		_ed.wrap = undefined;
+	}
+}
+
+// Updates wrapped mouse virtual coordinates.
+function __gm3d_ed_wrap_step(_ed, _mx, _my) {
+	var _w = _ed.wrap;
+	if (_w == undefined || !_w.on) {
+		return [_mx, _my];
+	}
+	_w.vx += _mx - _w.lx;
+	_w.vy += _my - _w.ly;
+	_w.lx = _mx;
+	_w.ly = _my;
+	var _ww = 0;
+	var _wh = 0;
+	try {
+		_ww = window_get_width();
+		_wh = window_get_height();
+	} catch (_eW) {
+	}
+	if (_ww > 16 && _wh > 16) {
+		var _nx = _mx;
+		var _ny = _my;
+		if (_mx < 8) {
+			_nx = _ww - 9;
+		} else if (_mx > _ww - 9) {
+			_nx = 8;
+		}
+		if (_my < 8) {
+			_ny = _wh - 9;
+		} else if (_my > _wh - 9) {
+			_ny = 8;
+		}
+		if (_nx != _mx || _ny != _my) {
+			try {
+				window_mouse_set(round(_nx), round(_ny));
+			} catch (_eW2) {
+			}
+
+			_w.lx = _nx;
+			_w.ly = _ny;
+		}
+	}
+	return [_w.vx, _w.vy];
+}
+
+// Wraps cursor at window edges.
+function __gm3d_ed_wrap_camera(_ed) {
+	if (_ed == undefined) {
+		return;
+	}
+	var _mx = 0;
+	var _my = 0;
+	try {
+		_mx = device_mouse_x_to_gui(0);
+		_my = device_mouse_y_to_gui(0);
+	} catch (_eG) {
+		return;
+	}
+	var _ww = 0;
+	var _wh = 0;
+	try {
+		_ww = window_get_width();
+		_wh = window_get_height();
+	} catch (_eW) {
+		return;
+	}
+	if (_ww <= 16 || _wh <= 16) {
+		return;
+	}
+	var _nx = _mx;
+	var _ny = _my;
+	if (_mx < 8) {
+		_nx = _ww - 9;
+	} else if (_mx > _ww - 9) {
+		_nx = 8;
+	}
+	if (_my < 8) {
+		_ny = _wh - 9;
+	} else if (_my > _wh - 9) {
+		_ny = 8;
+	}
+	if (_nx != _mx || _ny != _my) {
+		try {
+			window_mouse_set(round(_nx), round(_ny));
+		} catch (_eW2) {
+		}
+	}
+}
+
+// Checks if mouse is inside viewport.
+function __gm3d_ed_drag_in_viewport(_ed, _mx, _my) {
+	if (_mx < 0 || _mx > _ed.gw || _my < 0 || _my > _ed.gh) {
+		return false;
+	}
+	try {
+		if (ImGui.IsWindowHovered(ImGuiHoveredFlags.AnyWindow)) {
+			return false;
+		}
+	} catch (_e) {
+	}
+	return true;
+}
