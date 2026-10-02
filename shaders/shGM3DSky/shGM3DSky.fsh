@@ -11,8 +11,7 @@
 varying vec3 vDir;
 
 // Gradient exponents: top eases toward zenith; below the horizon the
-// ground color takes over across a short band then stays flat and dark
-// (Unity-like terrain), instead of washing out toward the horizon.
+// ground color takes over across a short band then stays flat and dark, instead of washing out toward the horizon.
 #define SKY_TOP_POW 0.6
 #define SKY_BOT_BLEND 0.05
 

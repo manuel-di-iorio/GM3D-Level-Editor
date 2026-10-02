@@ -23,7 +23,7 @@
 #define GRID_MINOR_COL vec3(0.455, 0.443, 0.435)
 #define GRID_MAJOR_COL vec3(0.459, 0.447, 0.439)
 
-// Line half-width in pixels (0.5 = ~1px total lines like Unity, thinner shimmers).
+// Line half-width in pixels (0.5 = ~1px total lines, thinner shimmers).
 #define GRID_WIDTH 0.5
 
 // Gentle horizon dissolve (view depth): kills everything before the quad

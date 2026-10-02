@@ -1,0 +1,12 @@
+{
+  "$GMShader":"",
+  "%Name":"sAnimatedInstanced",
+  "name":"sAnimatedInstanced",
+  "parent":{
+    "name":"GM3D-Level-Editor",
+    "path":"GM3D-Level-Editor.yyp",
+  },
+  "resourceType":"GMShader",
+  "resourceVersion":"2.0",
+  "type":1,
+}

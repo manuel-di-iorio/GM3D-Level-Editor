@@ -602,6 +602,7 @@ function __gm3d_ed_create(_inst, _rt) {
 		show_shadows: true,
 		show_unlit: false,
 		unlit_quiet: false,
+		unlit_orig: [],
 		grid_step: 1,
 		grid_node: undefined,
 		grid_src: undefined,

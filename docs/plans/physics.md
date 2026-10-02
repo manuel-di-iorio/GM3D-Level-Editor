@@ -19,11 +19,10 @@ Motivi:
   sample). Su scene statiche è lavoro buttato.
 - **Esplicito > implicito**: gravità, timestep e layer matrix sono scelte di progetto,
   vanno viste e versionate nel JSON, non nascoste in un default.
-- **Unity fa così, a due livelli**: il mondo c'è sempre (`Physics.autoSimulation`,
+- **A due livelli**: il mondo c'è sempre (`Physics.autoSimulation`,
   `Time.fixedDeltaTime`, gravità nei Project Settings), ma un GameObject entra in fisica
   solo con un componente Rigidbody/Collider. Noi replichiamo entrambi i livelli:
-  (a) scena senza blocco `world` = fisica assente del tutto (equivalente a scena Unity
-  senza alcun Rigidbody, ma senza nemmeno pagare il mondo); (b) con blocco `world`,
+  (a) scena senza blocco `world` = fisica assente del tutto (senza alcun Rigidbody, ma senza nemmeno pagare il mondo); (b) con blocco `world`,
   ogni nodo entra in fisica solo col suo blocco `physics` (opt-in per corpo).
 
 Conseguenza: l'editor mostra UI fisica solo quando serve (§3). Il loader standalone
@@ -75,7 +74,7 @@ Rigidbody (default tra parentesi, presi dai sample):
 
 | Campo | Widget (helper esistenti) | Default | Note |
 |---|---|---|---|
-| Motion | Radio `Static/Kinematic/Dynamic` (come i radio luce) | `Static` — quasi tutto ciò che si piazza è statico nei sample; chi vuole cadute passa a Dynamic (e come in Unity cade) | |
+| Motion | Radio `Static/Kinematic/Dynamic` (come i radio luce) | `Static` — quasi tutto ciò che si piazza è statico nei sample; chi vuole cadute passa a Dynamic | |
 | Mass (kg) | dragfloat | `1.0`, attivo solo se Dynamic | |
 | Linear / Angular damping | dragfloat x2 | `0.0` | unitless |
 | Gravity factor | dragfloat | `1.0` | moltiplicatore gravità mondo |
@@ -142,7 +141,7 @@ collisioni 5×5 (`Static/Default/Character/Trigger/Debris` via `setLayerCollisio
    condizionali rendono il mixed-state ambiguo (cosa mostra `Collider[2]` di 3 nodi
    diversi?). Sezioni nascoste oltre il singolo, Transform resta multiplo. Rivalutabile
    con un "applica a tutti" esplicito, mai implicito.
-6. **Fisica su luci/camere/environment.** Nicchia anche in Unity. Il trigger invisibile
+6. **Fisica su luci/camere/environment.** Il trigger invisibile
    si fa come i sample: nodo asset con mesh + sensor (+ luce figlia per i coin).
 7. **Mask multi-bit e CCD oltre LinearCast.** Il runtime vuole un bit solo per `setLayer`
    (la UI usa radio apposta); tuning Jolt profondo resta codice, non checkbox.
