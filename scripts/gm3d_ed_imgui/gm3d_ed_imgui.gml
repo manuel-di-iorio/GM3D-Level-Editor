@@ -220,7 +220,7 @@ function __gm3d_ed_imgui_toolbar(_ed) {
 		return;
 	}
 	ImGui.SetNextWindowPos(300, 34, _ed.imgui.cond);
-	var _flags = ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.AlwaysAutoResize;
+	var _flags = ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoMove;
 	if (!ImGui.Begin("##toolbar", _ed.imgui.win_toolbar, _flags)) {
 		ImGui.End();
 		return;
@@ -668,6 +668,74 @@ function __gm3d_ed_imgui_bg_alpha(_a) {
 	ImGui.SetNextWindowBgAlpha(_a);
 }
 
+// Returns NoMove when mouse is over panel body, None on titlebar/outside.
+// Latches flags while left button is held to avoid toggling mid-drag.
+function __gm3d_ed_imgui_panel_flags(_ed, _key) {
+	var _none = ImGuiWindowFlags.None;
+	var _nomove = ImGuiWindowFlags.NoMove;
+	if (_ed.imgui == undefined) {
+		return _none;
+	}
+	if (!variable_struct_exists(_ed.imgui, "_winrect")) {
+		_ed.imgui._winrect = {};
+	}
+	if (!variable_struct_exists(_ed.imgui, "_winflags")) {
+		_ed.imgui._winflags = {};
+	}
+	if (!variable_struct_exists(ImGui, "IsMouseDown") || !variable_struct_exists(ImGui, "GetMousePosX") || !variable_struct_exists(ImGui, "GetMousePosY")) {
+		return _none;
+	}
+	var _down = ImGui.IsMouseDown(0);
+	if (_down) {
+		var _latched = _ed.imgui._winflags[$ _key];
+		return is_real(_latched) ? _latched : _none;
+	}
+	var _r = _ed.imgui._winrect[$ _key];
+	var _flags = _none;
+	if (is_struct(_r)) {
+		var _mx = ImGui.GetMousePosX();
+		var _my = ImGui.GetMousePosY();
+		if (is_real(_mx) && is_real(_my) && is_real(_r.x) && is_real(_r.y) && is_real(_r.w) && is_real(_r.h)) {
+			if (_mx >= _r.x && _mx <= _r.x + _r.w && _my >= _r.y && _my <= _r.y + _r.h) {
+				var _th = is_real(_r.t) && _r.t > 0 ? _r.t : 19;
+				if (_my > _r.y + _th) {
+					_flags = _nomove;
+				}
+			}
+		}
+	}
+	_ed.imgui._winflags[$ _key] = _flags;
+	return _flags;
+}
+
+// Caches current window rect for panel move detection. Call inside Begin/End.
+function __gm3d_ed_imgui_panel_save(_ed, _key) {
+	if (_ed.imgui == undefined) {
+		return;
+	}
+	if (!variable_struct_exists(ImGui, "GetWindowX") || !variable_struct_exists(ImGui, "GetWindowY") || !variable_struct_exists(ImGui, "GetWindowWidth") || !variable_struct_exists(ImGui, "GetWindowHeight")) {
+		return;
+	}
+	var _x = ImGui.GetWindowX();
+	var _y = ImGui.GetWindowY();
+	var _w = ImGui.GetWindowWidth();
+	var _h = ImGui.GetWindowHeight();
+	if (!is_real(_x) || !is_real(_y) || !is_real(_w) || !is_real(_h)) {
+		return;
+	}
+	var _t = 19;
+	if (variable_struct_exists(ImGui, "GetFrameHeight")) {
+		var _fh = ImGui.GetFrameHeight();
+		if (is_real(_fh) && _fh > 0) {
+			_t = _fh;
+		}
+	}
+	if (!variable_struct_exists(_ed.imgui, "_winrect")) {
+		_ed.imgui._winrect = {};
+	}
+	_ed.imgui._winrect[$ _key] = { x: _x, y: _y, w: _w, h: _h, t: _t };
+}
+
 // Sets ImGui style color value.
 function __gm3d_ed_imgui_style_color(_col, _rgb, _alpha) {
 	ImGui.SetStyleColor(_col, _rgb, _alpha);
@@ -788,10 +856,13 @@ function __gm3d_ed_imgui_assets(_ed) {
 	__gm3d_ed_imgui_bg_alpha(0.95);
 	var _begun = false;
 
-	if (!ImGui.Begin("Models", _ui.win_assets)) {
+	var _pflags = __gm3d_ed_imgui_panel_flags(_ed, "assets");
+	if (!ImGui.Begin("Models", _ui.win_assets, _pflags)) {
+		__gm3d_ed_imgui_panel_save(_ed, "assets");
 		ImGui.End();
 		return;
 	}
+	__gm3d_ed_imgui_panel_save(_ed, "assets");
 	_begun = true;
 	__gm3d_ed_imgui_asset_list(_ed);
 	ImGui.End();

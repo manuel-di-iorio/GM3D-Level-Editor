@@ -7,7 +7,6 @@ Embeddable 3D level editor for GameMaker on the GM3D runtime, using the built-in
 ## Requirements
 
 - GameMaker with GMRT 0.22.4 (from the Package Manager)
-- Scenes save inside the working directory (`__gm3dEditor/scenes/*.json`), so the file system sandbox can stay enabled.
 
 ## Quick start
 

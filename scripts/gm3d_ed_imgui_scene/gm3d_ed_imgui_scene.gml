@@ -10,10 +10,13 @@ function __gm3d_ed_imgui_scene_win(_ed) {
 	__gm3d_ed_imgui_bg_alpha(0.95);
 	var _begun = false;
 
-	if (!ImGui.Begin("Scene", _ui.win_scene)) {
+	var _pflags = __gm3d_ed_imgui_panel_flags(_ed, "scene");
+	if (!ImGui.Begin("Scene", _ui.win_scene, _pflags)) {
+		__gm3d_ed_imgui_panel_save(_ed, "scene");
 		ImGui.End();
 		return;
 	}
+	__gm3d_ed_imgui_panel_save(_ed, "scene");
 	_begun = true;
 	__gm3d_ed_imgui_scene_list(_ed);
 	ImGui.End();

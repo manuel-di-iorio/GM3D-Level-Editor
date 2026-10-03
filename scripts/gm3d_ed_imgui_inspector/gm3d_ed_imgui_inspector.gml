@@ -43,10 +43,13 @@ function __gm3d_ed_imgui_inspector(_ed) {
 	__gm3d_ed_imgui_bg_alpha(0.95);
 	var _begun = false;
 
-	if (!ImGui.Begin("Inspector", _ui.win_insp)) {
+	var _pflags = __gm3d_ed_imgui_panel_flags(_ed, "insp");
+	if (!ImGui.Begin("Inspector", _ui.win_insp, _pflags)) {
+		__gm3d_ed_imgui_panel_save(_ed, "insp");
 		ImGui.End();
 		return;
 	}
+	__gm3d_ed_imgui_panel_save(_ed, "insp");
 	_begun = true;
 	var _n = array_length(_ed.sel);
 	if (_n == 0) {

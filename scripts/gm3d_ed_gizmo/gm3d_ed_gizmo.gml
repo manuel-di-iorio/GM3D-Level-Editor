@@ -35,24 +35,56 @@ function __gm3d_ed_gizmo_len(_ed, _vp, _pivot) {
 	return __gm3d_ed_gizmo_world_size(_vp, _pivot, _ed.giz.size);
 }
 
+// Estimates world size for a constant pixel size from camera distance.
+// Used when screen projection fails (e.g. camera very close to pivot).
+function __gm3d_ed_gizmo_world_size_dist(_vp, _dist, _pixels) {
+	var _h = 768;
+	if (is_real(_vp.winH) && _vp.winH > 0) {
+		_h = _vp.winH;
+	}
+	var _fov = pi / 3.0;
+	if (is_real(_vp.fovY) && _vp.fovY > 0.001) {
+		_fov = _vp.fovY;
+	}
+	var _ws = _pixels * max(_dist, 0.001) * max(tan(_fov * 0.5), 0.001) * 2.0 / _h;
+	return clamp(_ws, 0.0005, 10000);
+}
+
+// Measures camera distance to pivot, -1 when unknown.
+function __gm3d_ed_gizmo_cam_dist(_vp, _pivot) {
+	if (_vp == undefined || _vp.camNode == undefined || _pivot == undefined) {
+		return -1;
+	}
+	var _cp = _vp.camNode.getWorldPosition();
+	if (_cp == undefined) {
+		return -1;
+	}
+	var _vx = _cp.x - _pivot.x;
+	var _vy = _cp.y - _pivot.y;
+	var _vz = _cp.z - _pivot.z;
+	return sqrt(_vx * _vx + _vy * _vy + _vz * _vz);
+}
+
 // Converts desired pixel size to world units.
 function __gm3d_ed_gizmo_world_size(_vp, _pivot, _pixels) {
+	var _dist = __gm3d_ed_gizmo_cam_dist(_vp, _pivot);
+	var _fallback = _dist > 0 ? __gm3d_ed_gizmo_world_size_dist(_vp, _dist, _pixels) : 1;
 	var _a = __gm3d_ed_world_to_screen(_vp, _pivot);
 	if (_a == undefined) {
-		return 1;
+		return _fallback;
 	}
 	var _b = __gm3d_ed_world_to_screen(
 		_vp,
 		new GM3D_Vec3(_pivot.x + _vp.camRight.x, _pivot.y + _vp.camRight.y, _pivot.z + _vp.camRight.z)
 	);
 	if (_b == undefined) {
-		return 1;
+		return _fallback;
 	}
 	var _dx = _b[0] - _a[0];
 	var _dy = _b[1] - _a[1];
 	var _len = sqrt(_dx * _dx + _dy * _dy);
 	if (_len < 0.5) {
-		return 1;
+		return _fallback;
 	}
 	return _pixels / _len;
 }
