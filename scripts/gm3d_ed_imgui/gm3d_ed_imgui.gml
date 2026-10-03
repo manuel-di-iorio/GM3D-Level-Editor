@@ -260,22 +260,18 @@ function __gm3d_ed_imgui_toolbar(_ed) {
 	ImGui.SameLine();
 	ImGui.TextDisabled("|");
 	ImGui.SameLine();
-	if (__gm3d_ed_imgui_icon_btn(_ed, "##tb_unlit", "Unlit flat view (on/off)", _ed.show_unlit == true, "Un", "sprGM3DIconUnlit", 15, 15)) {
-		_ed.show_unlit = (_ed.show_unlit != true);
+	if (__gm3d_ed_imgui_icon_btn(_ed, "##tb_unlit", "Unlit Draw Mode", _ed.show_unlit == true, "Un", "sprGM3DIconUnlit", 15, 15)) {
+		_ed.show_unlit = true;
+		_ed.show_shadows = false;
 		__gm3d_ed_unlit_apply(_ed);
-		if (_ed.show_unlit == true && _ed.show_shadows != false) {
-			_ed.show_shadows = false;
-			__gm3d_ed_shadowpreview_apply(_ed);
-		}
+		__gm3d_ed_shadowpreview_apply(_ed);
 	}
 	ImGui.SameLine();
-	if (__gm3d_ed_imgui_icon_btn(_ed, "##tb_shaded", "Preview shadows (on/off)", _ed.show_shadows != false, "Sh", "sprGM3DIconShaded", 15, 15)) {
-		_ed.show_shadows = (_ed.show_shadows == false);
+	if (__gm3d_ed_imgui_icon_btn(_ed, "##tb_shaded", "Shaded Draw Mode", _ed.show_unlit != true, "Sh", "sprGM3DIconShaded", 15, 15)) {
+		_ed.show_unlit = false;
+		_ed.show_shadows = true;
+		__gm3d_ed_unlit_apply(_ed);
 		__gm3d_ed_shadowpreview_apply(_ed);
-		if (_ed.show_shadows != false && _ed.show_unlit == true) {
-			_ed.show_unlit = false;
-			__gm3d_ed_unlit_apply(_ed);
-		}
 	}
 	ImGui.SameLine();
 	ImGui.TextDisabled("|");
