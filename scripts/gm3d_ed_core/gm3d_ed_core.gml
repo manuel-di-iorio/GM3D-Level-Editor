@@ -56,19 +56,52 @@ function gm3d_editor_postrender() {
 	}
 	__gm3d_ed_outline_capture(_ed);
 	__gm3d_ed_gpupick_execute(_ed);
+	__gm3d_ed_preview_render(_ed);
 }
 
-// Draws gizmos, overlays, and selection rectangle.
+// Renders viewport overlays into preview surface (target already set).
+function __gm3d_ed_compose_viewport(_ed) {
+	var _vp = __gm3d_ed_viewport(_ed);
+	__gm3d_ed_outline_composite(_ed);
+	__gm3d_ed_gizmo_draw(_ed, _vp);
+	__gm3d_ed_overlay_draw(_ed, _vp);
+	__gm3d_ed_viewcube_draw(_ed, _vp);
+	if (_ed.rect != undefined && _ed.rect.on && variable_struct_exists(_ed, "pvp") && is_struct(_ed.pvp)) {
+		var _r = __gm3d_ed_rect_norm(_ed.rect);
+		var _ox = _ed.pvp.x;
+		var _oy = _ed.pvp.y;
+		draw_set_alpha(0.15);
+		draw_set_color(make_colour_rgb(90, 140, 250));
+		draw_rectangle(_r.x0 - _ox, _r.y0 - _oy, _r.x1 - _ox, _r.y1 - _oy, false);
+		draw_set_alpha(1);
+		draw_rectangle(_r.x0 - _ox, _r.y0 - _oy, _r.x1 - _ox, _r.y1 - _oy, true);
+	}
+	draw_set_alpha(1);
+	draw_set_color(c_white);
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	if (_ed.show_fps == true) {
+		draw_set_halign(fa_right);
+		draw_set_valign(fa_top);
+		draw_set_color(c_white);
+		draw_set_alpha(1);
+		draw_text(max(60, _vp.winW - 200), 8, "FPS: " + string(round(fps_real)));
+		draw_set_halign(fa_left);
+		draw_set_valign(fa_top);
+	}
+	draw_set_alpha(1);
+	draw_set_color(c_white);
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+}
+
+// Draws window-level editor hints and tooltips.
 function gm3d_editor_draw() {
 	var _ed = gm3d_editor_inst();
 	if (_ed == undefined) {
 		return;
 	}
 
-	var _vp = undefined;
-	if (_ed.rt != undefined) {
-		_vp = __gm3d_ed_viewport(_ed);
-	}
 	var _modal = false;
 	_modal = _ed.confirm != undefined || _ed.about != undefined || _ed.scene_dlg != undefined;
 	if (_modal) {
@@ -81,15 +114,7 @@ function gm3d_editor_draw() {
 		draw_set_valign(fa_top);
 		return;
 	}
-	if (_ed.active && _vp != undefined) {
-		if (_ed.rect != undefined && _ed.rect.on) {
-			var _r = __gm3d_ed_rect_norm(_ed.rect);
-			draw_set_alpha(0.15);
-			draw_set_color(make_colour_rgb(90, 140, 250));
-			draw_rectangle(_r.x0, _r.y0, _r.x1, _r.y1, false);
-			draw_set_alpha(1);
-			draw_rectangle(_r.x0, _r.y0, _r.x1, _r.y1, true);
-		}
+	if (_ed.active) {
 		if (_ed.drag_lib != undefined && _ed.drag_moved) {
 			var _mx = device_mouse_x_to_gui(0);
 			var _my = device_mouse_y_to_gui(0);
@@ -103,10 +128,6 @@ function gm3d_editor_draw() {
 				draw_set_valign(fa_top);
 			}
 		}
-		__gm3d_ed_outline_composite(_ed);
-		__gm3d_ed_gizmo_draw(_ed, _vp);
-		__gm3d_ed_overlay_draw(_ed, _vp);
-		__gm3d_ed_viewcube_draw(_ed, _vp);
 		if (_ed.cam_speed_notice > 0) {
 			var _tip_w = 174;
 			var _tip_h = 36;
@@ -160,6 +181,10 @@ function gm3d_editor_cleanup(_ed = undefined) {
 	__gm3d_ed_outline_cleanup(_ed);
 	__gm3d_ed_gpupick_cleanup(_ed);
 	__gm3d_ed_thumbs_free(_ed);
+	if (surface_exists(_ed.preview_surf)) {
+		surface_free(_ed.preview_surf);
+	}
+	_ed.preview_surf = undefined;
 	__gm3d_ed_ui_save(_ed);
 	__gm3d_ed_drop_preview_clear(_ed);
 	__gm3d_ed_view_restore(_ed);
@@ -485,6 +510,13 @@ function __gm3d_ed_create(_inst, _rt) {
 		press_x: 0,
 		press_y: 0,
 		viewpan_moved: false,
+		preview_surf: undefined,
+		preview_stable_w: -1,
+		preview_stable_h: -1,
+		preview_w: 480,
+		preview_h: 270,
+		pvp: { x: 0, y: 0, w: 1366, h: 768 },
+		pvp_hover: false,
 		cube_armed: undefined,
 		cube_hover: undefined,
 		cube_face: undefined,
@@ -577,7 +609,7 @@ function __gm3d_ed_step(_ed, _dt) {
 
 	var _camera_owner_ok = _input.owner == undefined || __gm3d_ed_input_owner_is_camera(_input.owner);
 	_input.camera_keys = (_input.typing == false || (keyboard_check(vk_alt) && !_input.text_input)) && _camera_owner_ok;
-	_input.camera_viewport = _input.in_viewport && _camera_owner_ok;
+	_input.camera_viewport = _input.vin && _camera_owner_ok;
 	if (!_input.camera_viewport && keyboard_check(vk_alt)) {
 		_input.camera_viewport = _camera_owner_ok && __gm3d_ed_drag_in_viewport(_ed, _input.mx, _input.my);
 	}

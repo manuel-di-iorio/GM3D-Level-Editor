@@ -12,6 +12,14 @@ function __gm3d_ed_viewport(_ed) {
 		_w = 1366.0;
 		_h = 768.0;
 	}
+	var _ox = 0;
+	var _oy = 0;
+	if (__gm3d_ed_preview_open(_ed) && variable_struct_exists(_ed, "pvp") && is_struct(_ed.pvp) && _ed.pvp.w > 0 && _ed.pvp.h > 0) {
+		_w = _ed.pvp.w;
+		_h = _ed.pvp.h;
+		_ox = _ed.pvp.x;
+		_oy = _ed.pvp.y;
+	}
 
 	if (_comp != undefined) {
 		_fov = _comp.getFovY();
@@ -40,6 +48,8 @@ function __gm3d_ed_viewport(_ed) {
 		ndc_yup: _ed.ndc_yup,
 		winW: _w,
 		winH: _h,
+		offX: _ox,
+		offY: _oy,
 		fovY: _fov,
 		near: _near,
 		far: _far,

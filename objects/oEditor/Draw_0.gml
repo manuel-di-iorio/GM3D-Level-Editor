@@ -1,3 +1,5 @@
 gm3d_editor_prerender();
-demo_render(id);
+if (!gm3d_editor_is_active()) {
+	demo_render(id);
+}
 gm3d_editor_postrender();

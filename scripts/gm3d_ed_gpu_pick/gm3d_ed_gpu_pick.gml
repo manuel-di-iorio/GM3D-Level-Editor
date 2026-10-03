@@ -269,6 +269,10 @@ function __gm3d_ed_gpupick_begin(_ed, _g) {
 	var _ah = 0;
 	_aw = surface_get_width(application_surface);
 	_ah = surface_get_height(application_surface);
+	if (__gm3d_ed_preview_open(_ed) && _ed.preview_w > 0 && _ed.preview_h > 0) {
+		_aw = _ed.preview_w;
+		_ah = _ed.preview_h;
+	}
 	if (!__gm3d_ed_gpupick_surf(_ed, _g, _aw, _ah)) {
 		__gm3d_ed_gpupick_fail(_ed, _g, "pick surface unavailable");
 		return undefined;
@@ -298,17 +302,15 @@ function __gm3d_ed_gpupick_download(_ed, _g) {
 	return true;
 }
 
-// Converts GUI coordinates to surface coordinates.
+// Converts panel coordinates to surface coordinates.
 function __gm3d_ed_gpupick_to_surf(_ed, _g, _mx, _my) {
-	var _gw = 0;
-	var _gh = 0;
-	_gw = display_get_gui_width();
-	_gh = display_get_gui_height();
-	if (_gw <= 0 || _gh <= 0) {
-		return undefined;
+	var _pw = _ed.preview_w;
+	var _ph = _ed.preview_h;
+	if (!(_pw > 0) || !(_ph > 0)) {
+		return [clamp(floor(_mx), 0, _g.sw - 1), clamp(floor(_my), 0, _g.sh - 1)];
 	}
-	var _sx = clamp(floor(_mx * _g.sw / _gw), 0, _g.sw - 1);
-	var _sy = clamp(floor(_my * _g.sh / _gh), 0, _g.sh - 1);
+	var _sx = clamp(floor(_mx * _g.sw / _pw), 0, _g.sw - 1);
+	var _sy = clamp(floor(_my * _g.sh / _ph), 0, _g.sh - 1);
 	return [_sx, _sy];
 }
 

@@ -13,6 +13,9 @@ function __gm3d_ed_imgui_scene_win(_ed) {
 	var _begun = false;
 
 	var _pflags = __gm3d_ed_imgui_panel_flags(_ed, "hier");
+	if (__gm3d_ed_imgui_lock_move(_ed)) {
+		_pflags = _pflags | ImGuiWindowFlags.NoMove;
+	}
 	if (!ImGui.Begin("Hierarchy", _ui.win_hier, _pflags)) {
 		__gm3d_ed_imgui_panel_save(_ed, "hier");
 		ImGui.End();

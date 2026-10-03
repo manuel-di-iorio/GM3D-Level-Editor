@@ -103,7 +103,7 @@ function __gm3d_ed_outline_warmup(_ed, _o) {
 	if (_app == undefined || !surface_exists(_app)) {
 		return;
 	}
-	__gm3d_ed_outline_mask_surface(_o, surface_get_width(_app), surface_get_height(_app));
+	__gm3d_ed_outline_mask_surface(_o, _ed.preview_w, _ed.preview_h);
 }
 
 // Builds cheap change signature for selection, camera and surface size.
@@ -157,6 +157,9 @@ function __gm3d_ed_outline_capture(_ed) {
 	if (_ed == undefined || _ed.active != true) {
 		return;
 	}
+	if (!__gm3d_ed_preview_open(_ed)) {
+		return;
+	}
 	var _o = __gm3d_ed_outline_cfg(_ed);
 	if (_o == undefined) {
 		return;
@@ -206,8 +209,11 @@ function __gm3d_ed_outline_capture(_ed) {
 	if (_app == undefined || !surface_exists(_app)) {
 		return;
 	}
-	var _w = surface_get_width(_app);
-	var _h = surface_get_height(_app);
+	var _w = _ed.preview_w;
+	var _h = _ed.preview_h;
+	if (!(_w > 0) || !(_h > 0)) {
+		return;
+	}
 	if (!__gm3d_ed_outline_mask_surface(_o, _w, _h)) {
 		return;
 	}
@@ -282,11 +288,9 @@ function __gm3d_ed_outline_composite(_ed) {
 	if (!_o.has || _o.mask == undefined || !surface_exists(_o.mask)) {
 		return;
 	}
-	var _gw = 0;
-	var _gh = 0;
-	_gw = display_get_gui_width();
-	_gh = display_get_gui_height();
-	if (_gw <= 0 || _gh <= 0) {
+	var _gw = _ed.preview_w;
+	var _gh = _ed.preview_h;
+	if (!(_gw > 0) || !(_gh > 0)) {
 		return;
 	}
 	var _u_color = -1;

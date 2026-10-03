@@ -62,12 +62,26 @@ function __gm3d_ed_input_context(_ed, _keys) {
 	}
 	var _typing = _keyboard_capture || _text_input;
 	var _in_viewport = !_mouse_capture && _mx >= 0 && _mx <= _ed.gw && _my >= 0 && _my <= _ed.gh;
+	var _pox = 0;
+	var _poy = 0;
+	var _pww = _ed.gw;
+	var _phh = _ed.gh;
+	if (variable_struct_exists(_ed, "pvp") && is_struct(_ed.pvp) && _ed.pvp.w > 0 && _ed.pvp.h > 0) {
+		_pox = _ed.pvp.x;
+		_poy = _ed.pvp.y;
+		_pww = _ed.pvp.w;
+		_phh = _ed.pvp.h;
+	}
+	var _vin = __gm3d_ed_preview_open(_ed) && _ed.pvp_hover == true && _mx >= _pox && _mx < _pox + _pww && _my >= _poy && _my < _poy + _phh;
 	var _vp = __gm3d_ed_viewport(_ed);
 	var _owner = __gm3d_ed_input_owner_sync(_ed);
 	return {
 		keys: _keys,
 		mx: _mx,
 		my: _my,
+		vmx: _mx - _pox,
+		vmy: _my - _poy,
+		vin: _vin,
 		vp: _vp,
 		mouse_capture: _mouse_capture,
 		keyboard_capture: _keyboard_capture,
@@ -229,7 +243,7 @@ function __gm3d_ed_step_gizmo(_ed, _input) {
 				__gm3d_ed_wrap_begin(_ed, _mx, _my);
 			}
 			var _wv = __gm3d_ed_wrap_step(_ed, _mx, _my);
-			__gm3d_ed_gizmo_drag(_ed, _vp, _wv[0], _wv[1]);
+			__gm3d_ed_gizmo_drag(_ed, _vp, _wv[0] - _vp.offX, _wv[1] - _vp.offY);
 
 			__gm3d_ed_rows_follow(_ed, _ed.sel);
 		}
@@ -252,7 +266,7 @@ function __gm3d_ed_step_libdrop(_ed, _input) {
 			_ed.drag_moved = true;
 		}
 		if (_ed.drag_moved && _drop_vp) {
-			var _dpv = __gm3d_ed_drop_point(_ed, _vp, _mx, _my);
+			var _dpv = __gm3d_ed_drop_point(_ed, _vp, _input.vmx, _input.vmy);
 			if (_dpv == undefined) {
 
 				__gm3d_ed_drop_preview_clear(_ed);
@@ -263,7 +277,7 @@ function __gm3d_ed_step_libdrop(_ed, _input) {
 		if (!mouse_check_button(mb_left)) {
 			var _drop = undefined;
 			if (_ed.drag_moved && _drop_vp) {
-				_drop = __gm3d_ed_drop_point(_ed, _vp, _mx, _my);
+				_drop = __gm3d_ed_drop_point(_ed, _vp, _input.vmx, _input.vmy);
 			} else if (!_ed.drag_moved) {
 				var _pp = _ed.rt.cam.getLocalPosition();
 				var _f = __gm3d_ed_view_forward(_ed);
@@ -328,8 +342,14 @@ function __gm3d_ed_step_rect(_ed, _input) {
 		if (!mouse_check_button(mb_left)) {
 			var _r = __gm3d_ed_rect_norm(_ed.rect);
 			if (abs(_r.x1 - _r.x0) > 6 || abs(_r.y1 - _r.y0) > 6) {
-
-				__gm3d_ed_gpupick_request_rect(_ed, _r, keyboard_check(vk_shift));
+				var _ox = 0;
+				var _oy = 0;
+				if (variable_struct_exists(_ed, "pvp") && is_struct(_ed.pvp)) {
+					_ox = _ed.pvp.x;
+					_oy = _ed.pvp.y;
+				}
+				var _lr = { x0: _r.x0 - _ox, y0: _r.y0 - _oy, x1: _r.x1 - _ox, y1: _r.y1 - _oy };
+				__gm3d_ed_gpupick_request_rect(_ed, _lr, keyboard_check(vk_shift));
 			}
 			_ed.rect = undefined;
 			_ed.press_vp = false;
@@ -345,25 +365,27 @@ function __gm3d_ed_step_hover(_ed, _input) {
 	var _vp = _input.vp;
 	var _mx = _input.mx;
 	var _my = _input.my;
-	var _in_vp = _input.in_viewport;
+	var _vmx = _input.vmx;
+	var _vmy = _input.vmy;
+	var _in_vp = _input.vin;
 	var _typing = _input.typing;
 	__gm3d_ed_imgui_ensure(_ed);
 	_ed.cube_geom = _ed.imgui.win_cube.open ? __gm3d_ed_viewcube(_ed) : undefined;
 	_ed.cube_hover = undefined;
 	if (_in_vp && !mouse_check_button(mb_right) && _ed.cube_geom != undefined) {
-		_ed.cube_hover = __gm3d_ed_viewcube_cone_at(_ed.cube_geom, _mx, _my);
+		_ed.cube_hover = __gm3d_ed_viewcube_cone_at(_ed.cube_geom, _vmx, _vmy);
 	}
 
 	_ed.giz.hover = -1;
 	if (_in_vp && !mouse_check_button(mb_right)) {
-		_ed.giz.hover = __gm3d_ed_gizmo_hover(_ed, _vp, _mx, _my);
+		_ed.giz.hover = __gm3d_ed_gizmo_hover(_ed, _vp, _vmx, _vmy);
 	}
-	if (_ed.cube_geom != undefined && __gm3d_ed_viewcube_box_at(_ed.cube_geom, _mx, _my)) {
+	if (_ed.cube_geom != undefined && __gm3d_ed_viewcube_box_at(_ed.cube_geom, _vmx, _vmy)) {
 		_ed.giz.hover = -1;
 	}
 
 	if (mouse_check_button_pressed(mb_left) && _in_vp && !_typing && !keyboard_check(vk_alt) && _input.owner == undefined) {
-		if (_ed.cube_geom != undefined && __gm3d_ed_viewcube_box_at(_ed.cube_geom, _mx, _my)) {
+		if (_ed.cube_geom != undefined && __gm3d_ed_viewcube_box_at(_ed.cube_geom, _vmx, _vmy)) {
 			_ed.input_owner = "viewcube";
 			_input.owner = "viewcube";
 			_input.gesture_active = true;
@@ -373,14 +395,14 @@ function __gm3d_ed_step_hover(_ed, _input) {
 			_ed.cube_armed = true;
 			_ed.cube_face = _ed.cube_hover;
 			_ed.cube_moved = false;
-			_ed.cube_gx = _mx - _ed.cube_geom.cx;
-			_ed.cube_gy = _my - _ed.cube_geom.cy;
+			_ed.cube_gx = _vmx - _ed.cube_geom.cx;
+			_ed.cube_gy = _vmy - _ed.cube_geom.cy;
 		} else if (_ed.giz.hover != -1 && array_length(_ed.sel) > 0) {
 			_ed.input_owner = "gizmo";
 			_input.owner = "gizmo";
 			_input.gesture_active = true;
 			_ed.giz.drag = _ed.giz.hover;
-			__gm3d_ed_gizmo_begin(_ed, _vp, _mx, _my);
+			__gm3d_ed_gizmo_begin(_ed, _vp, _vmx, _vmy);
 		} else if (_ed.giz.tool == Gm3dEdTool.View) {
 			_ed.input_owner = "viewpan";
 			_input.owner = "viewpan";
@@ -418,9 +440,15 @@ function __gm3d_ed_step_hover(_ed, _input) {
 			_ed.cube_moved = true;
 		}
 		if (_ed.cube_moved) {
-			var _ncx = clamp(_mx - _ed.cube_gx, 60, max(61, _ed.gw - 60));
-			var _ncy = clamp(_my - _ed.cube_gy, 60, max(61, _ed.gh - 60));
-			_ed.cube_off = [_ed.gw - _ncx, _ncy];
+			var _pvw = _ed.gw;
+			var _pvh = _ed.gh;
+			if (variable_struct_exists(_ed, "pvp") && is_struct(_ed.pvp) && _ed.pvp.w > 0 && _ed.pvp.h > 0) {
+				_pvw = _ed.pvp.w;
+				_pvh = _ed.pvp.h;
+			}
+			var _ncx = clamp(_vmx - _ed.cube_gx, 60, max(61, _pvw - 60));
+			var _ncy = clamp(_vmy - _ed.cube_gy, 60, max(61, _pvh - 60));
+			_ed.cube_off = [_pvw - _ncx, _ncy];
 		}
 	}
 	if (mouse_check_button_released(mb_left) && _ed.press_vp && (_ed.rect == undefined || !_ed.rect.on)) {
@@ -433,7 +461,7 @@ function __gm3d_ed_step_hover(_ed, _input) {
 		__gm3d_ed_input_owner_clear(_ed, "viewpan");
 		if (_was_view) {
 			if (!_view_drag && _in_vp) {
-				__gm3d_ed_gpupick_request_click(_ed, _mx, _my, keyboard_check(vk_shift));
+				__gm3d_ed_gpupick_request_click(_ed, _vmx, _vmy, keyboard_check(vk_shift));
 			}
 		} else if (_ed.cube_armed == true) {
 			_ed.cube_armed = undefined;
@@ -442,7 +470,7 @@ function __gm3d_ed_step_hover(_ed, _input) {
 				__gm3d_ed_ui_save(_ed);
 			}
 			if (_in_vp && !_ed.cube_moved && _ed.cube_face != undefined && _ed.cube_geom != undefined) {
-				var _rf = __gm3d_ed_viewcube_cone_at(_ed.cube_geom, _mx, _my);
+				var _rf = __gm3d_ed_viewcube_cone_at(_ed.cube_geom, _vmx, _vmy);
 				if (_rf != undefined && _rf[0] == _ed.cube_face[0] && _rf[1] == _ed.cube_face[1]) {
 					for (var _fi = 0; _fi < array_length(_ed.cube_geom.faces); _fi++) {
 						var _ff = _ed.cube_geom.faces[_fi];
@@ -456,7 +484,7 @@ function __gm3d_ed_step_hover(_ed, _input) {
 			_ed.cube_face = undefined;
 		} else if (_in_vp) {
 
-			__gm3d_ed_gpupick_request_click(_ed, _mx, _my, keyboard_check(vk_shift));
+			__gm3d_ed_gpupick_request_click(_ed, _vmx, _vmy, keyboard_check(vk_shift));
 		}
 	}
 }
@@ -545,11 +573,8 @@ function __gm3d_ed_wrap_camera(_ed) {
 
 // Checks if mouse is inside viewport.
 function __gm3d_ed_drag_in_viewport(_ed, _mx, _my) {
-	if (_mx < 0 || _mx > _ed.gw || _my < 0 || _my > _ed.gh) {
+	if (!__gm3d_ed_preview_open(_ed) || !variable_struct_exists(_ed, "pvp") || !is_struct(_ed.pvp)) {
 		return false;
 	}
-	if (ImGui.IsWindowHovered(ImGuiHoveredFlags.AnyWindow)) {
-		return false;
-	}
-	return true;
+	return _mx >= _ed.pvp.x && _mx < _ed.pvp.x + _ed.pvp.w && _my >= _ed.pvp.y && _my < _ed.pvp.y + _ed.pvp.h;
 }

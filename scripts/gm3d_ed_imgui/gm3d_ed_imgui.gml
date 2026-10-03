@@ -94,6 +94,7 @@ function __gm3d_ed_imgui_ensure(_ed) {
 		win_insp: { open: true },
 		win_toolbar: { open: true },
 		win_cube: { open: true },
+		win_preview: { open: true },
 		reset_layout: false,
 		filter: "",
 		scene_filter: "",
@@ -156,10 +157,11 @@ function __gm3d_ed_imgui_draw(_ed) {
 		__gm3d_ed_cube_home(_ed);
 	}
 	__gm3d_ed_imgui_menu(_ed);
-	__gm3d_ed_imgui_toolbar(_ed);
 	__gm3d_ed_imgui_assets(_ed);
 	__gm3d_ed_imgui_scene_win(_ed);
 	__gm3d_ed_imgui_inspector(_ed);
+	__gm3d_ed_imgui_preview(_ed);
+	__gm3d_ed_imgui_toolbar(_ed);
 	__gm3d_ed_imgui_confirm(_ed);
 	__gm3d_ed_imgui_about(_ed);
 	__gm3d_ed_imgui_scene_dlg(_ed);
@@ -677,10 +679,12 @@ function __gm3d_ed_imgui_place(_ed) {
 	var _mh = clamp((_gh - _top - _gap * 2) * 0.32, 150, 240);
 	var _ih = max(280, _gh - _mh - _top - _gap - 8);
 	var _mx = _lw + _gap * 2;
+	var _rx = _gw - _iw - 8;
 	return {
 		hier: { x: 8, y: _top, w: _lw, h: max(200, _gh - _top - 8) },
 		insp: { x: _gw - _iw - 8, y: _top, w: _iw, h: _ih },
 		assets: { x: _mx, y: _gh - _mh - 8, w: max(200, _gw - _mx - 8), h: _mh },
+		prev: { x: _mx, y: _top, w: max(200, _rx - _mx - _gap), h: max(150, _gh - _mh - 8 - _gap - _top) },
 	};
 }
 
@@ -961,6 +965,9 @@ function __gm3d_ed_imgui_menu(_ed) {
 		if (ImGui.MenuItem(_ui.win_cube.open ? "[x] View Cube" : "[  ] View Cube")) {
 			_ui.win_cube.open = !_ui.win_cube.open;
 		}
+		if (ImGui.MenuItem(_ui.win_preview.open ? "[x] Preview" : "[  ] Preview")) {
+			_ui.win_preview.open = !_ui.win_preview.open;
+		}
 		if (ImGui.MenuItem(_ed.show_grid ? "[x] Grid" : "[  ] Grid")) {
 			_ed.show_grid = !_ed.show_grid;
 		}
@@ -988,6 +995,97 @@ function __gm3d_ed_imgui_menu(_ed) {
 	__gm3d_ed_menu_do(_ed, _do_new, _do_load, _do_saveas, _do_close);
 }
 
+// Checks if panels should lock movement during viewport gestures.
+function __gm3d_ed_imgui_lock_move(_ed) {
+	return _ed.input_owner != undefined;
+}
+
+// Draws live scene preview rendered to surface.
+function __gm3d_ed_imgui_preview(_ed) {
+	var _ui = _ed.imgui;
+	if (!_ui.win_preview.open) {
+		return;
+	}
+	var _pp = __gm3d_ed_imgui_place(_ed).prev;
+	ImGui.SetNextWindowPos(_pp.x, _pp.y, _ui.cond);
+	ImGui.SetNextWindowSize(_pp.w, _pp.h, _ui.cond);
+	var _flags = ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse;
+	if (__gm3d_ed_imgui_lock_move(_ed)) {
+		_flags = _flags | ImGuiWindowFlags.NoMove;
+	}
+	if (!ImGui.Begin("Preview", _ui.win_preview, _flags)) {
+		_ed.pvp_hover = false;
+		ImGui.End();
+		return;
+	}
+	var _aw = max(160, ImGui.GetContentRegionAvailX());
+	var _ah = _aw * 9 / 16;
+	var _probe = ImGui[$ "GetContentRegionAvailY"];
+	if (_probe != undefined) {
+		_ah = max(120, _probe());
+	}
+	var _dw = _aw;
+	var _dh = _ah;
+	_ed.preview_w = clamp(round(_dw), 160, 1920);
+	_ed.preview_h = clamp(round(_dh), 90, 1080);
+	_ed.pvp = { x: ImGui.GetCursorScreenPosX(), y: ImGui.GetCursorScreenPosY(), w: _dw, h: _dh };
+	_ed.pvp_hover = ImGui.IsWindowHovered();
+	if (surface_exists(_ed.preview_surf)) {
+		ImGui.Surface(_ed.preview_surf, c_white, 1, _dw, _dh);
+	} else {
+		ImGui.TextDisabled("No preview");
+	}
+	ImGui.End();
+}
+
+// Checks if scene preview panel is open.
+function __gm3d_ed_preview_open(_ed) {
+	if (_ed == undefined || !variable_struct_exists(_ed, "imgui") || !is_struct(_ed.imgui)) {
+		return false;
+	}
+	if (!variable_struct_exists(_ed.imgui, "win_preview") || !is_struct(_ed.imgui.win_preview)) {
+		return false;
+	}
+	return _ed.imgui.win_preview.open == true;
+}
+
+// Renders live scene to preview surface.
+function __gm3d_ed_preview_render(_ed) {
+	if (_ed == undefined || !_ed.active) {
+		return;
+	}
+	if (!__gm3d_ed_preview_open(_ed)) {
+		return;
+	}
+	if (_ed.rt == undefined || _ed.rt.scene == undefined || _ed.inst == undefined || _ed.inst.renderer == undefined) {
+		return;
+	}
+	var _w = clamp(round(_ed.preview_w), 160, 1920);
+	var _h = clamp(round(_ed.preview_h), 90, 1080);
+	if (_w <= 0 || _h <= 0) {
+		return;
+	}
+	if (!surface_exists(_ed.preview_surf) || surface_get_width(_ed.preview_surf) != _w || surface_get_height(_ed.preview_surf) != _h) {
+		var _stable = variable_struct_exists(_ed, "preview_stable_w") && variable_struct_exists(_ed, "preview_stable_h") && _ed.preview_stable_w == _w && _ed.preview_stable_h == _h;
+		if (!surface_exists(_ed.preview_surf) || _stable) {
+			if (surface_exists(_ed.preview_surf)) {
+				surface_free(_ed.preview_surf);
+			}
+			_ed.preview_surf = surface_create(_w, _h);
+		}
+	}
+	_ed.preview_stable_w = _w;
+	_ed.preview_stable_h = _h;
+	if (!surface_exists(_ed.preview_surf)) {
+		return;
+	}
+	surface_set_target(_ed.preview_surf);
+	draw_clear(c_black);
+	_ed.inst.renderer.render(_ed.rt.scene);
+	__gm3d_ed_compose_viewport(_ed);
+	surface_reset_target();
+}
+
 // Draws Models asset browser window.
 function __gm3d_ed_imgui_assets(_ed) {
 	var _ui = _ed.imgui;
@@ -1003,6 +1101,9 @@ function __gm3d_ed_imgui_assets(_ed) {
 	var _begun = false;
 
 	var _pflags = __gm3d_ed_imgui_panel_flags(_ed, "assets");
+	if (__gm3d_ed_imgui_lock_move(_ed)) {
+		_pflags = _pflags | ImGuiWindowFlags.NoMove;
+	}
 	if (!ImGui.Begin("Models", _ui.win_assets, _pflags)) {
 		__gm3d_ed_imgui_panel_save(_ed, "assets");
 		ImGui.End();

@@ -46,6 +46,9 @@ function __gm3d_ed_imgui_inspector(_ed) {
 	var _begun = false;
 
 	var _pflags = __gm3d_ed_imgui_panel_flags(_ed, "insp");
+	if (__gm3d_ed_imgui_lock_move(_ed)) {
+		_pflags = _pflags | ImGuiWindowFlags.NoMove;
+	}
 	if (!ImGui.Begin("Inspector", _ui.win_insp, _pflags)) {
 		__gm3d_ed_imgui_panel_save(_ed, "insp");
 		ImGui.End();

@@ -11,7 +11,11 @@ function __gm3d_ed_viewcube(_ed) {
 	if (_ed.gw <= 0 || _ed.gh <= 0) {
 		return undefined;
 	}
-	var _cx = _ed.gw - _ed.cube_off[0];
+	var _pvw = _ed.gw;
+	if (variable_struct_exists(_ed, "pvp") && is_struct(_ed.pvp) && _ed.pvp.w > 0) {
+		_pvw = _ed.pvp.w;
+	}
+	var _cx = _pvw - _ed.cube_off[0];
 	var _cy = _ed.cube_off[1];
 	var _R = 10;
 	var _qb = __gm3d_ed_quat_basis(_ed.rt.cam.getLocalRotation());
