@@ -115,7 +115,7 @@ function __gm3d_ed_step_hotkeys(_ed, _input) {
 			var _njx = keyboard_check_pressed(vk_right) - keyboard_check_pressed(vk_left);
 			var _njz = keyboard_check_pressed(vk_down) - keyboard_check_pressed(vk_up);
 			if ((_njx != 0 || _njz != 0) && array_length(_ed.sel) > 0) {
-				var _nst = _ed.snap_on ? _ed.snap_pos : 0.25;
+				var _nst = _ed.snap_on ? __gm3d_ed_snap_step(_ed) : 0.25;
 				var _hb = undefined;
 				_hb = __gm3d_ed_history_snap(_ed);
 				for (var _ni = 0; _ni < array_length(_ed.sel); _ni++) {

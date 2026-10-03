@@ -510,6 +510,7 @@ function __gm3d_ed_create(_inst, _rt) {
 		snap_on: false,
 		snap_pos: 0.5,
 		snap_rot: 15,
+		snap_to_grid: true,
 		show_grid: true,
 		show_shadows: true,
 		show_unlit: false,

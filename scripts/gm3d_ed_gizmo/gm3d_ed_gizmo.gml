@@ -551,7 +551,7 @@ function __gm3d_ed_gizmo_drag_translate(_ed, _g, _ray) {
 		var _local = __gm3d_ed_gizmo_world_delta_to_local(_ed.sel[_i], _delta);
 		var _pos = _g.starts[_i].pos.clone();
 		_pos.add(_local);
-		var _sp = _ed.snap_on || keyboard_check(vk_control) ? _ed.snap_pos : 0;
+		var _sp = _ed.snap_on || keyboard_check(vk_control) ? __gm3d_ed_snap_step(_ed) : 0;
 		if (_sp > 0) {
 			_pos.x = __gm3d_ed_snap(_pos.x, _sp);
 			_pos.y = __gm3d_ed_snap(_pos.y, _sp);

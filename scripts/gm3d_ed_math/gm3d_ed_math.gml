@@ -148,6 +148,17 @@ function __gm3d_ed_snap(_v, _step) {
 	return round(_v / _step) * _step;
 }
 
+// Returns effective move snap step (grid cell when linked).
+function __gm3d_ed_snap_step(_ed) {
+	if (variable_struct_exists(_ed, "snap_to_grid") && _ed.snap_to_grid == true && variable_struct_exists(_ed, "grid_step") && is_real(_ed.grid_step)) {
+		return clamp(_ed.grid_step, 0.1, 8);
+	}
+	if (variable_struct_exists(_ed, "snap_pos") && is_real(_ed.snap_pos)) {
+		return max(0.01, _ed.snap_pos);
+	}
+	return 0.5;
+}
+
 // Converts quaternion to Euler angles.
 function __gm3d_ed_quat_to_euler(_q) {
 	var _qx = _q.x;

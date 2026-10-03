@@ -166,17 +166,14 @@ function __gm3d_ed_imgui_scene_list(_ed) {
 	}
 	var _sk = _ui.show_kind;
 	var _fw = 80;
-	_fw = max(80, ImGui.GetContentRegionAvailX() - 70);
+	_fw = max(80, ImGui.GetContentRegionAvailX() - 32);
 	ImGui.SetNextItemWidth(_fw);
 	_ui.scene_filter = __gm3d_ed_imgui_text_hint("##scenefilter", "Filter nodes...", _ui.scene_filter);
 	ImGui.SameLine();
 	var _can_popup = __gm3d_ed_imgui_has_widget(_ed, "BeginPopup") && __gm3d_ed_imgui_has_widget(_ed, "OpenPopup");
 	if (_can_popup) {
-		if (__gm3d_ed_imgui_small_btn_w(_ed, "Filters", false, 56)) {
+		if (__gm3d_ed_imgui_icon_btn(_ed, "##scenefilters", "Filter asset types", false, "Fl", "sprGM3DIconFilters", 13, 13)) {
 			ImGui.OpenPopup("##scenekindfilters");
-		}
-		if (ImGui.IsItemHovered()) {
-			ImGui.SetTooltip("Filter asset types");
 		}
 		var _opened = false;
 		_opened = ImGui.BeginPopup("##scenekindfilters");
@@ -188,11 +185,8 @@ function __gm3d_ed_imgui_scene_list(_ed) {
 			ImGui.EndPopup();
 		}
 	} else {
-		if (__gm3d_ed_imgui_small_btn_w(_ed, "Filters", _ui.show_kind_open == true, 56)) {
+		if (__gm3d_ed_imgui_icon_btn(_ed, "##scenefilters", "Filter asset types", _ui.show_kind_open == true, "Fl", "sprGM3DIconFilters", 13, 13)) {
 			_ui.show_kind_open = !_ui.show_kind_open;
-		}
-		if (ImGui.IsItemHovered()) {
-			ImGui.SetTooltip("Filter asset types");
 		}
 		if (_ui.show_kind_open == true) {
 			_sk.m = ImGui.Checkbox("Models", _sk.m);

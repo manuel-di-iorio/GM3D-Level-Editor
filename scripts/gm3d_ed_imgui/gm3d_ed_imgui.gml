@@ -160,14 +160,54 @@ function __gm3d_ed_imgui_draw(_ed) {
 }
 
 // Draws toolbar button with tooltip and highlight.
-function __gm3d_ed_imgui_tool_btn(_tip, _label, _active) {
+function __gm3d_ed_imgui_tool_btn(_tip, _label, _active, _h = 0) {
 	var _pushed = 0;
 	if (_active) {
 		ImGui.PushStyleColor(ImGuiCol.Button, make_colour_rgb(47, 111, 237), 1);
 		_pushed++;
 	}
-	var _hit = ImGui.Button(_label);
+	var _hit = ImGui.Button(_label, 0, _h);
 	__gm3d_ed_imgui_pop(_pushed);
+	if (ImGui.IsItemHovered()) {
+		ImGui.SetTooltip(_tip);
+	}
+	return _hit;
+}
+
+// Draws small icon button with tooltip and highlight.
+function __gm3d_ed_imgui_icon_btn(_ed, _id, _tip, _active, _fb, _spr, _w = -1, _h = -1) {
+	static _cache = {};
+	if (!variable_struct_exists(_cache, _spr)) {
+		_cache[$ _spr] = asset_get_index(_spr);
+	}
+	var _sp = _cache[$ _spr];
+	if (_sp == -1 || _sp == undefined) {
+		_sp = asset_get_index("sprGM3DIconObject");
+	}
+	var _hit = false;
+	if (_sp != -1 && _sp != undefined && __gm3d_ed_imgui_has_widget(_ed, "ImageButton")) {
+		var _iw = _w;
+		var _ih = _h;
+		if (_iw < 0) {
+			_iw = sprite_get_width(_sp);
+		}
+		if (_ih < 0) {
+			_ih = sprite_get_height(_sp);
+		}
+		if (_active) {
+			ImGui.PushStyleColor(ImGuiCol.Button, make_colour_rgb(47, 111, 237), 1);
+		} else {
+			ImGui.PushStyleColor(ImGuiCol.Button, c_black, 0);
+		}
+		ImGui.PushStyleColor(ImGuiCol.ButtonHovered, make_colour_rgb(47, 111, 237), 0.35);
+		ImGui.PushStyleColor(ImGuiCol.ButtonActive, make_colour_rgb(47, 111, 237), 0.5);
+		_hit = ImGui.ImageButton(_id, _sp, 0, c_white, 1, c_black, 0, _iw, _ih);
+		__gm3d_ed_imgui_pop(3);
+	} else if (__gm3d_ed_imgui_has_widget(_ed, "SmallButton")) {
+		_hit = ImGui.SmallButton(_fb);
+	} else {
+		_hit = ImGui.Button(_fb);
+	}
 	if (ImGui.IsItemHovered()) {
 		ImGui.SetTooltip(_tip);
 	}
@@ -185,15 +225,15 @@ function __gm3d_ed_imgui_toolbar(_ed) {
 		ImGui.End();
 		return;
 	}
-	if (__gm3d_ed_imgui_tool_btn("Move (1)", "Move", _ed.giz.tool == Gm3dEdTool.Translate)) {
+	if (__gm3d_ed_imgui_icon_btn(_ed, "##tb_move", "Move (1)", _ed.giz.tool == Gm3dEdTool.Translate, "M", "sprGM3DIconMove", 15, 15)) {
 		_ed.giz.tool = Gm3dEdTool.Translate;
 	}
 	ImGui.SameLine();
-	if (__gm3d_ed_imgui_tool_btn("Rotate (2)", "Rotate", _ed.giz.tool == Gm3dEdTool.Rotate)) {
+	if (__gm3d_ed_imgui_icon_btn(_ed, "##tb_rotate", "Rotate (2)", _ed.giz.tool == Gm3dEdTool.Rotate, "R", "sprGM3DIconRotate", 15, 15)) {
 		_ed.giz.tool = Gm3dEdTool.Rotate;
 	}
 	ImGui.SameLine();
-	if (__gm3d_ed_imgui_tool_btn("Scale (3)", "Scale", _ed.giz.tool == Gm3dEdTool.Scale)) {
+	if (__gm3d_ed_imgui_icon_btn(_ed, "##tb_scale", "Scale (3)", _ed.giz.tool == Gm3dEdTool.Scale, "S", "sprGM3DIconScale", 15, 15)) {
 		_ed.giz.tool = Gm3dEdTool.Scale;
 	}
 	ImGui.SameLine();
@@ -201,103 +241,80 @@ function __gm3d_ed_imgui_toolbar(_ed) {
 
 	ImGui.SameLine();
 	var _olbl = _ed.giz.orient == 1 ? "Local" : "World";
-	if (__gm3d_ed_imgui_tool_btn("Gizmo axes space (" + _olbl + ", click to switch)", _olbl, false)) {
+	if (__gm3d_ed_imgui_tool_btn("Gizmo axes space (" + _olbl + ", click to switch)", _olbl, false, 22)) {
 		_ed.giz.orient = _ed.giz.orient == 1 ? 0 : 1;
 	}
 	ImGui.SameLine();
 	ImGui.TextDisabled("|");
 
 	ImGui.SameLine();
-	if (__gm3d_ed_imgui_tool_btn("Snap to increments (on/off)", "Snap", _ed.snap_on)) {
+	if (__gm3d_ed_imgui_icon_btn(_ed, "##tb_snap", "Snap to increments (on/off)", _ed.snap_on, "Sn", "sprGM3DIconSnap", 15, 15)) {
 		_ed.snap_on = !_ed.snap_on;
 	}
 	ImGui.SameLine();
-	__gm3d_ed_imgui_snap_combo(_ed);
-	ImGui.SameLine();
-	ImGui.TextDisabled("|");
-
-	ImGui.SameLine();
-	if (__gm3d_ed_imgui_tool_btn("Show grid (on/off)", "Grid", _ed.show_grid)) {
+	if (__gm3d_ed_imgui_icon_btn(_ed, "##tb_grid", "Show grid (on/off)", _ed.show_grid, "Gr", "sprGM3DIconGrid", 15, 15)) {
 		_ed.show_grid = !_ed.show_grid;
 	}
 	ImGui.SameLine();
-	__gm3d_ed_imgui_grid_combo(_ed);
+	__gm3d_ed_imgui_grid_snap(_ed);
 	ImGui.SameLine();
 	ImGui.TextDisabled("|");
 	ImGui.SameLine();
-	if (__gm3d_ed_imgui_tool_btn("Preview shadows (on/off)", "Shadows", _ed.show_shadows != false)) {
-		_ed.show_shadows = (_ed.show_shadows == false);
-		__gm3d_ed_shadowpreview_apply(_ed);
-	}
-	ImGui.SameLine();
-	if (__gm3d_ed_imgui_tool_btn("Unlit flat view (on/off)", "Unlit", _ed.show_unlit == true)) {
+	if (__gm3d_ed_imgui_icon_btn(_ed, "##tb_unlit", "Unlit flat view (on/off)", _ed.show_unlit == true, "Un", "sprGM3DIconUnlit", 15, 15)) {
 		_ed.show_unlit = (_ed.show_unlit != true);
 		__gm3d_ed_unlit_apply(_ed);
+		if (_ed.show_unlit == true && _ed.show_shadows != false) {
+			_ed.show_shadows = false;
+			__gm3d_ed_shadowpreview_apply(_ed);
+		}
 	}
 	ImGui.SameLine();
-	if (__gm3d_ed_imgui_tool_btn("Reset camera to the initial view", "Home", false)) {
+	if (__gm3d_ed_imgui_icon_btn(_ed, "##tb_shaded", "Preview shadows (on/off)", _ed.show_shadows != false, "Sh", "sprGM3DIconShaded", 15, 15)) {
+		_ed.show_shadows = (_ed.show_shadows == false);
+		__gm3d_ed_shadowpreview_apply(_ed);
+		if (_ed.show_shadows != false && _ed.show_unlit == true) {
+			_ed.show_unlit = false;
+			__gm3d_ed_unlit_apply(_ed);
+		}
+	}
+	ImGui.SameLine();
+	ImGui.TextDisabled("|");
+	ImGui.SameLine();
+	if (__gm3d_ed_imgui_icon_btn(_ed, "##tb_home", "Reset camera to the initial view", false, "Hm", "sprGM3DIconCenter", 15, 15)) {
 		__gm3d_ed_cam_home(_ed, true);
 	}
 	ImGui.End();
 }
 
-// Edits movement and rotation snap increments.
-function __gm3d_ed_imgui_snap_combo(_ed) {
-	if (!__gm3d_ed_imgui_has_widget(_ed, "BeginCombo")) {
-		_ed.snap_pos = max(0.01, __gm3d_ed_imgui_dragfloat("##snappos_fb", _ed.snap_pos, 0.005));
-		return;
-	}
-	ImGui.SetNextItemWidth(62);
-	var _prev = string(_ed.snap_pos);
-	var _open = false;
-	_open = ImGui.BeginCombo("##snapcombo", _prev);
-	if (!_open) {
-		if (ImGui.IsItemHovered()) {
-			ImGui.SetTooltip("Snap increments (move / rotate deg)");
-		}
-		return;
-	}
-	var _presets = [0.1, 0.25, 0.5, 1, 2];
-	for (var _i = 0; _i < array_length(_presets); _i++) {
-		var _p = _presets[_i];
-		var _sel = abs(_ed.snap_pos - _p) < 0.0001;
-		if (ImGui.Selectable(string(_p), _sel)) {
-			_ed.snap_pos = _p;
-		}
-		if (_sel) {
-			ImGui.SetItemDefaultFocus();
-		}
-	}
-	ImGui.Separator();
-	ImGui.TextDisabled("Move step");
-	ImGui.SetNextItemWidth(120);
-	_ed.snap_pos = max(0.01, __gm3d_ed_imgui_dragfloat("##snappos_custom", _ed.snap_pos, 0.005));
-	ImGui.TextDisabled("Rotate step (deg)");
-	ImGui.SetNextItemWidth(120);
-	_ed.snap_rot = max(0.5, __gm3d_ed_imgui_dragfloat("##snaprot_custom", _ed.snap_rot, 0.1));
-	ImGui.EndCombo();
-}
-
-// Edits grid cell size via presets.
-function __gm3d_ed_imgui_grid_combo(_ed) {
+// Edits grid size and snap increments in one place.
+function __gm3d_ed_imgui_grid_snap(_ed) {
 	if (!variable_struct_exists(_ed, "grid_step") || !is_real(_ed.grid_step)) {
 		_ed.grid_step = 1;
 	}
+	if (!variable_struct_exists(_ed, "snap_to_grid")) {
+		_ed.snap_to_grid = true;
+	}
+	if (!variable_struct_exists(_ed, "snap_pos") || !is_real(_ed.snap_pos)) {
+		_ed.snap_pos = 0.5;
+	}
 	if (!__gm3d_ed_imgui_has_widget(_ed, "BeginCombo")) {
-		var _fb = __gm3d_ed_imgui_dragfloat("##gridstep_fb", _ed.grid_step, 0.01);
+		var _fb = __gm3d_ed_imgui_dragfloat("##gridsnap_fb", _ed.grid_step, 0.01);
 		__gm3d_ed_grid_set_step(_ed, clamp(_fb, 0.1, 8));
 		return;
 	}
 	ImGui.SetNextItemWidth(62);
 	var _prev = string(_ed.grid_step) + "m";
 	var _open = false;
-	_open = ImGui.BeginCombo("##gridcombo", _prev);
+	_open = ImGui.BeginCombo("##gridsnap", _prev);
 	if (!_open) {
 		if (ImGui.IsItemHovered()) {
-			ImGui.SetTooltip("Grid cell size (world units)");
+			ImGui.SetTooltip("Grid and Snap");
 		}
 		return;
 	}
+	_ed.snap_to_grid = ImGui.Checkbox("Snap to Grid", _ed.snap_to_grid == true);
+	ImGui.Separator();
+	ImGui.TextDisabled("Grid size (m)");
 	var _presets = [0.25, 0.5, 1, 2, 4];
 	for (var _i = 0; _i < array_length(_presets); _i++) {
 		var _p = _presets[_i];
@@ -313,8 +330,29 @@ function __gm3d_ed_imgui_grid_combo(_ed) {
 	ImGui.Separator();
 	ImGui.TextDisabled("Cell size (m)");
 	ImGui.SetNextItemWidth(120);
-	var _c = __gm3d_ed_imgui_dragfloat("##gridstep_custom", _ed.grid_step, 0.01);
+	var _c = __gm3d_ed_imgui_dragfloat("##gridsnap_custom", _ed.grid_step, 0.01);
 	__gm3d_ed_grid_set_step(_ed, clamp(_c, 0.1, 8));
+	if (_ed.snap_to_grid != true) {
+		ImGui.Separator();
+		ImGui.TextDisabled("Move step");
+		var _mpres = [0.1, 0.25, 0.5, 1, 2];
+		for (var _j = 0; _j < array_length(_mpres); _j++) {
+			var _mp = _mpres[_j];
+			var _msel = abs(_ed.snap_pos - _mp) < 0.0001;
+			if (ImGui.Selectable(string(_mp), _msel)) {
+				_ed.snap_pos = _mp;
+			}
+			if (_msel) {
+				ImGui.SetItemDefaultFocus();
+			}
+		}
+		ImGui.SetNextItemWidth(120);
+		_ed.snap_pos = max(0.01, __gm3d_ed_imgui_dragfloat("##gridsnap_move", _ed.snap_pos, 0.005));
+	}
+	ImGui.Separator();
+	ImGui.TextDisabled("Rotate step (deg)");
+	ImGui.SetNextItemWidth(120);
+	_ed.snap_rot = max(0.5, __gm3d_ed_imgui_dragfloat("##gridsnap_rot", _ed.snap_rot, 0.1));
 	ImGui.EndCombo();
 }
 
