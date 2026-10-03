@@ -38,9 +38,11 @@ function __gm3d_ed_imgui_inspector(_ed) {
 		return;
 	}
 	var _pi = __gm3d_ed_imgui_place(_ed).insp;
-	ImGui.SetNextWindowPos(_pi.x, _pi.y, _ui.cond);
-	ImGui.SetNextWindowSize(_pi.w, _pi.h, _ui.cond);
-	__gm3d_ed_imgui_bg_alpha(0.95);
+	if (!__gm3d_ed_imgui_dock_fresh(_ed)) {
+		ImGui.SetNextWindowPos(_pi.x, _pi.y, _ui.cond);
+		ImGui.SetNextWindowSize(_pi.w, _pi.h, _ui.cond);
+	}
+	__gm3d_ed_imgui_bg_alpha(1);
 	var _begun = false;
 
 	var _pflags = __gm3d_ed_imgui_panel_flags(_ed, "insp");

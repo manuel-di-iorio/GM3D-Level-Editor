@@ -19,6 +19,7 @@ function __gm3d_ed_outline_cfg(_ed) {
 			strength: 1.5,
 			glow: 0.75,
 			threshold: 0.9,
+			sig: undefined,
 		};
 	}
 	return _ed.outline;
@@ -105,6 +106,52 @@ function __gm3d_ed_outline_warmup(_ed, _o) {
 	__gm3d_ed_outline_mask_surface(_o, surface_get_width(_app), surface_get_height(_app));
 }
 
+// Builds cheap change signature for selection, camera and surface size.
+// Returns undefined when it cannot be built reliably (forces recapture).
+function __gm3d_ed_outline_sig(_ed) {
+	if (_ed.rt == undefined || _ed.rt.scene == undefined || _ed.vp == undefined) {
+		return undefined;
+	}
+	var _app = undefined;
+	_app = application_surface;
+	if (_app == undefined || !surface_exists(_app)) {
+		return undefined;
+	}
+	var _sig = string(surface_get_width(_app)) + "x" + string(surface_get_height(_app));
+	_sig += "|t" + string(is_array(_ed.tracked) ? array_length(_ed.tracked) : -1);
+	var _vp = _ed.vp;
+	if (_vp.camNode == undefined || _vp.camForward == undefined) {
+		return undefined;
+	}
+	var _cp = _vp.camNode.getWorldPosition();
+	if (_cp == undefined) {
+		return undefined;
+	}
+	_sig += "|c" + string(_cp.x) + "," + string(_cp.y) + "," + string(_cp.z);
+	_sig += "|f" + string(_vp.camForward.x) + "," + string(_vp.camForward.y) + "," + string(_vp.camForward.z);
+	if (!is_array(_ed.sel)) {
+		return _sig;
+	}
+	for (var _i = 0; _i < array_length(_ed.sel); _i++) {
+		var _nd = _ed.sel[_i];
+		if (_nd == undefined) {
+			_sig += "|x";
+			continue;
+		}
+		var _wp = _nd.getWorldPosition();
+		var _rq = _nd.getLocalRotation();
+		var _sc = _nd.getLocalScale();
+		if (_wp == undefined || _rq == undefined || _sc == undefined) {
+			return undefined;
+		}
+		_sig += "|" + string(_nd.name) + "," + string(_wp.x) + "," + string(_wp.y) + "," + string(_wp.z);
+		_sig += "," + string(_rq.x) + "," + string(_rq.y) + "," + string(_rq.z) + "," + string(_rq.w);
+		_sig += "," + string(_sc.x) + "," + string(_sc.y) + "," + string(_sc.z);
+		_sig += __gm3d_ed_hidden_get(_ed, _nd) ? ",h" : ",v";
+	}
+	return _sig;
+}
+
 // Renders selection mask for outline.
 function __gm3d_ed_outline_capture(_ed) {
 	if (_ed == undefined || _ed.active != true) {
@@ -142,6 +189,12 @@ function __gm3d_ed_outline_capture(_ed) {
 		}
 	}
 	if (array_length(_selEntries) == 0) {
+		_o.sig = undefined;
+		return;
+	}
+	var _sig = __gm3d_ed_outline_sig(_ed);
+	var _old_sig = variable_struct_exists(_o, "sig") ? _o.sig : undefined;
+	if (_sig != undefined && _sig == _old_sig && _o.has && _o.mask != undefined && surface_exists(_o.mask)) {
 		return;
 	}
 	if (!__gm3d_ed_outline_mats(_ed, _o)) {
@@ -211,10 +264,10 @@ function __gm3d_ed_outline_capture(_ed) {
 		_renderer.render(_ed.rt.scene);
 		surface_reset_target();
 		_o.has = true;
+		_o.sig = _sig;
 	}
 
 	__gm3d_ed_walk_restore(_swapped, _muted);
-	_ed.rt.scene.update(0);
 }
 
 // Draws outline glow from mask.

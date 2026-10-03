@@ -165,6 +165,7 @@ enum ImGuiDockNodeFlags {
 	NoDockingSplit = 1 << 4,
 	NoResize = 1 << 5,
 	AutoHideTabBar = 1 << 6,
+	DockSpace = 1 << 10,
 }
 
 enum ImGuiFocusedFlags {

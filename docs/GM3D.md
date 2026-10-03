@@ -77,7 +77,7 @@ scene = GM3D_Scene.createEmpty();
 renderer = new GM3D_Renderer();
 assets = [];
 
-var model = GM3D_Scene.loadGltf(working_directory + "kenney_platformer-kit/tree.glb");
+var model = GM3D_Scene.loadGltf(working_directory + "models/tree.glb");
 
 // One shader per render pass (see Materials, shaders and textures).
 model.forEachMaterial(method({ shStatic, shAnimated, shStaticShadow, shAnimatedShadow }, function(_mat, _ctx) {
@@ -1003,6 +1003,11 @@ Sample helpers (`scripts/`):
 - Character: one `setCharacterVelocity` per step; read ground state after step for animation/camera branches.
 - Vehicles: set input once per step; avoid per-frame rebuild.
 - Shadows double draw cost: keep `ShadowResolution/Distance` minimal, disable `CastShadows` on tiny/irrelevant meshes.
+- Render the scene offscreen only into targets at full application-surface
+  size. A smaller target makes the renderer drop its size-matched attachments
+  (color/depth) mid-frame while already-queued command buffers still reference
+  them: `Destroyed texture used in a submit` validation errors and black
+  output, because the whole frame is submitted in one batch at frame end.
 - Explicitly destroy all owned scenes.
 
 ### Suggested ownership
@@ -1095,4 +1100,3 @@ GM3D_EPhysicsTrackSide.Left / Right
 ## Sources
 
 - `https://github.com/YoYoGames/GM3D-Samples` (`scripts/`, `objects/`, `shaders/`, `notes/GM3D_API.md` — the API index is the authority for signatures).
-- Base: `docs/GM3D.md` history in this repository (stable structure and wording reused where unchanged).

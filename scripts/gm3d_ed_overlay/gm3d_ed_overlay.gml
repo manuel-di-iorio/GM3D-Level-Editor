@@ -237,7 +237,7 @@ function __gm3d_ed_overlay_light(_ed, _vp, _nd, _en, _wp, _sp, _lb, _sel) {
 			var _v0 = new GM3D_Vec3();
 			_v0.crossVectors(_fw, _u0);
 			var _len = 0.7;
-			var _rad = 0.15;
+			var _rad = 0.1;
 			var _rim = [];
 			for (var _rk = 0; _rk <= 12; _rk++) {
 				var _rt0 = (_rk / 12) * pi * 2;

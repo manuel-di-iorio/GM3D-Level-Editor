@@ -33,6 +33,8 @@ void main()
 	float sl = length(sd);
 	sd = sl > 0.0001 ? sd / sl : vec3(0.0, 1.0, 0.0);
 	float s = max(dot(d, sd), 0.0);
-	col += u_sunColor * (pow(s, 800.0) * 1.2 + pow(s, 8.0) * 0.18) * u_sunGlow;
+	float _disk = pow(s, 1600.0) * 1.2;
+	vec3 _halo = pow(s, 8.0) * 0.18 * vec3(1.0, 0.92, 0.72);
+	col += u_sunColor * (_disk + _halo) * u_sunGlow;
 	gl_FragColor = vec4(col, 1.0);
 }

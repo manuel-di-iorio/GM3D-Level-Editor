@@ -5,9 +5,11 @@ function __gm3d_ed_imgui_scene_win(_ed) {
 		return;
 	}
 	var _ps = __gm3d_ed_imgui_place(_ed).scn;
-	ImGui.SetNextWindowPos(_ps.x, _ps.y, _ui.cond);
-	ImGui.SetNextWindowSize(_ps.w, _ps.h, _ui.cond);
-	__gm3d_ed_imgui_bg_alpha(0.95);
+	if (!__gm3d_ed_imgui_dock_fresh(_ed)) {
+		ImGui.SetNextWindowPos(_ps.x, _ps.y, _ui.cond);
+		ImGui.SetNextWindowSize(_ps.w, _ps.h, _ui.cond);
+	}
+	__gm3d_ed_imgui_bg_alpha(1);
 	var _begun = false;
 
 	var _pflags = __gm3d_ed_imgui_panel_flags(_ed, "scene");
@@ -288,7 +290,7 @@ function __gm3d_ed_imgui_scene_list(_ed) {
 			}
 		}
 		ImGui.PopID();
-		__gm3d_ed_imgui_bg_alpha(0.95);
+		__gm3d_ed_imgui_bg_alpha(1);
 		if (ImGui.BeginPopupContextItem("ctx##" + string(_i))) {
 			if (!__gm3d_ed_sel_has(_ed, _nd)) {
 				__gm3d_ed_scene_select(_ed, _nd);

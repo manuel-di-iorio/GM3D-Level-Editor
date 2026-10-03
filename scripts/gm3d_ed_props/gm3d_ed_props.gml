@@ -459,9 +459,6 @@ function __gm3d_ed_create_light(_ed, _type) {
 	_ed.rt.scene.update(0);
 	var _pp = _node.getLocalPosition();
 	__gm3d_ed_kind_register(_ed, _node, "light", "", [_pp.x, _pp.y, _pp.z], _lbl, _d);
-	if (_d.type == "directional") {
-		__gm3d_ed_hidden_set(_ed, _node, true);
-	}
 	_ed.sel = [_node];
 	_ed.giz.drag = -1;
 	__gm3d_ed_sel_apply_tool(_ed);

@@ -117,7 +117,9 @@ function __gm3d_ed_imgui_draw(_ed) {
 	}
 	__gm3d_ed_imgui_ensure(_ed);
 	__gm3d_ed_imgui_style_once(_ed);
-	ImGui.DockSpaceOverViewport(0, 0, ImGuiDockNodeFlags.PassthruCentralNode);
+	var _dock_id = ImGui.GetID("GM3DEditorDockspace");
+	var _dock_root = ImGui.DockSpaceOverViewport(_dock_id, 0, ImGuiDockNodeFlags.PassthruCentralNode);
+	__gm3d_ed_imgui_dock_build(_ed, _dock_root);
 
 	if (!variable_struct_exists(_ed.imgui, "_pw")) {
 		_ed.imgui._pw = 0;
@@ -138,11 +140,19 @@ function __gm3d_ed_imgui_draw(_ed) {
 		if (_ed.scene_dlg != undefined) {
 			__gm3d_ed_imgui_scene_dlg(_ed);
 		}
+		_ed.imgui.dock_pos_skip = false;
 		return;
 	}
 	var _rst = _ed.imgui.reset_layout == true;
-	if (_rst || _rsz) {
-		_ed.imgui.cond = ImGuiCond.Always;
+	var _dockable = __gm3d_ed_imgui_dock_ok(_ed);
+	if (_rst) {
+		_ed.imgui.dock_rebuild = true;
+		_ed.imgui.dock_tries = 0;
+		__gm3d_ed_cube_home(_ed);
+		if (!_dockable) {
+			_ed.imgui.cond = ImGuiCond.Always;
+		}
+	} else if (_rsz) {
 		__gm3d_ed_cube_home(_ed);
 	}
 	__gm3d_ed_imgui_menu(_ed);
@@ -157,6 +167,7 @@ function __gm3d_ed_imgui_draw(_ed) {
 		_ed.imgui.cond = ImGuiCond.FirstUseEver;
 		_ed.imgui.reset_layout = false;
 	}
+	_ed.imgui.dock_pos_skip = false;
 }
 
 // Draws toolbar button with tooltip and highlight.
@@ -412,7 +423,7 @@ function __gm3d_ed_imgui_confirm(_ed) {
 	var _gh = max(400, _ed.gh);
 	ImGui.SetNextWindowPos(_gw * 0.5 - 170, _gh * 0.5 - 56, ImGuiCond.Always);
 	ImGui.SetNextWindowSize(340, 90, ImGuiCond.Always);
-	__gm3d_ed_imgui_bg_alpha(0.95);
+	__gm3d_ed_imgui_bg_alpha(1);
 	var _begun = false;
 	var _pushed = 0;
 
@@ -470,7 +481,7 @@ function __gm3d_ed_imgui_about(_ed) {
 	var _gh = max(400, _ed.gh);
 	ImGui.SetNextWindowPos(_gw * 0.5 - 190, _gh * 0.5 - 60, ImGuiCond.Always);
 	ImGui.SetNextWindowSize(380, 110, ImGuiCond.Always);
-	__gm3d_ed_imgui_bg_alpha(0.95);
+	__gm3d_ed_imgui_bg_alpha(1);
 	var _pushed = 0;
 	ImGui.PushStyleColor(ImGuiCol.TitleBg, make_colour_rgb(33, 36, 47), 1);
 	_pushed++;
@@ -509,7 +520,7 @@ function __gm3d_ed_imgui_scene_dlg(_ed) {
 	var _wh = _is_save ? 120 : 250;
 	ImGui.SetNextWindowPos(_gw * 0.5 - _ww * 0.5, _gh * 0.5 - _wh * 0.5, ImGuiCond.Always);
 	ImGui.SetNextWindowSize(_ww, _wh, ImGuiCond.Always);
-	__gm3d_ed_imgui_bg_alpha(0.95);
+	__gm3d_ed_imgui_bg_alpha(1);
 	var _pushed = 0;
 	ImGui.PushStyleColor(ImGuiCol.TitleBg, make_colour_rgb(33, 36, 47), 1);
 	_pushed++;
@@ -624,6 +635,92 @@ function __gm3d_ed_imgui_place(_ed) {
 		insp: { x: _gw - _iw - 8, y: _top, w: _iw, h: _ih },
 		assets: { x: _mx, y: _gh - _mh - 8, w: max(200, _gw - _mx - 8), h: _mh },
 	};
+}
+
+// Checks DockBuilder API availability once per session.
+function __gm3d_ed_imgui_dock_ok(_ed) {
+	if (_ed.imgui == undefined) {
+		return false;
+	}
+	if (variable_struct_exists(_ed.imgui, "dock_ok")) {
+		return _ed.imgui.dock_ok == true;
+	}
+	var _ok = variable_struct_exists(ImGui, "GetID")
+		&& variable_struct_exists(ImGui, "DockBuilderRemoveNode")
+		&& variable_struct_exists(ImGui, "DockBuilderAddNode")
+		&& variable_struct_exists(ImGui, "DockBuilderSplitNode")
+		&& variable_struct_exists(ImGui, "DockBuilderDockWindow")
+		&& variable_struct_exists(ImGui, "DockBuilderFinish")
+		&& variable_struct_exists(ImGui, "DockBuilderSetNodeSize")
+		&& variable_struct_exists(ImGui, "DockBuilderSetNodePos");
+	_ed.imgui.dock_ok = _ok;
+	return _ok;
+}
+
+// Builds initial dock layout: Scene left, Inspector right, Models bottom.
+// Returns true while a fresh dock layout must win over SetNextWindowPos/Size.
+function __gm3d_ed_imgui_dock_fresh(_ed) {
+	if (_ed.imgui == undefined) {
+		return false;
+	}
+	return variable_struct_exists(_ed.imgui, "dock_pos_skip") && _ed.imgui.dock_pos_skip == true;
+}
+
+// Builds initial dock layout: Scene left (full height), Inspector top-right,
+// Models bottom spanning everything except Scene. Split order Left, Down,
+// Right gives Models the full bottom strip; windows dock in priority order
+// Inspector > Models > Scene, Scene last.
+// Runs once per session and on Reset Layout. Undocked windows keep working
+// floating via their SetNextWindowPos/Size fallbacks.
+function __gm3d_ed_imgui_dock_build(_ed, _root) {
+	if (!__gm3d_ed_imgui_dock_ok(_ed)) {
+		return;
+	}
+	if (_root == undefined) {
+		return;
+	}
+	if (variable_struct_exists(_ed.imgui, "dock_built") && _ed.imgui.dock_built == true
+	&& !(variable_struct_exists(_ed.imgui, "dock_rebuild") && _ed.imgui.dock_rebuild == true)) {
+		return;
+	}
+	if (!variable_struct_exists(_ed.imgui, "dock_tries")) {
+		_ed.imgui.dock_tries = 0;
+	}
+	if (_ed.imgui.dock_tries > 5) {
+		return;
+	}
+	_ed.imgui.dock_tries++;
+	var _gw = max(800, _ed.gw);
+	var _gh = max(500, _ed.gh);
+	var _top = 30;
+	ImGui.DockBuilderRemoveNode(_root);
+	ImGui.DockBuilderAddNode(_root, ImGuiDockNodeFlags.DockSpace);
+	ImGui.DockBuilderSetNodePos(_root, 0, _top);
+	ImGui.DockBuilderSetNodeSize(_root, _gw, max(200, _gh - _top));
+	var _s1 = ImGui.DockBuilderSplitNode(_root, ImGuiDir.Left, 0.19);
+	if (!is_array(_s1) || array_length(_s1) < 2) {
+		return;
+	}
+	var _left = _s1[0];
+	var _r1 = array_length(_s1) > 2 ? _s1[2] : _s1[array_length(_s1) - 1];
+	var _s2 = ImGui.DockBuilderSplitNode(_r1, ImGuiDir.Down, 0.32);
+	if (!is_array(_s2) || array_length(_s2) < 2) {
+		return;
+	}
+	var _bottom = _s2[0];
+	var _r2 = array_length(_s2) > 2 ? _s2[2] : _s2[array_length(_s2) - 1];
+	var _s3 = ImGui.DockBuilderSplitNode(_r2, ImGuiDir.Right, 0.26);
+	if (!is_array(_s3) || array_length(_s3) < 1) {
+		return;
+	}
+	var _right = _s3[0];
+	ImGui.DockBuilderDockWindow("Inspector", _right);
+	ImGui.DockBuilderDockWindow("Models", _bottom);
+	ImGui.DockBuilderDockWindow("Scene", _left);
+	ImGui.DockBuilderFinish(_root);
+	_ed.imgui.dock_built = true;
+	_ed.imgui.dock_rebuild = false;
+	_ed.imgui.dock_pos_skip = true;
 }
 
 // Applies editor ImGui theme once.
@@ -755,7 +852,7 @@ function __gm3d_ed_imgui_menu(_ed) {
 		return;
 	}
 	_mbar = true;
-	__gm3d_ed_imgui_bg_alpha(0.95);
+	__gm3d_ed_imgui_bg_alpha(1);
 	if (ImGui.BeginMenu("File")) {
 		ImGui.TextDisabled(_ed.scene_file != "" ? _ed.scene_file : "(unsaved scene)");
 		if (ImGui.MenuItem("New", "Ctrl+N")) {
@@ -851,9 +948,11 @@ function __gm3d_ed_imgui_assets(_ed) {
 		return;
 	}
 	var _pl = __gm3d_ed_imgui_place(_ed).assets;
-	ImGui.SetNextWindowPos(_pl.x, _pl.y, _ui.cond);
-	ImGui.SetNextWindowSize(_pl.w, _pl.h, _ui.cond);
-	__gm3d_ed_imgui_bg_alpha(0.95);
+	if (!__gm3d_ed_imgui_dock_fresh(_ed)) {
+		ImGui.SetNextWindowPos(_pl.x, _pl.y, _ui.cond);
+		ImGui.SetNextWindowSize(_pl.w, _pl.h, _ui.cond);
+	}
+	__gm3d_ed_imgui_bg_alpha(1);
 	var _begun = false;
 
 	var _pflags = __gm3d_ed_imgui_panel_flags(_ed, "assets");
