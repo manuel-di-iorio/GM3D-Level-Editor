@@ -102,7 +102,7 @@ var _rep = gm3d_load(my_scene, "__gm3dEditor/scenes/level1.json", _models);
 |---|---|
 | F1 | Toggle editor |
 | F9 | Toggle FPS readout (editor must be open) |
-| 1 / 2 / 3 | Move / Rotate / Scale tool |
+| V / 1 / 2 / 3 | View / Move / Rotate / Scale tool |
 | Left-drag model (Models panel) | Spawn into the scene |
 | Left-click / drag | Select (additive rectangle with drag) |
 | Alt + left-drag | Orbit around the current view point |

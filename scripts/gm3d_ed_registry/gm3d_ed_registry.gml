@@ -793,7 +793,7 @@ function __gm3d_ed_tool_allowed(_ed, _node, _tool) {
 
 // Checks if gizmo can manipulate selection.
 function __gm3d_ed_gizmo_allowed(_ed) {
-	if (_ed == undefined || !is_array(_ed.sel) || array_length(_ed.sel) == 0) {
+	if (_ed == undefined || _ed.giz.tool == Gm3dEdTool.View || !is_array(_ed.sel) || array_length(_ed.sel) == 0) {
 		return false;
 	}
 	for (var _i = 0; _i < array_length(_ed.sel); _i++) {

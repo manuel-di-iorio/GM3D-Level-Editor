@@ -1,6 +1,6 @@
 /**
  * GM3D missing-material shader (static geometry).
- * Solid magenta, like Unity's error material: marks meshes with no material
+ * Solid magenta: marks meshes with no material
  * so the problem is visible instead of silently wrong. No lighting, no fog,
  * no textures. Only in_Position is declared, like shGM3DGrid: extra vertex
  * attributes present in GM3D buffers are ignored.

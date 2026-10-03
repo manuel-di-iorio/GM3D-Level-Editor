@@ -493,6 +493,29 @@ function __gm3d_ed_gpupick_execute(_ed) {
 	var _req = _g.pending;
 	_g.pending = undefined;
 	if (_req.kind == "click") {
+		if (_ed.giz.tool == Gm3dEdTool.View) {
+			var _vicon = __gm3d_ed_gpupick_icon_at(_ed, _vp, _req.x, _req.y);
+			if (_vicon != undefined) {
+				__gm3d_ed_view_focus_node(_ed, _vicon);
+				return;
+			}
+			var _vall = __gm3d_ed_gpupick_begin(_ed, _g);
+			if (_vall == undefined) {
+				return;
+			}
+			var _vsp = __gm3d_ed_gpupick_to_surf(_ed, _g, _req.x, _req.y);
+			if (_vsp == undefined) {
+				return;
+			}
+			var _vfirst = __gm3d_ed_gpupick_probe(_ed, _g, _vall, undefined, _vsp[0], _vsp[1]);
+			if (_vfirst == undefined) {
+				return;
+			}
+			if (_vfirst.node != undefined) {
+				__gm3d_ed_view_focus_node(_ed, _vfirst.node);
+			}
+			return;
+		}
 		var _icon = __gm3d_ed_gpupick_icon_at(_ed, _vp, _req.x, _req.y);
 		if (_req.shift) {
 			var _top = _icon;

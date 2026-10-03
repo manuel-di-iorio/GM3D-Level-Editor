@@ -226,16 +226,46 @@ function __gm3d_ed_overlay_light(_ed, _vp, _nd, _en, _wp, _sp, _lb, _sel) {
 	}
 	if (_d.type == "directional") {
 		if (_sel) {
-			var _tip = new GM3D_Vec3(_wp.x + _fw.x * 1.5, _wp.y + _fw.y * 1.5, _wp.z + _fw.z * 1.5);
-			__gm3d_ed_overlay_seg(_ed, _vp, _wp, _tip, 2, _col);
-			var _se = __gm3d_ed_overlay_project(_vp, _tip);
-			if (_se != undefined && _sp != undefined) {
-				var _dx = _se[0] - _sp[0];
-				var _dy = _se[1] - _sp[1];
-				var _l = sqrt(_dx * _dx + _dy * _dy);
-				if (_l > 4) {
-					__gm3d_ed_overlay_head(_se, _dx / _l, _dy / _l, _col);
-				}
+			var _up0 = GM3D_Vec3.up();
+			var _u0 = new GM3D_Vec3();
+			_u0.crossVectors(_fw, _up0);
+			if (_u0.x * _u0.x + _u0.y * _u0.y + _u0.z * _u0.z < 0.000001) {
+				_u0 = new GM3D_Vec3(1, 0, 0);
+			} else {
+				_u0.normalizeSafe(0.000001);
+			}
+			var _v0 = new GM3D_Vec3();
+			_v0.crossVectors(_fw, _u0);
+			var _len = 0.7;
+			var _rad = 0.15;
+			var _rim = [];
+			for (var _rk = 0; _rk <= 12; _rk++) {
+				var _rt0 = (_rk / 12) * pi * 2;
+				array_push(
+					_rim,
+					new GM3D_Vec3(
+						_wp.x + (cos(_rt0) * _u0.x + sin(_rt0) * _v0.x) * _rad,
+						_wp.y + (cos(_rt0) * _u0.y + sin(_rt0) * _v0.y) * _rad,
+						_wp.z + (cos(_rt0) * _u0.z + sin(_rt0) * _v0.z) * _rad,
+					),
+				);
+			}
+			for (var _re = 0; _re < 12; _re++) {
+				__gm3d_ed_overlay_seg(_ed, _vp, _rim[_re], _rim[_re + 1], 1, _col);
+			}
+			for (var _rl = 0; _rl < 5; _rl++) {
+				var _rt2 = (_rl / 5) * pi * 2;
+				var _ox = (cos(_rt2) * _u0.x + sin(_rt2) * _v0.x) * _rad;
+				var _oy = (cos(_rt2) * _u0.y + sin(_rt2) * _v0.y) * _rad;
+				var _oz = (cos(_rt2) * _u0.z + sin(_rt2) * _v0.z) * _rad;
+				__gm3d_ed_overlay_seg(
+					_ed,
+					_vp,
+					new GM3D_Vec3(_wp.x + _ox, _wp.y + _oy, _wp.z + _oz),
+					new GM3D_Vec3(_wp.x + _ox + _fw.x * _len, _wp.y + _oy + _fw.y * _len, _wp.z + _oz + _fw.z * _len),
+					1,
+					_col
+				);
 			}
 		}
 	} else {

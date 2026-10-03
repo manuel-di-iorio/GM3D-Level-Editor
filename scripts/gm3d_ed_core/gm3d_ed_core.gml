@@ -1,4 +1,5 @@
 enum Gm3dEdTool {
+	View = 0,
 	Translate = 1,
 	Rotate = 2,
 	Scale = 3,
@@ -407,6 +408,7 @@ function __gm3d_ed_create(_inst, _rt) {
 			ndc_yup: true,
 			keys: {
 				toggle: vk_f1,
+				tool_view: ord("V"),
 				tool_move: ord("1"),
 				tool_rotate: ord("2"),
 				tool_scale: ord("3"),
@@ -482,6 +484,7 @@ function __gm3d_ed_create(_inst, _rt) {
 		press_vp: false,
 		press_x: 0,
 		press_y: 0,
+		viewpan_moved: false,
 		cube_armed: undefined,
 		cube_hover: undefined,
 		cube_face: undefined,

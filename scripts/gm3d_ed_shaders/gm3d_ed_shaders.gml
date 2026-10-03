@@ -167,7 +167,7 @@ function __gm3d_ed_magenta_fix_mats(_node, _mat, _mat_skin) {
 	}
 }
 
-// Paints material-less meshes magenta (Unity error-material style).
+// Paints material-less meshes magenta.
 function __gm3d_ed_magenta_fix(_ed, _node) {
 	if (_ed == undefined || _node == undefined) {
 		return;

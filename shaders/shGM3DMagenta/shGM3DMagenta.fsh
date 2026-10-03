@@ -1,6 +1,6 @@
 /**
  * GM3D missing-material fragment shader (shared by static and skinned).
- * Solid magenta (1, 0, 1, 1), like Unity's error material.
+ * Solid magenta (1, 0, 1, 1).
  */
 
 void main()

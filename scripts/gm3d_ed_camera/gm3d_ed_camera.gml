@@ -290,6 +290,78 @@ function __gm3d_ed_cam_fly(_ed, _input, _dt) {
 	}
 }
 
+// Pans camera in screen space for View tool drag.
+function __gm3d_ed_view_pan(_ed, _vp) {
+	if (_ed == undefined || _ed.rt == undefined || _ed.rt.cam == undefined || _vp == undefined) {
+		return;
+	}
+	var _node = _ed.rt.cam;
+	var _pp = _node.getLocalPosition();
+	var _qb = __gm3d_ed_quat_basis(_node.getLocalRotation());
+	var _rx = _qb[0];
+	var _ux = _qb[1];
+	var _f = __gm3d_ed_view_forward(_ed);
+	var _tx2 = _pp.x - _f.x * 10;
+	var _ty2 = _pp.y - _f.y * 10;
+	var _tz2 = _pp.z - _f.z * 10;
+	if (array_length(_ed.sel) > 0) {
+		var _pv2 = __gm3d_ed_gizmo_pivot(_ed.sel);
+		_tx2 = _pv2.x;
+		_ty2 = _pv2.y;
+		_tz2 = _pv2.z;
+	}
+	var _ddx = _tx2 - _pp.x;
+	var _ddy = _ty2 - _pp.y;
+	var _ddz = _tz2 - _pp.z;
+	var _dlen = sqrt(_ddx * _ddx + _ddy * _ddy + _ddz * _ddz);
+	if (_dlen <= 0.001) {
+		return;
+	}
+	_ed.cam_anim = undefined;
+	var _k2 = (2 * _dlen * tan(_vp.fovY * 0.5)) / max(_vp.winH, 1);
+	var _mdx = window_mouse_get_delta_x();
+	var _mdy = window_mouse_get_delta_y();
+	_node.setLocalPosition(
+		new GM3D_Vec3(
+			_pp.x + (-_rx.x * _mdx + _ux.x * _mdy) * _k2,
+			_pp.y + (-_rx.y * _mdx + _ux.y * _mdy) * _k2,
+			_pp.z + (-_rx.z * _mdx + _ux.z * _mdy) * _k2
+		)
+	);
+	__gm3d_ed_wrap_camera(_ed);
+}
+
+// Slides camera to center node keeping distance and orientation.
+function __gm3d_ed_view_focus_node(_ed, _node) {
+	if (_ed == undefined || _ed.rt == undefined || _ed.rt.cam == undefined || _node == undefined) {
+		return false;
+	}
+	var _p = _node.getWorldPosition();
+	var _c = _ed.rt.cam.getLocalPosition();
+	var _f = __gm3d_ed_view_forward(_ed);
+	var _fl = sqrt(_f.x * _f.x + _f.y * _f.y + _f.z * _f.z);
+	if (_fl <= 0.0001) {
+		return false;
+	}
+	var _nx = _f.x / _fl;
+	var _ny = _f.y / _fl;
+	var _nz = _f.z / _fl;
+	var _dx = _p.x - _c.x;
+	var _dy = _p.y - _c.y;
+	var _dz = _p.z - _c.z;
+	var _along = _dx * _nx + _dy * _ny + _dz * _nz;
+	var _cq = _ed.rt.cam.getLocalRotation();
+	_ed.cam_anim = {
+		t: 0,
+		dur: 0.4,
+		q0: [_cq.x, _cq.y, _cq.z, _cq.w],
+		q1: [_cq.x, _cq.y, _cq.z, _cq.w],
+		p0: [_c.x, _c.y, _c.z],
+		p1: [_c.x + _dx - _along * _nx, _c.y + _dy - _along * _ny, _c.z + _dz - _along * _nz],
+	};
+	return true;
+}
+
 // Animates camera to align with selected viewcube direction.
 function __gm3d_ed_viewcube_snap(_ed, _n) {
 	if (_ed == undefined || _ed.rt == undefined || _ed.rt.cam == undefined) {

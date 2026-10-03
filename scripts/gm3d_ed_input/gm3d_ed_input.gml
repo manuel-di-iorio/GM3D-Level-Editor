@@ -90,6 +90,9 @@ function __gm3d_ed_step_hotkeys(_ed, _input) {
 	if (!_typing) {
 		var _ctrl = keyboard_check(vk_control);
 		if (!_ctrl && !_gesture) {
+			if (keyboard_check_pressed(_keys.tool_view)) {
+				_ed.giz.tool = Gm3dEdTool.View;
+			}
 			if (keyboard_check_pressed(_keys.tool_move)) {
 				_ed.giz.tool = Gm3dEdTool.Translate;
 			}
@@ -314,7 +317,9 @@ function __gm3d_ed_step_libdrop(_ed, _input) {
 
 // Handles rectangle selection drag completion.
 function __gm3d_ed_step_rect(_ed, _input) {
-	var _vp = _input.vp;
+	if (_ed.giz.tool == Gm3dEdTool.View) {
+		return false;
+	}
 	var _mx = _input.mx;
 	var _my = _input.my;
 	if (_ed.rect != undefined && _ed.rect.on) {
@@ -376,6 +381,14 @@ function __gm3d_ed_step_hover(_ed, _input) {
 			_input.gesture_active = true;
 			_ed.giz.drag = _ed.giz.hover;
 			__gm3d_ed_gizmo_begin(_ed, _vp, _mx, _my);
+		} else if (_ed.giz.tool == Gm3dEdTool.View) {
+			_ed.input_owner = "viewpan";
+			_input.owner = "viewpan";
+			_input.gesture_active = true;
+			_ed.press_vp = true;
+			_ed.press_x = _mx;
+			_ed.press_y = _my;
+			_ed.viewpan_moved = false;
 		} else {
 			_ed.input_owner = "rect";
 			_input.owner = "rect";
@@ -392,6 +405,14 @@ function __gm3d_ed_step_hover(_ed, _input) {
 			_ed.rect.on = true;
 		}
 	}
+	if (_ed.input_owner == "viewpan" && mouse_check_button(mb_left)) {
+		if (point_distance(_mx, _my, _ed.press_x, _ed.press_y) > 6) {
+			_ed.viewpan_moved = true;
+		}
+		if (_ed.viewpan_moved == true) {
+			__gm3d_ed_view_pan(_ed, _vp);
+		}
+	}
 	if (_ed.cube_armed == true && mouse_check_button(mb_left)) {
 		if (point_distance(_mx, _my, _ed.press_x, _ed.press_y) > 6) {
 			_ed.cube_moved = true;
@@ -403,10 +424,18 @@ function __gm3d_ed_step_hover(_ed, _input) {
 		}
 	}
 	if (mouse_check_button_released(mb_left) && _ed.press_vp && (_ed.rect == undefined || !_ed.rect.on)) {
+		var _was_view = _ed.input_owner == "viewpan";
+		var _view_drag = _was_view && _ed.viewpan_moved == true;
 		_ed.press_vp = false;
 		_ed.rect = undefined;
+		_ed.viewpan_moved = false;
 		__gm3d_ed_input_owner_clear(_ed, "rect");
-		if (_ed.cube_armed == true) {
+		__gm3d_ed_input_owner_clear(_ed, "viewpan");
+		if (_was_view) {
+			if (!_view_drag && _in_vp) {
+				__gm3d_ed_gpupick_request_click(_ed, _mx, _my, keyboard_check(vk_shift));
+			}
+		} else if (_ed.cube_armed == true) {
 			_ed.cube_armed = undefined;
 			__gm3d_ed_input_owner_clear(_ed, "viewcube");
 			if (_ed.cube_moved) {

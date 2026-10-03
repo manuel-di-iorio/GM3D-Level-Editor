@@ -225,6 +225,10 @@ function __gm3d_ed_imgui_toolbar(_ed) {
 		ImGui.End();
 		return;
 	}
+	if (__gm3d_ed_imgui_icon_btn(_ed, "##tb_view", "View (V)", _ed.giz.tool == Gm3dEdTool.View, "V", "sprGM3DIconHand", 12, 16)) {
+		_ed.giz.tool = Gm3dEdTool.View;
+	}
+	ImGui.SameLine();
 	if (__gm3d_ed_imgui_icon_btn(_ed, "##tb_move", "Move (1)", _ed.giz.tool == Gm3dEdTool.Translate, "M", "sprGM3DIconMove", 15, 15)) {
 		_ed.giz.tool = Gm3dEdTool.Translate;
 	}
