@@ -729,8 +729,8 @@ function __gm3d_ed_imgui_style_once(_ed) {
 		return;
 	}
 	_ed.imgui.style_init = true;
-	var _bg = make_colour_rgb(20, 26, 41);
-	var _panel = make_colour_rgb(16, 21, 34);
+	var _bg = make_colour_rgb(21, 23, 32);
+	var _panel = make_colour_rgb(21, 23, 32);
 	var _accent = make_colour_rgb(37, 99, 235);
 	var _accent_hi = make_colour_rgb(45, 60, 95);
 	__gm3d_ed_imgui_style_color(ImGuiCol.Text, make_colour_rgb(229, 233, 240), 1);
@@ -738,25 +738,25 @@ function __gm3d_ed_imgui_style_once(_ed) {
 
 	__gm3d_ed_imgui_style_color(ImGuiCol.WindowBg, _bg, 1);
 	__gm3d_ed_imgui_style_color(ImGuiCol.ChildBg, _panel, 1);
-	__gm3d_ed_imgui_style_color(ImGuiCol.PopupBg, make_colour_rgb(24, 30, 48), 1);
-	__gm3d_ed_imgui_style_color(ImGuiCol.Border, make_colour_rgb(38, 48, 75), 1);
-	__gm3d_ed_imgui_style_color(ImGuiCol.FrameBg, make_colour_rgb(30, 38, 62), 1);
-	__gm3d_ed_imgui_style_color(ImGuiCol.FrameBgHovered, make_colour_rgb(30, 40, 62), 1);
+	__gm3d_ed_imgui_style_color(ImGuiCol.PopupBg, make_colour_rgb(25, 28, 38), 1);
+	__gm3d_ed_imgui_style_color(ImGuiCol.Border, make_colour_rgb(40, 44, 60), 1);
+	__gm3d_ed_imgui_style_color(ImGuiCol.FrameBg, make_colour_rgb(30, 34, 48), 1);
+	__gm3d_ed_imgui_style_color(ImGuiCol.FrameBgHovered, make_colour_rgb(36, 40, 56), 1);
 	__gm3d_ed_imgui_style_color(ImGuiCol.FrameBgActive, _accent_hi, 1);
 	__gm3d_ed_imgui_style_color(ImGuiCol.TitleBg, _panel, 1);
-	__gm3d_ed_imgui_style_color(ImGuiCol.TitleBgActive, make_colour_rgb(28, 38, 60), 1);
+	__gm3d_ed_imgui_style_color(ImGuiCol.TitleBgActive, make_colour_rgb(33, 36, 48), 1);
 	__gm3d_ed_imgui_style_color(ImGuiCol.MenuBarBg, _panel, 1);
 	__gm3d_ed_imgui_style_color(ImGuiCol.ScrollbarBg, _panel, 1);
-	__gm3d_ed_imgui_style_color(ImGuiCol.ScrollbarGrab, make_colour_rgb(55, 70, 105), 1);
-	__gm3d_ed_imgui_style_color(ImGuiCol.ScrollbarGrabHovered, make_colour_rgb(75, 92, 135), 1);
+	__gm3d_ed_imgui_style_color(ImGuiCol.ScrollbarGrab, make_colour_rgb(50, 58, 80), 1);
+	__gm3d_ed_imgui_style_color(ImGuiCol.ScrollbarGrabHovered, make_colour_rgb(68, 78, 106), 1);
 	__gm3d_ed_imgui_style_color(ImGuiCol.CheckMark, make_colour_rgb(96, 165, 250), 1);
-	__gm3d_ed_imgui_style_color(ImGuiCol.Button, make_colour_rgb(37, 51, 82), 1);
-	__gm3d_ed_imgui_style_color(ImGuiCol.ButtonHovered, make_colour_rgb(50, 68, 110), 1);
+	__gm3d_ed_imgui_style_color(ImGuiCol.Button, make_colour_rgb(36, 42, 60), 1);
+	__gm3d_ed_imgui_style_color(ImGuiCol.ButtonHovered, make_colour_rgb(48, 56, 80), 1);
 	__gm3d_ed_imgui_style_color(ImGuiCol.ButtonActive, _accent, 1);
 	__gm3d_ed_imgui_style_color(ImGuiCol.Header, _accent, 1);
 	__gm3d_ed_imgui_style_color(ImGuiCol.HeaderHovered, _accent_hi, 1);
 	__gm3d_ed_imgui_style_color(ImGuiCol.HeaderActive, _accent, 1);
-	__gm3d_ed_imgui_style_color(ImGuiCol.Separator, make_colour_rgb(38, 48, 75), 1);
+	__gm3d_ed_imgui_style_color(ImGuiCol.Separator, make_colour_rgb(40, 44, 60), 1);
 	__gm3d_ed_imgui_style_color(ImGuiCol.DockingEmptyBg, c_black, 0);
 }
 

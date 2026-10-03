@@ -90,7 +90,7 @@ function __gm3d_ed_imgui_asset_cards(_ed, _flt) {
 // Truncates text to fit pixel width.
 function __gm3d_ed_imgui_trunc_text(_text, _maxw) {
 	static _cache = {};
-	var _ck = _text + "|" + string(_maxw);
+	var _ck = _text + "|" + string(_maxw) + "|12";
 	if (variable_struct_exists(_cache, _ck)) {
 		return _cache[$ _ck];
 	}
@@ -151,7 +151,18 @@ function __gm3d_ed_imgui_asset_card(_ed, _a, _i, _cs) {
 		}
 		var _edge = _hov ? make_colour_rgb(120, 140, 175) : make_colour_rgb(50, 58, 76);
 		ImGui.DrawListAddRect(_dl, _qx, _qy0, _qx + _cs, _qy0 + _cs, _edge);
-		ImGui.DrawListAddText(_dl, _qx + 4, _qy0 + _cs + 1, __gm3d_ed_imgui_trunc_text(_a.name, _cs - 6), c_white);
+		static _has_scale = undefined;
+		if (_has_scale == undefined) {
+			_has_scale = variable_struct_exists(ImGui, "SetWindowFontScale");
+		}
+		if (_has_scale) {
+			ImGui.SetWindowFontScale(12 / 13);
+		}
+		var _name_str = __gm3d_ed_imgui_trunc_text(_a.name, _cs - 6);
+		ImGui.DrawListAddText(_dl, _qx + 4, _qy0 + _cs + 2, _name_str, c_white);
+		if (_has_scale) {
+			ImGui.SetWindowFontScale(1);
+		}
 	}
 	if (_ed.drag_lib == undefined && _hov) {
 		ImGui.SetTooltip(_a.name);
