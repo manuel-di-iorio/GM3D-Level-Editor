@@ -2,7 +2,7 @@
 function __gm3d_ed_editor_shaders() {
 	return [
         shGM3DGrid, shGM3DMask, shGM3DMaskSkin, shGM3DOutline, shGM3DId, shGM3DIdSkin, shGM3DUnlit, 
-        shGM3DUnlitSkin, shGM3DSky
+        shGM3DUnlitSkin, shGM3DSky, shGM3DMagenta, shGM3DMagentaSkin
     ];
 }
 
@@ -116,4 +116,84 @@ function __gm3d_ed_unlit_walk(_ed, _node) {
 			array_push(_stack, _kids[_k]);
 		}
 	}
+}
+
+// Ensures shared missing-material magenta materials exist.
+function __gm3d_ed_magenta_mats(_ed) {
+	if (_ed == undefined) {
+		return false;
+	}
+	if (_ed.magenta_mat != undefined && _ed.magenta_mat_skin != undefined) {
+		return true;
+	}
+	if (_ed.magenta_mat == undefined) {
+		var _m = new GM3D_Material("gm3d_ed_magenta");
+		_m.setShader(GM3D_ERenderPass.Forward, shGM3DMagenta);
+		_m.setShader(GM3D_ERenderPass.Shadow, sStaticShadow);
+		_ed.magenta_mat = _m;
+	}
+	if (_ed.magenta_mat_skin == undefined) {
+		var _ms = new GM3D_Material("gm3d_ed_magenta_skin");
+		_ms.setShader(GM3D_ERenderPass.Forward, shGM3DMagentaSkin);
+		_ms.setShader(GM3D_ERenderPass.Shadow, sAnimatedShadow);
+		_ed.magenta_mat_skin = _ms;
+	}
+	return true;
+}
+
+// Assigns fallback materials to material-less meshes in subtree.
+function __gm3d_ed_magenta_fix_mats(_node, _mat, _mat_skin) {
+	if (_node == undefined || _mat == undefined) {
+		return;
+	}
+	var _stack = [_node];
+	while (array_length(_stack) > 0) {
+		var _cur = array_pop(_stack);
+		if (_cur == undefined) {
+			continue;
+		}
+		var _mc = _cur.getMeshComponent();
+		if (_mc != undefined && _mc.getMaterial() == undefined) {
+			_mc.setMaterial(_mat);
+		}
+		var _sk = _cur.getSkinnedMeshComponent();
+		if (_sk != undefined && _mat_skin != undefined && _sk.getMaterial() == undefined) {
+			_sk.setMaterial(_mat_skin);
+		}
+		var _kids = _cur.getChildren();
+		for (var _k = 0; _k < array_length(_kids); _k++) {
+			array_push(_stack, _kids[_k]);
+		}
+	}
+}
+
+// Paints material-less meshes magenta (Unity error-material style).
+function __gm3d_ed_magenta_fix(_ed, _node) {
+	if (_ed == undefined || _node == undefined) {
+		return;
+	}
+	if (!__gm3d_ed_magenta_mats(_ed)) {
+		return;
+	}
+	__gm3d_ed_magenta_fix_mats(_node, _ed.magenta_mat, _ed.magenta_mat_skin);
+}
+
+// Paints material-less meshes magenta without editor state.
+function __gm3d_load_magenta_fix(_node) {
+	static _m = undefined;
+	static _ms = undefined;
+	if (_node == undefined) {
+		return;
+	}
+	if (_m == undefined) {
+		_m = new GM3D_Material("gm3d_load_magenta");
+		_m.setShader(GM3D_ERenderPass.Forward, shGM3DMagenta);
+		_m.setShader(GM3D_ERenderPass.Shadow, sStaticShadow);
+	}
+	if (_ms == undefined) {
+		_ms = new GM3D_Material("gm3d_load_magenta_skin");
+		_ms.setShader(GM3D_ERenderPass.Forward, shGM3DMagentaSkin);
+		_ms.setShader(GM3D_ERenderPass.Shadow, sAnimatedShadow);
+	}
+	__gm3d_ed_magenta_fix_mats(_node, _m, _ms);
 }

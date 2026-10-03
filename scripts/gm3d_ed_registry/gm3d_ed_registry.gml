@@ -111,6 +111,7 @@ function gm3d_editor_capture_thumbnails() {
 		}
 		_node.setLocalPosition(new GM3D_Vec3(0, 0, 0));
 		_node.setLocalScale(new GM3D_Vec3(1, 1, 1));
+		__gm3d_ed_magenta_fix(_ed, _node);
 		if (variable_struct_exists(_ed.rt, "on_spawn")) {
 			_ed.rt.on_spawn(_ed.inst, _node, _a.name, _a.model);
 		}
@@ -354,6 +355,7 @@ function __gm3d_ed_place(_ed, _asset, _model, _pos3, _rot, _scale3, _label = und
 	if (_node == undefined) {
 		return undefined;
 	}
+	__gm3d_ed_magenta_fix(_ed, _node);
 	_node.setLocalPosition(new GM3D_Vec3(_pos3[0], _pos3[1], _pos3[2]));
 	_node.setLocalScale(new GM3D_Vec3(_scale3[0], _scale3[1], _scale3[2]));
 	if (_rot != undefined) {

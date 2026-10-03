@@ -342,9 +342,17 @@ function __gm3d_ed_focus_selection(_ed) {
 		_dist = _fit * 1.2 + 0.3;
 	}
 	_dist = clamp(_dist, 1.5, 150.0);
-	_ed.rt.cam.setLocalPosition(
-		new GM3D_Vec3(_t.center.x + _fwd.x * _dist, _t.center.y + _fwd.y * _dist, _t.center.z + _fwd.z * _dist),
-	);
+	var _tp = new GM3D_Vec3(_t.center.x + _fwd.x * _dist, _t.center.y + _fwd.y * _dist, _t.center.z + _fwd.z * _dist);
+	var _pp = _ed.rt.cam.getLocalPosition();
+	var _cq = _ed.rt.cam.getLocalRotation();
+	_ed.cam_anim = {
+		t: 0,
+		dur: 0.5,
+		q0: [_cq.x, _cq.y, _cq.z, _cq.w],
+		q1: [_cq.x, _cq.y, _cq.z, _cq.w],
+		p0: [_pp.x, _pp.y, _pp.z],
+		p1: [_tp.x, _tp.y, _tp.z],
+	};
 	return true;
 }
 

@@ -240,6 +240,32 @@ function __gm3d_ed_gizmo_quad(_pivot, _dirs, _a, _h, _view = undefined) {
 	return [_pivot, _pb, _pbc, _pc];
 }
 
+// Measures screen-space polygon area in square pixels.
+function __gm3d_ed_screen_poly_area(_pts) {
+	var _a = 0;
+	var _n = array_length(_pts);
+	for (var _i = 0; _i < _n; _i++) {
+		var _p0 = _pts[_i];
+		var _p1 = _pts[(_i + 1) mod _n];
+		_a += _p0[0] * _p1[1] - _p1[0] * _p0[1];
+	}
+	return abs(_a) * 0.5;
+}
+
+// Checks shift screen-space move mode (not while flying camera).
+function __gm3d_ed_gizmo_shift_square(_ed) {
+	if (!keyboard_check(vk_shift)) {
+		return false;
+	}
+	if (mouse_check_button(mb_right) || mouse_check_button(mb_middle)) {
+		return false;
+	}
+	if (_ed.cam_fly == true || _ed.cam_orbit == true || _ed.cam_pan == true || _ed.cam_zoom == true) {
+		return false;
+	}
+	return true;
+}
+
 // Detects which gizmo handle mouse currently hovers.
 function __gm3d_ed_gizmo_hover(_ed, _vp, _mx, _my) {
 	if (array_length(_ed.sel) == 0) {
@@ -253,7 +279,7 @@ function __gm3d_ed_gizmo_hover(_ed, _vp, _mx, _my) {
 	if (_ps == undefined) {
 		return -1;
 	}
-	if (_ed.giz.tool == Gm3dEdTool.Translate || _ed.giz.tool == Gm3dEdTool.Scale) {
+	if (_ed.giz.tool == Gm3dEdTool.Scale) {
 		if ((_mx - _ps[0]) * (_mx - _ps[0]) + (_my - _ps[1]) * (_my - _ps[1]) <= 64) {
 			return -2;
 		}
@@ -264,12 +290,20 @@ function __gm3d_ed_gizmo_hover(_ed, _vp, _mx, _my) {
 	var _f = __gm3d_ed_view_forward(_ed);
 	var _look = new GM3D_Vec3(-_f.x, -_f.y, -_f.z);
 	if (_ed.giz.tool == Gm3dEdTool.Translate) {
+		var _shift = __gm3d_ed_gizmo_shift_square(_ed);
+		if (_shift && abs(_mx - _ps[0]) <= 15 && abs(_my - _ps[1]) <= 15) {
+			return -2;
+		}
+		if (!_shift) {
 
 		var _qb = -1;
 		var _qb_area = -1;
 		for (var _q = 0; _q < 3; _q++) {
 			var _sp = __gm3d_ed_clip_screen_poly(_vp, __gm3d_ed_gizmo_quad(_pivot, _dirs, _q, _ws * 0.3, _qview));
 			if (array_length(_sp) < 3) {
+				continue;
+			}
+			if (__gm3d_ed_screen_poly_area(_sp) < 200) {
 				continue;
 			}
 			var _inside = false;
@@ -308,6 +342,9 @@ function __gm3d_ed_gizmo_hover(_ed, _vp, _mx, _my) {
 			if (_n2 < 3) {
 				continue;
 			}
+			if (__gm3d_ed_screen_poly_area(_sp2) < 200) {
+				continue;
+			}
 			var _dmin = 1000000000;
 			for (var _e2 = 0; _e2 < _n2; _e2++) {
 				var _a2 = _sp2[_e2];
@@ -324,6 +361,7 @@ function __gm3d_ed_gizmo_hover(_ed, _vp, _mx, _my) {
 		}
 		if (_pb != -1) {
 			return 3 + _pb;
+		}
 		}
 	}
 	var _best = -1;

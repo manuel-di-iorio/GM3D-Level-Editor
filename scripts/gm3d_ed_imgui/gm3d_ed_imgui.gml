@@ -462,10 +462,14 @@ function __gm3d_ed_imgui_about(_ed) {
 	if (_a == undefined) {
 		return;
 	}
+	if (_a.open == false) {
+		_ed.about = undefined;
+		return;
+	}
 	var _gw = max(640, _ed.gw);
 	var _gh = max(400, _ed.gh);
-	ImGui.SetNextWindowPos(_gw * 0.5 - 190, _gh * 0.5 - 70, ImGuiCond.Always);
-	ImGui.SetNextWindowSize(380, 125, ImGuiCond.Always);
+	ImGui.SetNextWindowPos(_gw * 0.5 - 190, _gh * 0.5 - 60, ImGuiCond.Always);
+	ImGui.SetNextWindowSize(380, 110, ImGuiCond.Always);
 	__gm3d_ed_imgui_bg_alpha(0.95);
 	var _pushed = 0;
 	ImGui.PushStyleColor(ImGuiCol.TitleBg, make_colour_rgb(33, 36, 47), 1);

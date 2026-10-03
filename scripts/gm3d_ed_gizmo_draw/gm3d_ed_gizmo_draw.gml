@@ -38,11 +38,14 @@ function __gm3d_ed_gizmo_draw_selboxes(_ed, _vp) {
 
 // Renders planar translation handle quads.
 function __gm3d_ed_gizmo_draw_translate_quads(_ed, _vp, _pivot, _dirs, _ws, _cols, _hls) {
-	if (_ed.giz.tool == Gm3dEdTool.Translate) {
+	if (_ed.giz.tool == Gm3dEdTool.Translate && !__gm3d_ed_gizmo_shift_square(_ed)) {
 		var _qview = __gm3d_ed_gizmo_cam_view(_vp, _pivot);
 		for (var _qa = 0; _qa < 3; _qa++) {
 			var _qp = __gm3d_ed_clip_screen_poly(_vp, __gm3d_ed_gizmo_quad(_pivot, _dirs, _qa, _ws * 0.3, _qview));
 			if (array_length(_qp) < 3) {
+				continue;
+			}
+			if (_ed.giz.drag != 3 + _qa && __gm3d_ed_screen_poly_area(_qp) < 200) {
 				continue;
 			}
 			var _qh = (_ed.giz.hover == 3 + _qa && _ed.giz.drag == -1) || _ed.giz.drag == 3 + _qa;
@@ -160,9 +163,28 @@ function __gm3d_ed_gizmo_draw_viewring(_ed, _vp, _pivot, _look, _ws) {
 	}
 }
 
-// Draws central uniform transform handle circle.
+// Draws shift screen-space move square or scale uniform handle.
 function __gm3d_ed_gizmo_draw_center(_ed, _ps) {
-	if (_ed.giz.tool == Gm3dEdTool.Translate || _ed.giz.tool == Gm3dEdTool.Scale) {
+	if (_ed.giz.tool == Gm3dEdTool.Translate) {
+		if (!__gm3d_ed_gizmo_shift_square(_ed) && _ed.giz.drag != -2) {
+			return;
+		}
+		var _bhov = _ed.giz.hover == -2 || _ed.giz.drag == -2;
+		var _bcol = _bhov ? c_yellow : c_white;
+		var _bal = 1;
+		if (_ed.giz.drag != -1 && _ed.giz.drag != -2) {
+			_bcol = make_colour_rgb(200, 200, 200);
+			_bal = 0.2;
+		}
+		var _hs = _bhov ? 16 : 14;
+		draw_set_alpha(_bal * 0.25);
+		draw_rectangle_colour(_ps[0] - _hs, _ps[1] - _hs, _ps[0] + _hs, _ps[1] + _hs, _bcol, _bcol, _bcol, _bcol, false);
+		draw_set_alpha(_bal);
+		draw_rectangle_colour(_ps[0] - _hs, _ps[1] - _hs, _ps[0] + _hs, _ps[1] + _hs, _bcol, _bcol, _bcol, _bcol, true);
+		draw_set_alpha(1);
+		return;
+	}
+	if (_ed.giz.tool == Gm3dEdTool.Scale) {
 		var _bhov = _ed.giz.hover == -2 || _ed.giz.drag == -2;
 		var _bcol = _bhov ? c_yellow : c_white;
 		var _bal = 1;

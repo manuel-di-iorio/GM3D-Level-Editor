@@ -516,6 +516,8 @@ function __gm3d_ed_create(_inst, _rt) {
 		show_unlit: false,
 		unlit_quiet: false,
 		unlit_orig: [],
+		magenta_mat: undefined,
+		magenta_mat_skin: undefined,
 		grid_step: 1,
 		grid_node: undefined,
 		grid_src: undefined,
@@ -619,6 +621,7 @@ function __gm3d_ed_drop_preview_update(_ed, _drop) {
 		if (_pv == undefined) {
 			return;
 		}
+		__gm3d_ed_magenta_fix(_ed, _pv);
 		_pv.setLocalScale(new GM3D_Vec3(1, 1, 1));
 		_ed.drag_preview = _pv;
 	}

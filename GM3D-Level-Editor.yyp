@@ -81,6 +81,8 @@
     {"id":{"name":"shGM3DIdInstanced","path":"shaders/shGM3DIdInstanced/shGM3DIdInstanced.yy",},},
     {"id":{"name":"shGM3DIdInstancedSkin","path":"shaders/shGM3DIdInstancedSkin/shGM3DIdInstancedSkin.yy",},},
     {"id":{"name":"shGM3DIdSkin","path":"shaders/shGM3DIdSkin/shGM3DIdSkin.yy",},},
+    {"id":{"name":"shGM3DMagenta","path":"shaders/shGM3DMagenta/shGM3DMagenta.yy",},},
+    {"id":{"name":"shGM3DMagentaSkin","path":"shaders/shGM3DMagentaSkin/shGM3DMagentaSkin.yy",},},
     {"id":{"name":"shGM3DMask","path":"shaders/shGM3DMask/shGM3DMask.yy",},},
     {"id":{"name":"shGM3DMaskInstanced","path":"shaders/shGM3DMaskInstanced/shGM3DMaskInstanced.yy",},},
     {"id":{"name":"shGM3DMaskInstancedSkin","path":"shaders/shGM3DMaskInstancedSkin/shGM3DMaskInstancedSkin.yy",},},

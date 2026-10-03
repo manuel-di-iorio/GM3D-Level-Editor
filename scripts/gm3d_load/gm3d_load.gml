@@ -73,6 +73,7 @@ function __gm3d_load_node(_scene, _models, _p) {
 	if (_node == undefined) {
 		return undefined;
 	}
+	__gm3d_load_magenta_fix(_node);
 	_node.setLocalPosition(__gm3d_load_vec3(_p, "position", 0, 0, 0));
 	_node.setLocalScale(__gm3d_load_vec3(_p, "scale", 1, 1, 1));
 	_node.setLocalRotation(__gm3d_load_quat(_p));
