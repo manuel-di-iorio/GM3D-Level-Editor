@@ -233,7 +233,7 @@ function __gm3d_ed_imgui_toolbar(_ed) {
 		return;
 	}
 	ImGui.SetNextWindowPos(300, 34, _ed.imgui.cond);
-	var _flags = ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoMove;
+	var _flags = ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.AlwaysAutoResize;
 	if (!ImGui.Begin("##toolbar", _ed.imgui.win_toolbar, _flags)) {
 		ImGui.End();
 		return;
@@ -403,7 +403,7 @@ function __gm3d_ed_ui_load(_ed) {
 	if (!is_array(_c) || array_length(_c) < 2 || !is_real(_c[0]) || !is_real(_c[1])) {
 		return;
 	}
-	if (_c[0] == 85 && _c[1] == 100) {
+	if ((_c[0] == 85 || _c[0] == 375) && _c[1] == 100) {
 		__gm3d_ed_cube_home(_ed);
 		return;
 	}
@@ -717,10 +717,10 @@ function __gm3d_ed_imgui_dock_fresh(_ed) {
 	return variable_struct_exists(_ed.imgui, "dock_pos_skip") && _ed.imgui.dock_pos_skip == true;
 }
 
-// Builds initial dock layout: Hierarchy left (full height), Inspector top-right,
-// Models bottom spanning everything except Hierarchy. Split order Left, Down,
-// Right gives Models the full bottom strip; windows dock in priority order
-// Inspector > Models > Hierarchy, Hierarchy last.
+// Builds initial dock layout: Preview centered first, then Hierarchy left
+// (full height), Inspector top-right, Models bottom spanning everything
+// except Hierarchy. Split order Left, Down, Right gives Models the full
+// bottom strip; windows dock in priority order Preview, then the panels.
 // Runs once per session and on Reset Layout. Undocked windows keep working
 // floating via their SetNextWindowPos/Size fallbacks.
 function __gm3d_ed_imgui_dock_build(_ed, _root) {
@@ -765,6 +765,8 @@ function __gm3d_ed_imgui_dock_build(_ed, _root) {
 		return;
 	}
 	var _right = _s3[0];
+	var _center = array_length(_s3) > 2 ? _s3[2] : _s3[array_length(_s3) - 1];
+	ImGui.DockBuilderDockWindow("Preview", _center);
 	ImGui.DockBuilderDockWindow("Inspector", _right);
 	ImGui.DockBuilderDockWindow("Models", _bottom);
 	ImGui.DockBuilderDockWindow("Hierarchy", _left);
@@ -1007,8 +1009,10 @@ function __gm3d_ed_imgui_preview(_ed) {
 		return;
 	}
 	var _pp = __gm3d_ed_imgui_place(_ed).prev;
-	ImGui.SetNextWindowPos(_pp.x, _pp.y, _ui.cond);
-	ImGui.SetNextWindowSize(_pp.w, _pp.h, _ui.cond);
+	if (!__gm3d_ed_imgui_dock_fresh(_ed)) {
+		ImGui.SetNextWindowPos(_pp.x, _pp.y, _ui.cond);
+		ImGui.SetNextWindowSize(_pp.w, _pp.h, _ui.cond);
+	}
 	var _flags = ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse;
 	if (__gm3d_ed_imgui_lock_move(_ed)) {
 		_flags = _flags | ImGuiWindowFlags.NoMove;

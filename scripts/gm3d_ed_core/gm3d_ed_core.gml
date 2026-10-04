@@ -523,7 +523,7 @@ function __gm3d_ed_create(_inst, _rt) {
 		cube_moved: false,
 		cube_gx: 0,
 		cube_gy: 0,
-		cube_off: [375, 100],
+		cube_off: [48, 48],
 		vp: undefined,
 		viewcam: undefined,
 		cam_anim: undefined,
