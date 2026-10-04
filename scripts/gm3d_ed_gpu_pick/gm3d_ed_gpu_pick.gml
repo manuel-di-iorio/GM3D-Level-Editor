@@ -120,7 +120,8 @@ function __gm3d_ed_gpupick_surf(_ed, _g, _w, _h) {
 
 // Replaces subtree materials with ID materials.
 function __gm3d_ed_gpupick_paint_tree(_ed, _g, _node, _id, _swapped, _muted, _mute) {
-	if (_mute) {
+	var _is_locked = __gm3d_ed_locked_get(_ed, _node);
+	if (_mute || _is_locked) {
 		__gm3d_ed_walk_mute_node(_node, _muted);
 	} else {
 		var _list = [];
@@ -149,7 +150,7 @@ function __gm3d_ed_gpupick_paint_tree(_ed, _g, _node, _id, _swapped, _muted, _mu
 		if (_kids[_k] == undefined) {
 			continue;
 		}
-		__gm3d_ed_gpupick_paint_tree(_ed, _g, _kids[_k], _id, _swapped, _muted, _mute);
+		__gm3d_ed_gpupick_paint_tree(_ed, _g, _kids[_k], _id, _swapped, _muted, _mute || _is_locked);
 	}
 }
 
@@ -213,6 +214,10 @@ function __gm3d_ed_gpupick_render(_ed, _g, _all, _ignore) {
 			}
 		}
 		if (_skip) {
+			__gm3d_ed_gpupick_paint_tree(_ed, _g, _roots[_r], 0, _swapped, _muted, true);
+			continue;
+		}
+		if (__gm3d_ed_locked_get(_ed, _roots[_r])) {
 			__gm3d_ed_gpupick_paint_tree(_ed, _g, _roots[_r], 0, _swapped, _muted, true);
 			continue;
 		}
