@@ -355,10 +355,16 @@ function __gm3d_ed_rebuild(_ed, _nodes) {
 	var _tracked = __gm3d_ed_root_tracked(_ed);
 
 	var _hidden_labels = [];
+	var _locked_labels = [];
 	for (var _i = 0; _i < array_length(_tracked); _i++) {
 		var _he = __gm3d_ed_registry_find(_ed, _tracked[_i]);
-		if (_he != undefined && _he.hidden == true && is_string(_he.label)) {
-			array_push(_hidden_labels, _he.label);
+		if (_he != undefined && is_string(_he.label)) {
+			if (_he.hidden == true) {
+				array_push(_hidden_labels, _he.label);
+			}
+			if (_he.locked == true) {
+				array_push(_locked_labels, _he.label);
+			}
 		}
 		__gm3d_ed_destroy_subtree(_tracked[_i]);
 	}
@@ -437,6 +443,12 @@ function __gm3d_ed_rebuild(_ed, _nodes) {
 		for (var _q = 0; _q < array_length(_hidden_labels); _q++) {
 			if (_en2.label == _hidden_labels[_q]) {
 				__gm3d_ed_hidden_set(_ed, _rt2[_h], true);
+				break;
+			}
+		}
+		for (var _lq = 0; _lq < array_length(_locked_labels); _lq++) {
+			if (_en2.label == _locked_labels[_lq]) {
+				__gm3d_ed_locked_set(_ed, _rt2[_h], true);
 				break;
 			}
 		}

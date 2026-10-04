@@ -107,6 +107,8 @@
     {"id":{"name":"sprGM3DIconFilters","path":"sprites/sprGM3DIconFilters/sprGM3DIconFilters.yy",},},
     {"id":{"name":"sprGM3DIconGrid","path":"sprites/sprGM3DIconGrid/sprGM3DIconGrid.yy",},},
     {"id":{"name":"sprGM3DIconHand","path":"sprites/sprGM3DIconHand/sprGM3DIconHand.yy",},},
+    {"id":{"name":"sprGM3DIconHandpoint","path":"sprites/sprGM3DIconHandpoint/sprGM3DIconHandpoint.yy",},},
+    {"id":{"name":"sprGM3DIconHandpointDisabled","path":"sprites/sprGM3DIconHandpointDisabled/sprGM3DIconHandpointDisabled.yy",},},
     {"id":{"name":"sprGM3DIconMove","path":"sprites/sprGM3DIconMove/sprGM3DIconMove.yy",},},
     {"id":{"name":"sprGM3DIconObject","path":"sprites/sprGM3DIconObject/sprGM3DIconObject.yy",},},
     {"id":{"name":"sprGM3DIconPointLight","path":"sprites/sprGM3DIconPointLight/sprGM3DIconPointLight.yy",},},

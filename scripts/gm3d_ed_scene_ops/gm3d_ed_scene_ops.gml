@@ -241,6 +241,9 @@ function __gm3d_ed_duplicate_prop(_ed, _src, _kind, _off) {
 	if (__gm3d_ed_hidden_get(_ed, _src)) {
 		__gm3d_ed_hidden_set(_ed, _node, true);
 	}
+	if (__gm3d_ed_locked_get(_ed, _src)) {
+		__gm3d_ed_locked_set(_ed, _node, true);
+	}
 	__gm3d_ed_cameras_mute(_ed);
 	return _node;
 }
@@ -369,6 +372,9 @@ function __gm3d_ed_focus_node(_ed, _node) {
 
 // Selects single scene node.
 function __gm3d_ed_scene_select(_ed, _node) {
+	if (__gm3d_ed_locked_get(_ed, _node)) {
+		return;
+	}
 	_ed.sel = [_node];
 	_ed.giz.drag = -1;
 	_ed.scene_anchor = _node;
@@ -377,6 +383,9 @@ function __gm3d_ed_scene_select(_ed, _node) {
 
 // Toggles single node in current selection (Ctrl+Click).
 function __gm3d_ed_scene_toggle(_ed, _node) {
+	if (__gm3d_ed_locked_get(_ed, _node) && !__gm3d_ed_sel_has(_ed, _node)) {
+		return;
+	}
 	__gm3d_ed_sel_toggle(_ed, _node);
 	_ed.giz.drag = -1;
 	_ed.scene_anchor = _node;
@@ -412,6 +421,9 @@ function __gm3d_ed_scene_range(_ed, _visible, _anchor_node, _clicked_node, _addi
 	}
 	for (var _k = _a; _k <= _b; _k++) {
 		var _cand = _visible[_k];
+		if (__gm3d_ed_locked_get(_ed, _cand)) {
+			continue;
+		}
 		if (!__gm3d_ed_sel_has(_ed, _cand)) {
 			array_push(_ed.sel, _cand);
 		}
@@ -423,6 +435,9 @@ function __gm3d_ed_scene_range(_ed, _visible, _anchor_node, _clicked_node, _addi
 
 // Handles scene list click, Ctrl toggle and Shift range, plus doubleclick.
 function __gm3d_ed_scene_click(_ed, _nd, _row, _visible = undefined) {
+	if (__gm3d_ed_locked_get(_ed, _nd)) {
+		return;
+	}
 	var _now = current_time;
 	var _ctrl = false;
 	var _shift = false;

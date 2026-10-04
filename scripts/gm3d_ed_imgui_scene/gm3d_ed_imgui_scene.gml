@@ -1,10 +1,10 @@
-// Draws Scene hierarchy window.
+// Draws Hierarchy window (scene nodes tree).
 function __gm3d_ed_imgui_scene_win(_ed) {
 	var _ui = _ed.imgui;
-	if (!_ui.win_scene.open) {
+	if (!_ui.win_hier.open) {
 		return;
 	}
-	var _ps = __gm3d_ed_imgui_place(_ed).scn;
+	var _ps = __gm3d_ed_imgui_place(_ed).hier;
 	if (!__gm3d_ed_imgui_dock_fresh(_ed)) {
 		ImGui.SetNextWindowPos(_ps.x, _ps.y, _ui.cond);
 		ImGui.SetNextWindowSize(_ps.w, _ps.h, _ui.cond);
@@ -12,13 +12,13 @@ function __gm3d_ed_imgui_scene_win(_ed) {
 	__gm3d_ed_imgui_bg_alpha(1);
 	var _begun = false;
 
-	var _pflags = __gm3d_ed_imgui_panel_flags(_ed, "scene");
-	if (!ImGui.Begin("Scene", _ui.win_scene, _pflags)) {
-		__gm3d_ed_imgui_panel_save(_ed, "scene");
+	var _pflags = __gm3d_ed_imgui_panel_flags(_ed, "hier");
+	if (!ImGui.Begin("Hierarchy", _ui.win_hier, _pflags)) {
+		__gm3d_ed_imgui_panel_save(_ed, "hier");
 		ImGui.End();
 		return;
 	}
-	__gm3d_ed_imgui_panel_save(_ed, "scene");
+	__gm3d_ed_imgui_panel_save(_ed, "hier");
 	_begun = true;
 	__gm3d_ed_imgui_scene_list(_ed);
 	ImGui.End();
@@ -42,23 +42,66 @@ function __gm3d_ed_imgui_eye(_ed, _hidden, _ghost) {
 	}
 	var _hit = false;
 	if (_eye_spr != -1) {
-
 		ImGui.PushStyleColor(ImGuiCol.Button, c_black, 0);
 		ImGui.PushStyleColor(ImGuiCol.ButtonHovered, make_colour_rgb(47, 111, 237), 0.35);
 		ImGui.PushStyleColor(ImGuiCol.ButtonActive, make_colour_rgb(47, 111, 237), 0.5);
 		var _ew = 15;
 		var _eh = 11;
 		_ew = sprite_get_width(_eye_spr);
-		_eh = sprite_get_height(_eye_spr);
-		_hit = ImGui.ImageButton("eye", _eye_spr, 0, _tint, _ghost ? 0 : 1, c_black, 0, _ew, _eh);
+		_eh = sprite_get_height(_eye_spr);  
+        _hit = ImGui.ImageButton("eye", _eye_spr, 0, _tint, _ghost ? 0 : 1, c_black, 0, _ew, _eh);
 		__gm3d_ed_imgui_pop(3);
 	} else if (__gm3d_ed_imgui_has_widget(_ed, "SmallButton")) {
-		_hit = ImGui.SmallButton(_hidden ? "Show##eye" : "Hide##eye");
+        _hit = ImGui.SmallButton(_hidden ? "Show##eye" : "Hide##eye");
 	} else {
 		_hit = ImGui.Button(_hidden ? "Show##eye" : "Hide##eye");
 	}
 	if (ImGui.IsItemHovered()) {
 		ImGui.SetTooltip(_hidden ? "Show in viewport" : "Hide from viewport");
+	}
+	return _hit;
+}
+
+// Draws selection lock toggle handpoint button.
+function __gm3d_ed_imgui_lock(_ed, _locked, _ghost) {
+	static _hand = -2;
+	static _hand_disabled = -2;
+	if (_hand == -2) {
+		_hand = asset_get_index("sprGM3DIconHandpoint");
+	}
+	if (_hand_disabled == -2) {
+		_hand_disabled = asset_get_index("sprGM3DIconHandpointDisabled");
+	}
+	var _tint = c_white;
+	var _use_hand = _hand;
+	if (_locked && _hand_disabled != -1) {
+		_use_hand = _hand_disabled;
+	} else if (_hand == -1 && _locked) {
+		_tint = make_colour_rgb(105, 115, 135);
+	}
+	var _hit = false;
+	if (_use_hand != -1) {
+		ImGui.PushStyleColor(ImGuiCol.Button, c_black, 0);
+		ImGui.PushStyleColor(ImGuiCol.ButtonHovered, make_colour_rgb(47, 111, 237), 0.35);
+		ImGui.PushStyleColor(ImGuiCol.ButtonActive, make_colour_rgb(47, 111, 237), 0.5);
+		var _ew = 12;
+		var _eh = 15;
+		_ew = sprite_get_width(_use_hand);
+		_eh = sprite_get_height(_use_hand);
+		if (__gm3d_ed_imgui_has_widget(_ed, "SetCursorScreenPos")) {
+			var _sx = ImGui.GetCursorScreenPosX();
+			var _sy = ImGui.GetCursorScreenPosY();
+			ImGui.SetCursorScreenPos(_sx + 1, _sy - 3);
+		}
+		_hit = ImGui.ImageButton("lock", _use_hand, 0, _tint, _ghost ? 0 : 1, c_black, 0, _ew, _eh);
+		__gm3d_ed_imgui_pop(3);
+	} else if (__gm3d_ed_imgui_has_widget(_ed, "SmallButton")) {
+		_hit = ImGui.SmallButton(_locked ? "Unlock##lock" : "Lock##lock");
+	} else {
+		_hit = ImGui.Button(_locked ? "Unlock##lock" : "Lock##lock");
+	}
+	if (ImGui.IsItemHovered()) {
+		ImGui.SetTooltip(_locked ? "Unlock selection" : "Lock selection");
 	}
 	return _hit;
 }
@@ -83,7 +126,7 @@ function __gm3d_ed_rename_begin(_ed, _node) {
 	_pp = _node.getLocalPosition();
 	_ed.rename_name = _lb;
 	_ed.rename_pos = [_pp.x, _pp.y, _pp.z];
-	_ed.imgui.win_scene.open = true;
+	_ed.imgui.win_hier.open = true;
 }
 
 // Cancels active node rename.
@@ -263,10 +306,21 @@ function __gm3d_ed_imgui_scene_list(_ed) {
 			}
 		} else {
 			var _ishid = __gm3d_ed_hidden_get(_ed, _nd);
+			var _islocked = __gm3d_ed_locked_get(_ed, _nd);
 
-			var _eye_show = _ishid || (_ui.scene_eye_idx == _i && current_time <= _ui.scene_eye_till);
+			var _row_show = _ui.scene_eye_idx == _i && current_time <= _ui.scene_eye_till;
+			var _eye_show = _ishid || _row_show;
 			if (__gm3d_ed_imgui_eye(_ed, _ishid, !_eye_show)) {
 				__gm3d_ed_hidden_set(_ed, _nd, !_ishid);
+			}
+			if (ImGui.IsItemHovered()) {
+				_ui.scene_eye_idx = _i;
+				_ui.scene_eye_till = current_time + 500;
+			}
+			ImGui.SameLine(0, 0);
+			var _lock_show = _islocked || _row_show;
+			if (__gm3d_ed_imgui_lock(_ed, _islocked, !_lock_show)) {
+				__gm3d_ed_locked_set(_ed, _nd, !_islocked);
 			}
 			if (ImGui.IsItemHovered()) {
 				_ui.scene_eye_idx = _i;

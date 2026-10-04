@@ -90,7 +90,7 @@ function __gm3d_ed_imgui_ensure(_ed) {
 		cond: ImGuiCond.FirstUseEver,
 		style_init: false,
 		win_assets: { open: true },
-		win_scene: { open: true },
+		win_hier: { open: true },
 		win_insp: { open: true },
 		win_toolbar: { open: true },
 		win_cube: { open: true },
@@ -514,10 +514,11 @@ function __gm3d_ed_imgui_scene_dlg(_ed) {
 		return;
 	}
 	var _is_save = _dlg.mode != "load";
+	var _del_pending = variable_struct_exists(_dlg, "delete_pending") && is_string(_dlg.delete_pending);
 	var _gw = max(640, _ed.gw);
 	var _gh = max(400, _ed.gh);
 	var _ww = 400;
-	var _wh = _is_save ? 120 : 250;
+	var _wh = _is_save ? 120 : 360;
 	ImGui.SetNextWindowPos(_gw * 0.5 - _ww * 0.5, _gh * 0.5 - _wh * 0.5, ImGuiCond.Always);
 	ImGui.SetNextWindowSize(_ww, _wh, ImGuiCond.Always);
 	__gm3d_ed_imgui_bg_alpha(1);
@@ -532,65 +533,111 @@ function __gm3d_ed_imgui_scene_dlg(_ed) {
 		ImGui.End();
 		return;
 	}
-	ImGui.Text("Scene name:");
-	if (!variable_struct_exists(_dlg, "buf") || !is_string(_dlg.buf)) {
-		_dlg.buf = __gm3d_ed_imgui_pad(_dlg.name);
-	}
-	var _out = ImGui.InputText("##scene_dlg_name", _dlg.buf, ImGuiInputTextFlags.AutoSelectAll);
-	if (is_string(_out)) {
-		_dlg.buf = _out;
-		_dlg.name = string_trim(_out);
-	}
-	if (_dlg.error != "" && _dlg.name != _dlg.err_name) {
-		_dlg.error = "";
-		_dlg.err_name = "";
-	}
-	var _shown = 0;
-	if (!_is_save) {
-		ImGui.Separator();
-		ImGui.TextDisabled("Existing:");
-		for (var _i = 0; _i < array_length(_dlg.list); _i++) {
-			if (_shown >= 3) {
-				break;
+	if (_del_pending) {
+		var _dn = _dlg.delete_pending;
+		ImGui.Spacing();
+		ImGui.Text("Are you sure you want to delete");
+		ImGui.Text("the scene \"" + _dn + "\"?");
+		ImGui.Spacing();
+		ImGui.TextDisabled("This cannot be undone.");
+		ImGui.Dummy(0, 16);
+		if (ImGui.Button("Delete", 0, 0)) {
+			if (__gm3d_ed_delete_scene_named(_dn)) {
+				if (_dlg.name == _dn) {
+					_dlg.name = "";
+					_dlg.buf = __gm3d_ed_imgui_pad("");
+				}
+				_dlg.list = __gm3d_ed_scene_list();
+			} else {
+				_dlg.error = "Could not delete scene \"" + _dn + "\".";
+				_dlg.err_name = _dlg.name;
 			}
-			var _n = _dlg.list[_i];
-			if (ImGui.Selectable(_n, _dlg.name == _n)) {
-				_dlg.name = _n;
-				_dlg.buf = __gm3d_ed_imgui_pad(_n);
+			_dlg.delete_pending = undefined;
+		}
+		ImGui.SameLine();
+		if (ImGui.Button("Cancel", 0, 0)) {
+			_dlg.delete_pending = undefined;
+		}
+	} else {
+		ImGui.Text("Scene name:");
+		if (!variable_struct_exists(_dlg, "buf") || !is_string(_dlg.buf)) {
+			_dlg.buf = __gm3d_ed_imgui_pad(_dlg.name);
+		}
+		var _out = ImGui.InputText("##scene_dlg_name", _dlg.buf, ImGuiInputTextFlags.AutoSelectAll);
+		if (is_string(_out)) {
+			_dlg.buf = _out;
+			_dlg.name = string_trim(_out);
+		}
+		if (_dlg.error != "" && _dlg.name != _dlg.err_name) {
+			_dlg.error = "";
+			_dlg.err_name = "";
+		}
+		if (!_is_save) {
+			ImGui.Separator();
+			ImGui.TextDisabled("Existing:");
+			ImGui.SetNextItemWidth(-1);
+			if (!variable_struct_exists(_dlg, "search") || !is_string(_dlg.search)) {
+				_dlg.search = "";
 			}
-			if (ImGui.IsMouseDoubleClicked(0) && ImGui.IsItemHovered()) {
+			_dlg.search = __gm3d_ed_imgui_text_hint("##scene_dlg_search", "Search scene..", _dlg.search);
+			var _search_lower = string_lower(string_trim(_dlg.search));
+			var _matched = 0;
+			if (ImGui.BeginChild("##scenes_list_child", 0, -88 - 30, ImGuiChildFlags.Borders)) {
+				var _list_avail_x = ImGui.GetContentRegionAvailX();
+				var _list_sel_w = _list_avail_x - 28 - 8;
+				for (var _i = 0; _i < array_length(_dlg.list); _i++) {
+					var _n = _dlg.list[_i];
+					if (_search_lower != "" && string_pos(_search_lower, string_lower(_n)) <= 0) {
+						continue;
+					}
+					ImGui.PushID(_i);
+					_matched++;
+					var _sel_click = ImGui.Selectable(_n, _dlg.name == _n, 0, 0, _list_sel_w);
+					if (_sel_click) {
+						_dlg.name = _n;
+						_dlg.buf = __gm3d_ed_imgui_pad(_n);
+					}
+					if (ImGui.IsMouseDoubleClicked(0) && ImGui.IsItemHovered()) {
+						__gm3d_ed_scene_dlg_do_load(_ed);
+					}
+					ImGui.SameLine();
+					if (ImGui.SmallButton("x##del_" + string(_i))) {
+						_dlg.delete_pending = _n;
+					}
+					ImGui.PopID();
+				}
+			}
+			ImGui.EndChild();
+			_dlg._matched = _matched;
+		}
+		if (_dlg.error != "") {
+			ImGui.Text("Error: " + _dlg.error);
+		} else if (_is_save && __gm3d_ed_scene_dlg_exists(_ed, _dlg.name)) {
+			ImGui.TextDisabled("Exists - saving will overwrite.");
+		} else if (!_is_save && array_length(_dlg.list) == 0) {
+			ImGui.TextDisabled("No saved scenes yet.");
+		} else if (!_is_save && variable_struct_exists(_dlg, "search") && string_length(string_trim(_dlg.search)) > 0 && _dlg._matched == 0) {
+			ImGui.TextDisabled("No scenes match your search.");
+		} else {
+			ImGui.Text("");
+		}
+		if (ImGui.Button(_is_save ? "Save" : "Load", 0, 0)) {
+			if (_is_save) {
+				__gm3d_ed_scene_dlg_do_save(_ed);
+			} else {
 				__gm3d_ed_scene_dlg_do_load(_ed);
 			}
-			_shown++;
 		}
-	}
-	if (_dlg.error != "") {
-		ImGui.Text("Error: " + _dlg.error);
-	} else if (_is_save && __gm3d_ed_scene_dlg_exists(_ed, _dlg.name)) {
-		ImGui.TextDisabled("Exists - saving will overwrite.");
-	} else if (!_is_save && array_length(_dlg.list) == 0) {
-		ImGui.TextDisabled("No saved scenes yet.");
-	} else if (!_is_save && array_length(_dlg.list) > _shown) {
-		ImGui.TextDisabled("... +" + string(array_length(_dlg.list) - _shown) + " more (type the name)");
-	} else {
-		ImGui.Text("");
-	}
-	if (ImGui.Button(_is_save ? "Save" : "Load", 0, 0)) {
-		if (_is_save) {
-			__gm3d_ed_scene_dlg_do_save(_ed);
-		} else {
-			__gm3d_ed_scene_dlg_do_load(_ed);
+		ImGui.SameLine();
+		if (ImGui.Button("Cancel", 0, 0)) {
+			_ed.scene_dlg = undefined;
 		}
-	}
-	ImGui.SameLine();
-	if (ImGui.Button("Cancel", 0, 0)) {
-		_ed.scene_dlg = undefined;
-	}
-	if (_ed.scene_dlg != undefined && keyboard_check_pressed(vk_enter)) {
-		if (_is_save) {
-			__gm3d_ed_scene_dlg_do_save(_ed);
-		} else {
-			__gm3d_ed_scene_dlg_do_load(_ed);
+		if (_ed.scene_dlg != undefined && keyboard_check_pressed(vk_enter)) {
+			if (_is_save) {
+				__gm3d_ed_scene_dlg_do_save(_ed);
+			} else {
+				__gm3d_ed_scene_dlg_do_load(_ed);
+			}
 		}
 	}
 	ImGui.End();
@@ -631,7 +678,7 @@ function __gm3d_ed_imgui_place(_ed) {
 	var _ih = max(280, _gh - _mh - _top - _gap - 8);
 	var _mx = _lw + _gap * 2;
 	return {
-		scn: { x: 8, y: _top, w: _lw, h: max(200, _gh - _top - 8) },
+		hier: { x: 8, y: _top, w: _lw, h: max(200, _gh - _top - 8) },
 		insp: { x: _gw - _iw - 8, y: _top, w: _iw, h: _ih },
 		assets: { x: _mx, y: _gh - _mh - 8, w: max(200, _gw - _mx - 8), h: _mh },
 	};
@@ -657,7 +704,7 @@ function __gm3d_ed_imgui_dock_ok(_ed) {
 	return _ok;
 }
 
-// Builds initial dock layout: Scene left, Inspector right, Models bottom.
+// Builds initial dock layout: Hierarchy left, Inspector right, Models bottom.
 // Returns true while a fresh dock layout must win over SetNextWindowPos/Size.
 function __gm3d_ed_imgui_dock_fresh(_ed) {
 	if (_ed.imgui == undefined) {
@@ -666,10 +713,10 @@ function __gm3d_ed_imgui_dock_fresh(_ed) {
 	return variable_struct_exists(_ed.imgui, "dock_pos_skip") && _ed.imgui.dock_pos_skip == true;
 }
 
-// Builds initial dock layout: Scene left (full height), Inspector top-right,
-// Models bottom spanning everything except Scene. Split order Left, Down,
+// Builds initial dock layout: Hierarchy left (full height), Inspector top-right,
+// Models bottom spanning everything except Hierarchy. Split order Left, Down,
 // Right gives Models the full bottom strip; windows dock in priority order
-// Inspector > Models > Scene, Scene last.
+// Inspector > Models > Hierarchy, Hierarchy last.
 // Runs once per session and on Reset Layout. Undocked windows keep working
 // floating via their SetNextWindowPos/Size fallbacks.
 function __gm3d_ed_imgui_dock_build(_ed, _root) {
@@ -716,7 +763,7 @@ function __gm3d_ed_imgui_dock_build(_ed, _root) {
 	var _right = _s3[0];
 	ImGui.DockBuilderDockWindow("Inspector", _right);
 	ImGui.DockBuilderDockWindow("Models", _bottom);
-	ImGui.DockBuilderDockWindow("Scene", _left);
+	ImGui.DockBuilderDockWindow("Hierarchy", _left);
 	ImGui.DockBuilderFinish(_root);
 	_ed.imgui.dock_built = true;
 	_ed.imgui.dock_rebuild = false;
@@ -902,8 +949,8 @@ function __gm3d_ed_imgui_menu(_ed) {
 		if (ImGui.MenuItem(_ui.win_assets.open ? "[x] Models" : "[  ] Models")) {
 			_ui.win_assets.open = !_ui.win_assets.open;
 		}
-		if (ImGui.MenuItem(_ui.win_scene.open ? "[x] Scene" : "[  ] Scene")) {
-			_ui.win_scene.open = !_ui.win_scene.open;
+		if (ImGui.MenuItem(_ui.win_hier.open ? "[x] Hierarchy" : "[  ] Hierarchy")) {
+			_ui.win_hier.open = !_ui.win_hier.open;
 		}
 		if (ImGui.MenuItem(_ui.win_insp.open ? "[x] Inspector" : "[  ] Inspector")) {
 			_ui.win_insp.open = !_ui.win_insp.open;

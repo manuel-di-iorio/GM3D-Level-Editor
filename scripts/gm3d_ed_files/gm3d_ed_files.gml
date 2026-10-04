@@ -182,6 +182,20 @@ function __gm3d_ed_load_named(_ed, _name) {
 	return false;
 }
 
+// Deletes a saved scene file by name. Returns true on success.
+function __gm3d_ed_delete_scene_named(_name) {
+	var _clean = __gm3d_ed_sanitize_scene_name(_name);
+	if (_clean == "") {
+		return false;
+	}
+	var _path = __gm3d_ed_scenes_dir() + _clean + ".json";
+	if (!file_exists(_path)) {
+		return false;
+	}
+	file_delete(_path);
+	return true;
+}
+
 // Confirms save dialog.
 function __gm3d_ed_scene_dlg_do_save(_ed) {
 	var _dlg = _ed.scene_dlg;

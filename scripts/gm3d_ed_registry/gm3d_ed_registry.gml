@@ -209,6 +209,9 @@ function __gm3d_ed_sel_toggle(_ed, _node) {
 			}
 		}
 	}
+	if (__gm3d_ed_locked_get(_ed, _node)) {
+		return;
+	}
 	array_push(_ed.sel, _node);
 }
 
@@ -262,6 +265,7 @@ function __gm3d_ed_kind_register(_ed, _node, _kind, _asset, _pos3, _label = unde
 		pos: _pos3 != undefined ? _pos3 : [0, 0, 0],
 		data: _data,
 		hidden: false,
+		locked: false,
 	});
 	__gm3d_ed_reg_index_add(_ed, _nm);
 	if (_ed.unlit_quiet != true) {
@@ -866,6 +870,40 @@ function __gm3d_ed_hidden_set(_ed, _node, _hide) {
 	}
 	if (_ed.rt != undefined && _ed.rt.scene != undefined) {
 		_ed.rt.scene.update(0);
+	}
+	return true;
+}
+
+// Checks if node selection is disabled (locked).
+function __gm3d_ed_locked_get(_ed, _node) {
+	if (_ed == undefined || _node == undefined) {
+		return false;
+	}
+	var _en = __gm3d_ed_registry_find(_ed, _node);
+	return _en != undefined && _en.locked == true;
+}
+
+// Locks or unlocks node selection (locked = cannot be selected).
+function __gm3d_ed_locked_set(_ed, _node, _lock) {
+	if (_ed == undefined || _node == undefined) {
+		return false;
+	}
+	var _en = __gm3d_ed_registry_find(_ed, _node);
+	if (_en == undefined) {
+		return false;
+	}
+	_en.locked = (_lock == true);
+	// If node got locked and it was selected, remove it from selection.
+	if (_en.locked && is_array(_ed.sel)) {
+		var _ns = [];
+		for (var _i = 0; _i < array_length(_ed.sel); _i++) {
+			if (_ed.sel[_i] != _node) {
+				array_push(_ns, _ed.sel[_i]);
+			}
+		}
+		_ed.sel = _ns;
+		_ed.giz.drag = -1;
+		__gm3d_ed_sel_apply_tool(_ed);
 	}
 	return true;
 }
