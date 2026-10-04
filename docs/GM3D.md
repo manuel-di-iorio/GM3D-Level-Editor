@@ -985,47 +985,6 @@ Sample helpers (`scripts/`):
 | `scrSampleVehicleSetup` | cone spawners, `sampleGetWheelDimensionsFromMesh` |
 | `scrUI` | `CButtonBase/CButton/CIconButton`, `createNavButton` |
 
-## Performance and ownership
-
-### Practical rules
-
-- Load each model once and keep it as a source asset.
-- Assign the shader before `freeze()` (`freeze()` uploads meshes to GPU — call once after shader assignment).
-- Use `spawnInto()` for instances; reuse frozen assets for thousands of instances.
-- Use instanced shaders when the content and platform allow it.
-- Do not recreate renderers, scenes, materials, or assets every frame.
-- Update the scene once per Step using seconds, not microseconds.
-- Size near/far planes and fog for the scene: excessive ranges reduce depth precision.
-- `syncScene()` once after `scene.update(0)`; per-frame use `step()` only.
-- `interpolateForRender()` before render, `restoreSimulationPositions()` after.
-- Physics bodies: prefer boxes/spheres/capsules; `Mesh/ConvexHull/ConvexDecomposition` cost more. Static for level, kinematic for scripted movers/targets/pickups, dynamic only where simulated.
-- Sensors/triggers (`IsSensor + Trigger layer`) for pickups, not solid bodies.
-- Character: one `setCharacterVelocity` per step; read ground state after step for animation/camera branches.
-- Vehicles: set input once per step; avoid per-frame rebuild.
-- Shadows double draw cost: keep `ShadowResolution/Distance` minimal, disable `CastShadows` on tiny/irrelevant meshes.
-- Render the scene offscreen only into targets at full application-surface
-  size. A smaller target makes the renderer drop its size-matched attachments
-  (color/depth) mid-frame while already-queued command buffers still reference
-  them: `Destroyed texture used in a submit` validation errors and black
-  output, because the whole frame is submitted in one batch at frame end.
-- Explicitly destroy all owned scenes.
-
-### Suggested ownership
-
-| Resource | Typical creator | Cleanup |
-| --- | --- | --- |
-| live scene | level controller | `scene.destroy()` |
-| glTF asset scene | asset registry/loader | `asset.destroy()` once |
-| spawned node | live scene | `node.destroy(recursive?)` or scene destroy |
-| runtime-created material | material system | `material.destroy()` |
-| renderer | controller | remove the reference |
-| physics world | level controller | `physicsWorld.destroy()` **before** scene |
-| physics node | live scene + world | `world.removeNode()` then `node.destroy()` |
-| contact callback | body | `removeContactCallback/clear` (world destroy clears) |
-| vehicle | scene + world | `world.removeVehicle()` then scene destroy |
-
-Avoid destroying a shared asset while systems can still generate instances from it.
-
 ## API by type
 
 This is a quick-reference map, not a complete reproduction of the reference.
