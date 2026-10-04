@@ -356,17 +356,15 @@ function __gm3d_ed_gpupick_rect(_ed, _g, _r) {
 	if (!__gm3d_ed_gpupick_download(_ed, _g)) {
 		return [];
 	}
-	var _gw = 0;
-	var _gh = 0;
-	_gw = display_get_gui_width();
-	_gh = display_get_gui_height();
-	if (_gw <= 0 || _gh <= 0) {
+	var _s0 = __gm3d_ed_gpupick_to_surf(_ed, _g, _r.x0, _r.y0);
+	var _s1 = __gm3d_ed_gpupick_to_surf(_ed, _g, _r.x1, _r.y1);
+	if (_s0 == undefined || _s1 == undefined) {
 		return [];
 	}
-	var _x0 = clamp(floor(_r.x0 * _g.sw / _gw), 0, _g.sw - 1);
-	var _x1 = clamp(floor(_r.x1 * _g.sw / _gw), 0, _g.sw - 1);
-	var _y0 = clamp(floor(_r.y0 * _g.sh / _gh), 0, _g.sh - 1);
-	var _y1 = clamp(floor(_r.y1 * _g.sh / _gh), 0, _g.sh - 1);
+	var _x0 = min(_s0[0], _s1[0]);
+	var _x1 = max(_s0[0], _s1[0]);
+	var _y0 = min(_s0[1], _s1[1]);
+	var _y1 = max(_s0[1], _s1[1]);
 	var _area = (_x1 - _x0 + 1) * (_y1 - _y0 + 1);
 	var _step = 1;
 	if (_area > 1280 * 720) {
