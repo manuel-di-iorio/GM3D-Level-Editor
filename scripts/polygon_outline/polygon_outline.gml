@@ -255,6 +255,37 @@ function __polygon_outline_node_key(_key, _root) {
   return _key;
 }
 
+// Appends the live camera pose to the outline cache key.
+// 5 decimals like the view key: string() rounds to 2, so slow orbit steps
+// (0.18 deg/px) would not flip the key and the mask would lag behind.
+function __polygon_outline_cam_key(_key, _ed) {
+  var _cam = undefined;
+
+  if (_ed.viewcam != undefined) {
+    _cam = _ed.viewcam;
+  } else if (_ed.rt != undefined) {
+    _cam = _ed.rt.cam;
+  }
+
+  if (_cam == undefined) {
+    return _key;
+  }
+
+  var _pos = _cam.getLocalPosition();
+
+  if (_pos != undefined) {
+    _key += string_format(_pos.x, 0, 5) + "," + string_format(_pos.y, 0, 5) + "," + string_format(_pos.z, 0, 5) + "|";
+  }
+
+  var _rot = _cam.getLocalRotation();
+
+  if (_rot != undefined) {
+    _key += string_format(_rot.x, 0, 5) + "," + string_format(_rot.y, 0, 5) + "," + string_format(_rot.z, 0, 5) + "," + string_format(_rot.w, 0, 5) + "|";
+  }
+
+  return _key;
+}
+
 // Builds tiny pre-check key (camera, sizes, sel count, drag, tracked count).
 // Returns undefined when it cannot be built reliably (forces full path).
 function __polygon_outline_fast(_ed) {
@@ -263,23 +294,9 @@ function __polygon_outline_fast(_ed) {
   }
 
   var _vp = _ed.vp;
-
-  if (_vp.camNode == undefined || _vp.camForward == undefined) {
-    return undefined;
-  }
-
-  var _cam = _vp.camNode.getWorldPosition();
-
-  if (_cam == undefined) {
-    return undefined;
-  }
-
   var _dragging = variable_struct_exists(_ed, "giz") && is_struct(_ed.giz) && _ed.giz.drag != -1;
   var _tracked = __polygon_reg_count(_ed);
-  var _key = __polygon_key_vec3("", "|", _cam);
-  _key = __polygon_key_vec3(_key, "f", _vp.camForward);
-  _key = __polygon_key_vec3(_key, "r", _vp.camRight);
-  _key = __polygon_key_vec3(_key, "u", _vp.camUp);
+  var _key = __polygon_outline_cam_key("", _ed);
   _key += "|p" + string(_vp.fovY) + "," + string(_vp.near) + "," + string(_vp.far);
   _key += "," + string(_vp.winW) + "x" + string(_vp.winH);
   _key += "|s" + string(array_length(_ed.sel)) + "d" + string(_dragging ? 1 : 0);
@@ -439,10 +456,19 @@ function __polygon_outline_capture(_ed) {
 
   surface_set_target(_o.mask);
   draw_clear(c_black);
+  // Refresh world matrices: the camera moved in step after the last
+  // scene.update, so without this the mask lags one move behind the
+  // main render (visible as jitter while orbiting).
+  _ed.rt.scene.update(0);
   _ed.renderer.render(_ed.rt.scene);
   surface_reset_target();
   _o.has = true;
   _o.sig = _o.fast;
+  // Fresh mask: force the main surface to re-render so it gets
+  // composited. Without this, a mask that becomes ready on a frame where
+  // the view key does not change (e.g. selecting in a still viewport)
+  // would sit unseen until the next camera move.
+  _ed.view_dirty = true;
 
   __polygon_walk_restore(_swapped, _muted);
 }
