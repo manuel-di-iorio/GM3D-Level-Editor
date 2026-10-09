@@ -407,9 +407,17 @@ function __polygon_menu_brand() {
     _logo = asset_get_index("sprPolygonEditorIconLogo");
   }
 
+  ImGui.Dummy(1, 0);
+
   if (_logo != -1) {
-    var _h = ImGui.GetFrameHeight();
+    // Fixed logo size: it no longer follows FramePadding, so the bar
+    // padding stays visible as margin around it (tweak _marg/_max_h).
+    var _marg = 3;
+    var _max_h = 30;
+    var _fh = ImGui.GetFrameHeight();
+    var _h = min(_max_h, max(1, _fh - _marg * 2));
     var _w = _h * sprite_get_width(_logo) / max(1, sprite_get_height(_logo));
+    ImGui.SetCursorScreenPos(ImGui.GetCursorScreenPosX(), ImGui.GetCursorScreenPosY() + max(0, (_fh - _h) * 0.5));
     ImGui.Image(_logo, 0, c_white, 1, _w, _h);
   }
 
@@ -419,7 +427,7 @@ function __polygon_menu_brand() {
   ImGui.Text("Polygon");
   ImGui.SetWindowFontScale(1);
   __polygon_imgui_pop(1);
-  ImGui.Dummy(-4, 0);
+  ImGui.Dummy(-3, 0);
   ImGui.TextDisabled("|");
 }
 
@@ -462,7 +470,7 @@ function __polygon_menu_do(_ed, _file) {
 // Tries to pad the menu bar via FramePadding (Dear ImGui StyleVar 11).
 // Returns true when active: caller must pop with __polygon_menu_pad_pop().
 function __polygon_menu_pad_push() {
-  ImGui.PushStyleVar(11, 8, 10);
+  ImGui.PushStyleVar(11, 8, 12);
   return true;
 }
 
