@@ -1,0 +1,77 @@
+////////////////////////////////////////////////////////////////////////////////
+//
+// Vertex shader for instanced static (non-skinned) geometry.
+//
+// Reads a per-instance world matrix from vertex attributes, transforms vertex
+// position and TBN frame to world space. Computes fog factor passed to the
+// fragment stage.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+// Attributes
+attribute vec3 in_Position;
+attribute vec3 in_Normal;
+attribute vec4 in_Colour;
+attribute vec2 in_TextureCoord;
+attribute vec4 in_Tangent;
+
+// Per-instance attributes
+attribute vec4 in_InstanceMatrixCol0;
+attribute vec4 in_InstanceMatrixCol1;
+attribute vec4 in_InstanceMatrixCol2;
+attribute vec4 in_InstanceMatrixCol3;
+
+// Varyings
+varying vec3 vT;
+varying vec3 vN;
+varying float vSign;
+varying float vHasTangent;
+
+varying vec4 vColor;
+varying vec2 vTexCoord;
+varying vec3 vWorldPosition;
+varying vec3 vShadowWorldPosition;
+varying float vFogFactor;
+
+uniform float gm_ShadowNormalOffset;
+
+// Computes world-space tangent and normal.
+void buildTBN(
+	vec4 tangent, vec3 normal, mat3 xformMat3,
+	out vec3 outT, out vec3 outN, out float outHasTangent
+) {
+	outHasTangent = (dot(tangent, tangent) > 0.0) ? 1.0 : 0.0;
+	outT = xformMat3 * tangent.xyz;
+	outN = xformMat3 * normal;
+	outN = normalize(outN);
+	outT = normalize(outT);
+	outT = normalize(outT - outN * dot(outT, outN));
+}
+
+void main()
+{
+	// Instance world matrix
+	mat4 world = mat4(
+		in_InstanceMatrixCol0,
+		in_InstanceMatrixCol1,
+		in_InstanceMatrixCol2,
+		in_InstanceMatrixCol3
+	);
+
+	vec4 p = vec4(in_Position, 1.0);
+
+	// TBN frame
+	buildTBN(in_Tangent, in_Normal, mat3(world), vT, vN, vHasTangent);
+	vSign = in_Tangent.w;
+
+	// Output
+	vec4 worldPos = world * p;
+	vWorldPosition = worldPos.xyz;
+	vShadowWorldPosition = vWorldPosition + vN * gm_ShadowNormalOffset;
+
+	gl_Position = gm_Matrices[MATRIX_PROJECTION] * gm_Matrices[MATRIX_VIEW] * worldPos;
+	float fogEnable = gm_VS_FogEnabled ? 1.0 : 0.0;
+	vFogFactor = fogEnable * (gl_Position.w - gm_FogStart) * gm_RcpFogRange;
+	vColor = in_Colour;
+	vTexCoord = in_TextureCoord;
+}

@@ -1,0 +1,1 @@
+if (!polygon_is_active()) demo_step();
