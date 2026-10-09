@@ -1,6 +1,6 @@
 # Polygon - 3D Editor for Game Maker
 
-<img src="docs/logo.jpg" width="800px" />
+<img src="docs/logo_gm.png" width="800px" />
 
 3D editor for GameMaker on the GMRT runtime, using the built-in GM3D/ImGUI classes. Drop it into a project, edit your scenes, save them to a file and you will be able it to load it later anywhere.
 

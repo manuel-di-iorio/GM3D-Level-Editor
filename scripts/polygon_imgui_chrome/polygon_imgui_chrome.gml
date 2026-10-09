@@ -401,10 +401,22 @@ function __polygon_menu_view(_ed) {
 
 // Draws the non-clickable brand label at the start of the menu bar.
 function __polygon_menu_brand() {
+  static _logo = -2;
+
+  if (_logo == -2) {
+    _logo = asset_get_index("sprPolygonEditorIconLogo");
+  }
+
+  if (_logo != -1) {
+    var _h = ImGui.GetFrameHeight();
+    var _w = _h * sprite_get_width(_logo) / max(1, sprite_get_height(_logo));
+    ImGui.Image(_logo, 0, c_white, 1, _w, _h);
+  }
+
   ImGui.AlignTextToFramePadding();
   ImGui.PushStyleColor(ImGuiCol.Text, make_colour_rgb(147, 197, 253), 1);
   ImGui.SetWindowFontScale(1.12);
-  ImGui.Text(" Polygon");
+  ImGui.Text("Polygon");
   ImGui.SetWindowFontScale(1);
   __polygon_imgui_pop(1);
   ImGui.Dummy(-4, 0);
