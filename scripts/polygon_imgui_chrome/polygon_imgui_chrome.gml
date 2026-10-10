@@ -479,6 +479,37 @@ function __polygon_menu_pad_pop() {
   ImGui.PopStyleVar();
 }
 
+// Draws the AI bridge toggle + link status at the right end of the menu bar.
+function __polygon_menu_ai(_ed) {
+  var _ai = __polygon_ai_state(_ed);
+  var _w = ImGui.GetWindowWidth();
+  var _st = __polygon_ai_link(_ed);
+
+  if (_st != 0) {
+    var _txt = _st == 3 ? "Connected" : (_st == 2 ? "Reconnecting.." : "Connecting to AI..");
+    ImGui.SameLine(max(0, _w - 60 - 8 - ImGui.CalcTextWidth(_txt)));
+
+    if (_st == 3) {
+      ImGui.PushStyleColor(ImGuiCol.Text, c_green, 1);
+      ImGui.Text(_txt);
+      __polygon_imgui_pop(1);
+    } else {
+      ImGui.Text(_txt);
+    }
+  } else if (_ai.notice != "" && current_time < _ai.notice_until) {
+    ImGui.SameLine(max(0, _w - 60 - 8 - ImGui.CalcTextWidth(_ai.notice)));
+    ImGui.PushStyleColor(ImGuiCol.Text, c_red, 1);
+    ImGui.Text(_ai.notice);
+    __polygon_imgui_pop(1);
+  }
+
+  ImGui.SameLine(max(0, _w - 60));
+
+  if (__polygon_imgui_tool_btn("AI bridge: connect/disconnect the MCP relay", "AI", _ai.on, 0, 0)) {
+    __polygon_ai_enable(!_ai.on);
+  }
+}
+
 // Draws main menu bar with actions.
 function __polygon_imgui_menu(_ed) {
   var _pad = __polygon_menu_pad_push();
@@ -497,6 +528,7 @@ function __polygon_imgui_menu(_ed) {
   __polygon_menu_create(_ed);
   __polygon_menu_view(_ed);
   __polygon_menu_help(_ed);
+  __polygon_menu_ai(_ed);
   ImGui.EndMainMenuBar();
 
   if (_pad) {

@@ -163,6 +163,7 @@ function polygon_step() {
   }
 
   __polygon_step(_ed, delta_time * 0.000001);
+  __polygon_ai_step(_ed);
   __polygon_imgui_draw(_ed);
 }
 
@@ -495,6 +496,7 @@ function polygon_cleanup(_ed = undefined) {
 
   __polygon_outline_cleanup(_ed);
   __polygon_gpupick_cleanup(_ed);
+  __polygon_ai_disconnect(_ed);
   __polygon_pv_free_all(_ed);
   __polygon_graveyard_free(_ed);
 

@@ -13,6 +13,7 @@
     {"name":"oGame","order":18,"path":"objects/oGame/oGame.yy",},
     {"name":"rTest","order":20,"path":"rooms/rTest/rTest.yy",},
     {"name":"imgui_enums","order":15,"path":"scripts/imgui_enums/imgui_enums.yy",},
+    {"name":"polygon_ai","order":23,"path":"scripts/polygon_ai/polygon_ai.yy",},
     {"name":"polygon_camera","order":6,"path":"scripts/polygon_camera/polygon_camera.yy",},
     {"name":"polygon_core","order":2,"path":"scripts/polygon_core/polygon_core.yy",},
     {"name":"polygon_files","order":21,"path":"scripts/polygon_files/polygon_files.yy",},

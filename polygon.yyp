@@ -50,6 +50,7 @@
     {"id":{"name":"oGame","path":"objects/oGame/oGame.yy",},},
     {"id":{"name":"rTest","path":"rooms/rTest/rTest.yy",},},
     {"id":{"name":"imgui_enums","path":"scripts/imgui_enums/imgui_enums.yy",},},
+    {"id":{"name":"polygon_ai","path":"scripts/polygon_ai/polygon_ai.yy",},},
     {"id":{"name":"polygon_camera","path":"scripts/polygon_camera/polygon_camera.yy",},},
     {"id":{"name":"polygon_core","path":"scripts/polygon_core/polygon_core.yy",},},
     {"id":{"name":"polygon_dlg_about","path":"scripts/polygon_dlg_about/polygon_dlg_about.yy",},},

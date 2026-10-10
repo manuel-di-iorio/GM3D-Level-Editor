@@ -92,10 +92,18 @@ polygon_load(my_scene, "__PolygonEditor__/scenes/level1.json", _models);
 // After loading, assign Forward+Shadow shaders per spawned node (see Shadows above).
 ```
 
-## Controls
+## AI bridge (MCP)
 
+`other/mcp-relay` is a Node.js MCP server (Claude Code, Codex, …) that drives
+the live editor over local TCP: 13 tools for status, hierarchy, selection,
+details, assets, select, focus, create, transform, rename, delete, save and
+batched edits. Enable it with the AI button at the right end of the menu bar while the
+editor is open (default port 5192, loopback only, off by default). Every edit
+goes through the editor's own functions and stays undoable. Full setup,
+protocol and troubleshooting in `other/mcp-relay/README.md`.
+
+## Controls
 | Input                                                             | Action                                                    |
-| ----------------------------------------------------------------- | --------------------------------------------------------- |
 | Ctrl + W                                                          | Close editor                                              |
 | 1 / 2 / 3 / 4                                                     | View / Move / Rotate / Scale tool                         |
 | Left-drag model (Models panel)                                    | Spawn into the scene                                      |

@@ -1,0 +1,1050 @@
+// polygon_ai — AI bridge: local TCP client to the Polygon MCP relay.
+//
+// The relay (other/mcp-relay, Node) listens on 127.0.0.1:5192. The game
+// connects as a TCP client ONLY while the editor is active and the bridge
+// is on (AI toolbar button). No socket is ever opened otherwise,
+// so Polygon behaves exactly as before with no AI client attached.
+//
+// Wire protocol v1: compact JSON + "\n" (LF), UTF-8, both directions.
+//   game  -> relay on connect: { "v": 1, "hello": "polygon-ai" }
+//   relay -> game  (hello):    { "v": 1, "hello": "polygon-mcp-relay" }
+//   relay -> game  (request):  { "id": "<uuid>", "op": "<op>", "params": { ... } }
+//   game  -> relay (response): { "id": "<uuid>", "ok": true, "result": { ... } }
+//                              { "id": "<uuid>", "ok": false, "error": "code: message" }
+//
+// Ops: status | hierarchy | selection | details | assets | select | focus |
+//      create | transform | rename | delete | save | batch
+// Conventions (same as the scene format / save system):
+//   - node identity is the stable wrapper id ("__PolygonEditor__N"), never the label.
+//   - transforms are LOCAL to the wrapper node (it owns the instance transform).
+//   - rotation input/output for create/transform is Euler DEGREES [rx, ry, rz],
+//     XYZ order (same convention as library spawn defaults); details also
+//     reports the stored quaternion [x, y, z, w].
+//   - every mutation runs through the existing editor functions and is wrapped
+//     in a history snapshot, so AI actions are undoable with Ctrl+Z.
+// The bridge NEVER executes arbitrary GML: only the whitelisted ops above.
+
+// ---------------------------------------------------------------------------
+// Logging
+// ---------------------------------------------------------------------------
+
+// Bridge diagnostics: always visible in the Output log (never on the socket).
+function __polygon_ai_log(_msg) {
+  show_debug_message("[polygon-ai] " + string(_msg));
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+// Enables or disables the AI bridge (default off). Editor-internal: toggled
+// from the AI button in the menu bar. When on, the editor connects to the
+// relay at 127.0.0.1:_port while active.
+function __polygon_ai_enable(_on = true, _port = 5192) {
+  var _ed = __polygon_inst();
+
+  if (_ed == undefined) {
+    return false;
+  }
+
+  var _ai = __polygon_ai_state(_ed);
+  _ai.on = (_on == true);
+
+  if (is_real(_port) && _port > 0 && _port < 65536) {
+    _ai.port = floor(_port);
+  }
+
+  __polygon_ai_log(_ai.on ? ("bridge on (port " + string(_ai.port) + ")") : "bridge off");
+
+  if (_ai.on) {
+    // Fresh toggle-on: immediate first attempt, backoff from 2s.
+    _ai.retry_delay = 2;
+    _ai.retry_tries = 0;
+    _ai.retry_at = 0;
+    _ai.ever = false;
+    _ai.notice = "";
+    _ai.notice_until = 0;
+  } else {
+    __polygon_ai_disconnect(_ed);
+  }
+
+  return _ai.on;
+}
+
+// ---------------------------------------------------------------------------
+// State and step
+// ---------------------------------------------------------------------------
+
+// Returns the bridge state struct, creating it lazily.
+function __polygon_ai_state(_ed) {
+  if (!variable_struct_exists(_ed, "ai") || !is_struct(_ed.ai)) {
+    _ed.ai = {
+      on: false,
+      port: 5192,
+      sock: undefined,
+      ready: false,
+      connect_at: 0,
+      rx: "",
+      inbox: [],
+      seen: {},
+      seen_order: [],
+      retry_at: 0,
+      retry_delay: 2,
+      retry_tries: 0,
+      ever: false,
+      notice: "",
+      notice_until: 0,
+    };
+  }
+
+  return _ed.ai;
+}
+
+// Records one failed attempt. Initial connects give up after 3 tries with a
+// 10s notice; reconnects (a link existed before) retry forever with backoff.
+function __polygon_ai_failed(_ed, _why) {
+  var _ai = __polygon_ai_state(_ed);
+  _ai.retry_tries++;
+
+  if (!_ai.ever && _ai.retry_tries >= 3) {
+    _ai.on = false;
+    __polygon_ai_disconnect(_ed);
+    _ai.notice = "AI Server not available";
+    _ai.notice_until = current_time + 10000;
+    __polygon_ai_log("relay unavailable after 3 attempts");
+    return;
+  }
+
+  _ai.retry_at = current_time + _ai.retry_delay * 1000;
+  __polygon_ai_log(_why + ", retry in " + string(_ai.retry_delay) + "s");
+  _ai.retry_delay = min(_ai.retry_delay + 2, 30);
+}
+
+// Link state for UI: 0 = off, 1 = connecting, 2 = reconnecting, 3 = linked.
+function __polygon_ai_link(_ed) {
+  var _ai = __polygon_ai_state(_ed);
+
+  if (!_ai.on) {
+    return 0;
+  }
+
+  if (_ai.sock != undefined && _ai.ready) {
+    return 3;
+  }
+
+  return _ai.ever ? 2 : 1;
+}
+
+// Per-frame pump, called from polygon_step(). Handles connect retry when
+// active+enabled, clean disconnect otherwise, and inbox execution.
+function __polygon_ai_step(_ed) {
+  if (_ed == undefined) {
+    return;
+  }
+
+  var _ai = __polygon_ai_state(_ed);
+
+  if (!_ed.active || !_ai.on) {
+    if (_ai.sock != undefined) {
+      __polygon_ai_disconnect(_ed);
+    }
+
+    _ai.inbox = [];
+    _ai.rx = "";
+    return;
+  }
+
+  if (_ai.sock == undefined) {
+    if (current_time >= _ai.retry_at) {
+      if (__polygon_ai_connect(_ed)) {
+        // Wait for the async result; failures go through __polygon_ai_failed.
+        _ai.retry_at = current_time + 30000;
+      } else {
+        __polygon_ai_failed(_ed, "relay unreachable");
+      }
+    }
+
+    return;
+  }
+
+  // Connecting but no async answer within 5s: drop and count it.
+  if (!_ai.ready && current_time - _ai.connect_at > 5000) {
+    __polygon_ai_disconnect(_ed);
+    __polygon_ai_failed(_ed, "connect timed out");
+    return;
+  }
+
+  if (!_ai.ready) {
+    return;
+  }
+
+  var _budget = 8;
+
+  while (array_length(_ai.inbox) > 0 && _budget > 0) {
+    _budget--;
+    var _msg = array_shift(_ai.inbox);
+    var _res = undefined;
+
+    try {
+      if (is_struct(_msg) && variable_struct_exists(_msg, "op")) {
+        __polygon_ai_log("op " + string(_msg.op) + " " + string(_msg.id));
+      }
+
+      _res = __polygon_ai_exec(_ed, _msg);
+    } catch (_ex) {
+      __polygon_ai_log("exec crashed: " + string(_ex));
+      _res = is_struct(_msg) && is_string(_msg.id)
+        ? __polygon_ai_fail(_msg.id, "crashed", string(_ex))
+        : undefined;
+    }
+
+    if (_res != undefined) {
+      var _id = is_struct(_msg) && variable_struct_exists(_msg, "id") ? _msg.id : undefined;
+
+      if (is_string(_id)) {
+        _ai.seen[$ _id] = _res;
+        array_push(_ai.seen_order, _id);
+
+        while (array_length(_ai.seen_order) > 128) {
+          var _old = array_shift(_ai.seen_order);
+          variable_struct_remove(_ai.seen, _old);
+        }
+      }
+
+      if (!__polygon_ai_send(_ed, _res)) {
+        break;
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Connection
+// ---------------------------------------------------------------------------
+
+// Opens the TCP client socket to the relay (non-blocking: the result
+// arrives in the Async Networking event as network_type_non_blocking_connect).
+function __polygon_ai_connect(_ed) {
+  var _ai = __polygon_ai_state(_ed);
+  __polygon_ai_disconnect(_ed);
+
+  var _sock = network_create_socket(network_socket_tcp);
+
+  if (_sock < 0) {
+    __polygon_ai_log("socket create failed");
+    return false;
+  }
+
+  if (network_connect_raw_async(_sock, "127.0.0.1", _ai.port) < 0) {
+    network_destroy(_sock);
+    return false;
+  }
+
+  _ai.sock = _sock;
+  _ai.ready = false;
+  _ai.connect_at = current_time;
+  _ai.rx = "";
+  return true;
+}
+
+// Closes the relay socket, if any.
+function __polygon_ai_disconnect(_ed) {
+  if (_ed == undefined || !variable_struct_exists(_ed, "ai") || !is_struct(_ed.ai)) {
+    return;
+  }
+
+  var _ai = _ed.ai;
+
+  if (_ai.sock != undefined) {
+    __polygon_ai_log("disconnected");
+    network_destroy(_ai.sock);
+    _ai.sock = undefined;
+  }
+
+  _ai.ready = false;
+  _ai.rx = "";
+  _ai.inbox = [];
+}
+
+// Sends one compact JSON line to the relay. False when the link is down.
+function __polygon_ai_send(_ed, _map) {
+  var _ai = __polygon_ai_state(_ed);
+
+  if (_ai.sock == undefined || !_ai.ready) {
+    return false;
+  }
+
+  var _json = json_stringify(_map) + chr(10);
+  var _len = string_byte_length(_json);
+  var _buf = buffer_create(_len, buffer_fixed, 1);
+  buffer_write(_buf, buffer_text, _json);
+  network_send_raw(_ai.sock, _buf, buffer_tell(_buf));
+  buffer_delete(_buf);
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// Async Networking event (oEditor, Other_11)
+// ---------------------------------------------------------------------------
+
+// Handles relay traffic: data chunks (framed lines) and link loss.
+// Public entry point, called from the oEditor Async Networking event.
+function polygon_ai_net() {
+  var _ed = __polygon_inst();
+
+  if (_ed == undefined || async_load == undefined) {
+    return;
+  }
+
+  var _ai = __polygon_ai_state(_ed);
+  var _type = async_load[? "type"];
+
+  if (_type == network_type_non_blocking_connect) {
+    if (async_load[? "id"] != _ai.sock || _ai.ready) {
+      return;
+    }
+
+    if (async_load[? "succeeded"] == true) {
+      _ai.ready = true;
+      _ai.ever = true;
+      _ai.retry_delay = 2;
+      _ai.retry_tries = 0;
+      __polygon_ai_log("connected to relay 127.0.0.1:" + string(_ai.port));
+      __polygon_ai_send(_ed, { v: 1, hello: "polygon-ai" });
+    } else {
+      __polygon_ai_disconnect(_ed);
+      __polygon_ai_failed(_ed, "connect refused");
+    }
+
+    return;
+  }
+
+  if (_type == network_type_data) {
+    if (async_load[? "id"] != _ai.sock) {
+      return;
+    }
+
+    var _buf = async_load[? "buffer"];
+
+    if (_buf == undefined) {
+      return;
+    }
+
+    buffer_seek(_buf, buffer_seek_start, 0);
+    var _chunk = buffer_read(_buf, buffer_text);
+    __polygon_ai_log("rx " + string(string_length(_chunk)) + " chars");
+    __polygon_ai_frame(_ed, _chunk);
+    return;
+  }
+
+  if (_type == network_type_down || _type == network_type_disconnect) {
+    __polygon_ai_disconnect(_ed);
+  }
+}
+
+// Appends a chunk, splits complete lines, parses and queues requests.
+function __polygon_ai_frame(_ed, _chunk) {
+  var _ai = __polygon_ai_state(_ed);
+
+  if (!is_string(_chunk) || _chunk == "") {
+    return;
+  }
+
+  _ai.rx += _chunk;
+
+  if (string_length(_ai.rx) > 1000000) {
+    _ai.rx = "";
+    _ai.inbox = [];
+    return;
+  }
+
+  var _lines = string_split(_ai.rx, chr(10));
+  _ai.rx = _lines[array_length(_lines) - 1];
+
+  for (var _i = 0, _n = array_length(_lines) - 1; _i < _n; _i++) {
+    var _line = _lines[_i];
+
+    if (_line == "") {
+      continue;
+    }
+
+    if (string_char_at(_line, 1) != "{" || string_char_at(_line, string_length(_line)) != "}") {
+      continue;
+    }
+
+    var _msg = json_parse(_line);
+
+    if (!is_struct(_msg)) {
+      continue;
+    }
+
+    // Relay hello (no id): version gate, then drop.
+    if (!variable_struct_exists(_msg, "id")) {
+      if (variable_struct_exists(_msg, "hello") && _msg.hello == "polygon-mcp-relay") {
+        if (!variable_struct_exists(_msg, "v") || _msg.v != 1) {
+          __polygon_ai_log("protocol mismatch, dropping");
+          __polygon_ai_disconnect(_ed);
+        } else {
+          __polygon_ai_log("handshake ok (protocol v1)");
+        }
+      }
+
+      continue;
+    }
+
+    // Idempotent replay: resend cached response without re-executing.
+    if (is_string(_msg.id) && variable_struct_exists(_ai.seen, _msg.id)) {
+      __polygon_ai_send(_ed, _ai.seen[$ _msg.id]);
+      continue;
+    }
+
+    if (array_length(_ai.inbox) < 512) {
+      array_push(_ai.inbox, _msg);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Execution
+// ---------------------------------------------------------------------------
+
+// Modal UI open: mutations would conflict with dialogs/inline rename.
+function __polygon_ai_busy(_ed) {
+  return _ed.confirm != undefined || _ed.about != undefined || _ed.scene_dlg != undefined
+    || _ed.delete_confirm != undefined || _ed.giz.drag != -1;
+}
+
+// Builds an error response.
+function __polygon_ai_fail(_id, _code, _msg) {
+  return { id: _id, ok: false, error: _code + ": " + _msg };
+}
+
+// Builds a success response.
+function __polygon_ai_done(_id, _result) {
+  return { id: _id, ok: true, result: _result };
+}
+
+// Validates a 3-number vector param.
+function __polygon_ai_num3(_v) {
+  return is_array(_v) && array_length(_v) == 3 && is_real(_v[0]) && is_real(_v[1]) && is_real(_v[2])
+    && !is_nan(_v[0]) && !is_nan(_v[1]) && !is_nan(_v[2])
+    && abs(_v[0]) < 1000000000 && abs(_v[1]) < 1000000000 && abs(_v[2]) < 1000000000;
+}
+
+// Resolves a tracked, non-system node by stable id. Returns the node,
+// or undefined when unknown/untracked/system (callers report not_found).
+function __polygon_ai_node(_ed, _id) {
+  if (!is_string(_id) || _id == "") {
+    return undefined;
+  }
+
+  var _node = __polygon_find_by_id(_ed, _id);
+
+  if (_node == undefined || __polygon_registry_find(_ed, _node) == undefined) {
+    return undefined;
+  }
+
+  if (__polygon_is_grid(_ed, _node) || __polygon_is_sky(_node)) {
+    return undefined;
+  }
+
+  return _node;
+}
+
+// Reads a wrapper transform as plain data (quaternion + euler degrees).
+function __polygon_ai_transform_of(_node) {
+  var _pos = _node.getLocalPosition();
+  var _rot = _node.getLocalRotation();
+  var _sca = _node.getLocalScale();
+
+  if (_pos == undefined || _rot == undefined || _sca == undefined) {
+    return undefined;
+  }
+
+  var _e = __polygon_quat_to_euler(_rot);
+  return {
+    position: [ _pos.x, _pos.y, _pos.z ],
+    rotation_quat: [ _rot.x, _rot.y, _rot.z, _rot.w ],
+    rotation_euler_deg: [ radtodeg(_e[0]), radtodeg(_e[1]), radtodeg(_e[2]) ],
+    scale: [ _sca.x, _sca.y, _sca.z ],
+  };
+}
+
+// Summarizes one tracked root for hierarchy/selection output.
+function __polygon_ai_node_info(_ed, _node) {
+  var _en = __polygon_registry_find(_ed, _node);
+
+  if (_en == undefined) {
+    return undefined;
+  }
+
+  var _info = {
+    id: _en.id,
+    kind: is_string(_en.kind) ? _en.kind : "instance",
+    label: is_string(_en.label) ? _en.label : _en.id,
+    asset: is_string(_en.asset) ? _en.asset : "",
+    selected: __polygon_sel_has(_ed, _node),
+    hidden: _en.hidden == true,
+    locked: _en.locked == true,
+  };
+  var _t = __polygon_ai_transform_of(_node);
+
+  if (_t != undefined) {
+    _info.transform = _t;
+  }
+
+  return _info;
+}
+
+// Executes one relay request, returning the response map.
+function __polygon_ai_exec(_ed, _msg) {
+  if (!is_struct(_msg) || !is_string(_msg.id) || !is_string(_msg.op)) {
+    return undefined;
+  }
+
+  var _id = _msg.id;
+  var _op = _msg.op;
+  var _p = (variable_struct_exists(_msg, "params") && is_struct(_msg.params)) ? _msg.params : {};
+
+  // Mutations are rejected while a dialog/inline gesture owns the scene.
+  switch (_op) {
+    case "select": case "focus": case "create": case "transform":
+    case "rename": case "delete": case "save": case "batch":
+      if (__polygon_ai_busy(_ed)) {
+        return __polygon_ai_fail(_id, "busy", "editor dialog or drag in progress");
+      }
+      break;
+  }
+
+  var _r = undefined;
+
+  switch (_op) {
+    case "status": _r = __polygon_ai_op_status(_ed); break;
+    case "hierarchy": _r = __polygon_ai_op_hierarchy(_ed); break;
+    case "selection": _r = __polygon_ai_op_selection(_ed); break;
+    case "assets": _r = __polygon_ai_op_assets(_ed); break;
+    case "details": _r = __polygon_ai_op_details(_ed, _p); break;
+    case "select": _r = __polygon_ai_op_select(_ed, _p); break;
+    case "focus": _r = __polygon_ai_op_focus(_ed, _p); break;
+    case "create": _r = __polygon_ai_op_create(_ed, _p, true); break;
+    case "transform": _r = __polygon_ai_op_transform(_ed, _p, true); break;
+    case "rename": _r = __polygon_ai_op_rename(_ed, _p, true); break;
+    case "delete": _r = __polygon_ai_op_delete(_ed, _p, true); break;
+    case "save": _r = __polygon_ai_op_save(_ed, _p); break;
+    case "batch": _r = __polygon_ai_op_batch(_ed, _p); break;
+    default: return __polygon_ai_fail(_id, "unknown_op", "unsupported op: " + _op);
+  }
+
+  if (!is_struct(_r)) {
+    return __polygon_ai_fail(_id, "failed", "empty result for op: " + _op);
+  }
+
+  if (variable_struct_exists(_r, "error")) {
+    return __polygon_ai_fail(_id, _r.error_code, _r.error_msg);
+  }
+
+  return __polygon_ai_done(_id, _r);
+}
+
+// ---------------------------------------------------------------------------
+// Read ops
+// ---------------------------------------------------------------------------
+
+function __polygon_ai_op_status(_ed) {
+  return {
+    bridge: "polygon-ai/1",
+    active: _ed.active == true,
+    tracked: __polygon_reg_count(_ed),
+    selected: is_array(_ed.sel) ? array_length(_ed.sel) : 0,
+    scene_file: is_string(_ed.scene_file) ? _ed.scene_file : "",
+    dirty: _ed.dirty == true,
+  };
+}
+
+function __polygon_ai_op_hierarchy(_ed) {
+  var _pairs = __polygon_root_pairs(_ed);
+  var _out = [];
+
+  for (var _i = 0, _n = array_length(_pairs); _i < _n; _i++) {
+    var _info = __polygon_ai_node_info(_ed, _pairs[_i].node);
+
+    if (_info != undefined) {
+      array_push(_out, _info);
+    }
+  }
+
+  return { nodes: _out };
+}
+
+function __polygon_ai_op_selection(_ed) {
+  var _out = [];
+
+  if (is_array(_ed.sel)) {
+    for (var _i = 0, _n = array_length(_ed.sel); _i < _n; _i++) {
+      var _info = __polygon_ai_node_info(_ed, _ed.sel[_i]);
+
+      if (_info != undefined) {
+        array_push(_out, _info);
+      }
+    }
+  }
+
+  return { nodes: _out };
+}
+
+function __polygon_ai_op_assets(_ed) {
+  var _out = [];
+
+  if (is_array(_ed.assets)) {
+    for (var _i = 0, _n = array_length(_ed.assets); _i < _n; _i++) {
+      var _entry = _ed.assets[_i];
+
+      if (is_struct(_entry) && is_string(_entry.key)) {
+        array_push(_out, { key: _entry.key, label: __polygon_asset_label(_entry) });
+      }
+    }
+  }
+
+  return { assets: _out };
+}
+
+function __polygon_ai_op_details(_ed, _p) {
+  if (!variable_struct_exists(_p, "id") || !is_string(_p.id)) {
+    return { error: true, error_code: "bad_params", error_msg: "id (string) required" };
+  }
+
+  var _node = __polygon_ai_node(_ed, _p.id);
+
+  if (_node == undefined) {
+    return { error: true, error_code: "not_found", error_msg: "unknown or system node: " + _p.id };
+  }
+
+  var _desc = __polygon_node_to_descriptor(_ed, _node);
+
+  if (_desc == undefined) {
+    return { error: true, error_code: "not_found", error_msg: "no descriptor for: " + _p.id };
+  }
+
+  _desc.selected = __polygon_sel_has(_ed, _node);
+  return _desc;
+}
+
+// ---------------------------------------------------------------------------
+// Write ops (each takes _commit: single ops commit alone, batch commits once)
+// ---------------------------------------------------------------------------
+
+function __polygon_ai_op_select(_ed, _p) {
+  if (!variable_struct_exists(_p, "ids") || !is_array(_p.ids)) {
+    return { error: true, error_code: "bad_params", error_msg: "ids (array of string) required" };
+  }
+
+  var _nodes = [];
+  var _missing = [];
+  var _locked = [];
+
+  for (var _i = 0, _n = array_length(_p.ids); _i < _n; _i++) {
+    var _node = __polygon_ai_node(_ed, _p.ids[_i]);
+
+    if (_node == undefined) {
+      array_push(_missing, _p.ids[_i]);
+      continue;
+    }
+
+    if (__polygon_locked_get(_ed, _node)) {
+      array_push(_locked, _p.ids[_i]);
+      continue;
+    }
+
+    array_push(_nodes, _node);
+  }
+
+  if (array_length(_missing) > 0) {
+    return { error: true, error_code: "not_found", error_msg: "unknown node(s): " + json_stringify(_missing) };
+  }
+
+  _ed.sel = _nodes;
+  _ed.giz.drag = -1;
+  _ed.giz.hover = -1;
+  _ed.scene_anchor = array_length(_nodes) > 0 ? _nodes[0] : undefined;
+  __polygon_sel_apply_tool(_ed);
+  _ed.view_dirty = true;
+
+  var _ids = [];
+
+  for (var _j = 0, _m = array_length(_nodes); _j < _m; _j++) {
+    var _en = __polygon_registry_find(_ed, _nodes[_j]);
+    array_push(_ids, _en != undefined ? _en.id : "?");
+  }
+
+  return { selected: _ids, skipped_locked: _locked };
+}
+
+function __polygon_ai_op_focus(_ed, _p) {
+  if (!variable_struct_exists(_p, "id") || !is_string(_p.id)) {
+    return { error: true, error_code: "bad_params", error_msg: "id (string) required" };
+  }
+
+  var _node = __polygon_ai_node(_ed, _p.id);
+
+  if (_node == undefined) {
+    return { error: true, error_code: "not_found", error_msg: "unknown or system node: " + _p.id };
+  }
+
+  if (__polygon_view_focus_node(_ed, _node) != true) {
+    return { error: true, error_code: "failed", error_msg: "cannot focus: " + _p.id };
+  }
+
+  return { focused: _p.id };
+}
+
+function __polygon_ai_op_create(_ed, _p, _commit) {
+  if (!variable_struct_exists(_p, "asset") || !is_string(_p.asset) || _p.asset == "") {
+    return { error: true, error_code: "bad_params", error_msg: "asset (library key) required" };
+  }
+
+  if (!variable_struct_exists(_p, "position") || !__polygon_ai_num3(_p.position)) {
+    return { error: true, error_code: "bad_params", error_msg: "position ([x, y, z] numbers) required" };
+  }
+
+  var _rot = [ 0, 0, 0 ];
+
+  if (variable_struct_exists(_p, "rotation")) {
+    if (!__polygon_ai_num3(_p.rotation)) {
+      return { error: true, error_code: "bad_params", error_msg: "rotation must be [rx, ry, rz] euler degrees" };
+    }
+
+    _rot = _p.rotation;
+  }
+
+  var _sca = [ 1, 1, 1 ];
+
+  if (variable_struct_exists(_p, "scale")) {
+    if (!__polygon_ai_num3(_p.scale)) {
+      return { error: true, error_code: "bad_params", error_msg: "scale must be [sx, sy, sz] numbers" };
+    }
+
+    _sca = [ max(_p.scale[0], 0.01), max(_p.scale[1], 0.01), max(_p.scale[2], 0.01) ];
+  }
+
+  var _entry = __polygon_asset_get(_ed, _p.asset);
+
+  if (_entry == undefined || _entry.model == undefined) {
+    return { error: true, error_code: "unknown_asset", error_msg: "asset not in library: " + _p.asset };
+  }
+
+  var _base = __polygon_asset_label(_entry);
+
+  if (variable_struct_exists(_p, "label") && is_string(_p.label) && _p.label != "") {
+    _base = _p.label;
+  }
+
+  var _before = _commit ? __polygon_history_snap(_ed) : undefined;
+  var _node = __polygon_place(
+    _ed,
+    _p.asset,
+    _entry.model,
+    [ _p.position[0], _p.position[1], _p.position[2] ],
+    __polygon_euler_to_quat(degtorad(_rot[0]), degtorad(_rot[1]), degtorad(_rot[2])),
+    _sca,
+    __polygon_fresh_label(_ed, _base)
+  );
+
+  if (_node == undefined) {
+    return { error: true, error_code: "failed", error_msg: "spawn failed for asset: " + _p.asset };
+  }
+
+  __polygon_spawn_shadow_apply(_ed, _entry, _node);
+  _ed.rt.scene.update(0);
+  var _en = __polygon_registry_find(_ed, _node);
+  _ed.sel = [ _node ];
+  _ed.giz.drag = -1;
+  __polygon_sel_apply_tool(_ed);
+
+  if (_commit) {
+    __polygon_history_commit(_ed, _before);
+  }
+
+  return { id: _en != undefined ? _en.id : _node.name, label: _en != undefined ? _en.label : "" };
+}
+
+function __polygon_ai_op_transform(_ed, _p, _commit) {
+  if (!variable_struct_exists(_p, "id") || !is_string(_p.id)) {
+    return { error: true, error_code: "bad_params", error_msg: "id (string) required" };
+  }
+
+  var _has_pos = variable_struct_exists(_p, "position");
+  var _has_rot = variable_struct_exists(_p, "rotation");
+  var _has_sca = variable_struct_exists(_p, "scale");
+
+  if (!_has_pos && !_has_rot && !_has_sca) {
+    return { error: true, error_code: "bad_params", error_msg: "one of position/rotation/scale required" };
+  }
+
+  if (_has_pos && !__polygon_ai_num3(_p.position)) {
+    return { error: true, error_code: "bad_params", error_msg: "position must be [x, y, z] numbers" };
+  }
+
+  if (_has_rot && !__polygon_ai_num3(_p.rotation)) {
+    return { error: true, error_code: "bad_params", error_msg: "rotation must be [rx, ry, rz] euler degrees" };
+  }
+
+  if (_has_sca && !__polygon_ai_num3(_p.scale)) {
+    return { error: true, error_code: "bad_params", error_msg: "scale must be [sx, sy, sz] numbers" };
+  }
+
+  var _node = __polygon_ai_node(_ed, _p.id);
+
+  if (_node == undefined) {
+    return { error: true, error_code: "not_found", error_msg: "unknown or system node: " + _p.id };
+  }
+
+  if (__polygon_locked_get(_ed, _node)) {
+    return { error: true, error_code: "locked", error_msg: "node is locked: " + _p.id };
+  }
+
+  var _before = _commit ? __polygon_history_snap(_ed) : undefined;
+
+  if (_has_pos) {
+    _node.setLocalPosition(new GM3D_Vec3(_p.position[0], _p.position[1], _p.position[2]));
+  }
+
+  if (_has_rot) {
+    _node.setLocalRotation(__polygon_euler_to_quat(degtorad(_p.rotation[0]), degtorad(_p.rotation[1]), degtorad(_p.rotation[2])));
+  }
+
+  if (_has_sca) {
+    _node.setLocalScale(new GM3D_Vec3(max(_p.scale[0], 0.01), max(_p.scale[1], 0.01), max(_p.scale[2], 0.01)));
+  }
+
+  _ed.rt.scene.update(0);
+
+  if (_commit) {
+    __polygon_history_commit(_ed, _before);
+  }
+
+  return { id: _p.id, transform: __polygon_ai_transform_of(_node) };
+}
+
+function __polygon_ai_op_rename(_ed, _p, _commit) {
+  if (!variable_struct_exists(_p, "id") || !is_string(_p.id)) {
+    return { error: true, error_code: "bad_params", error_msg: "id (string) required" };
+  }
+
+  if (!variable_struct_exists(_p, "label") || !is_string(_p.label) || _p.label == "" || string_length(_p.label) > 64) {
+    return { error: true, error_code: "bad_params", error_msg: "label (1..64 chars) required" };
+  }
+
+  var _node = __polygon_ai_node(_ed, _p.id);
+
+  if (_node == undefined) {
+    return { error: true, error_code: "not_found", error_msg: "unknown or system node: " + _p.id };
+  }
+
+  // Same commit path as the hierarchy inline rename.
+  var _before = _commit ? __polygon_history_snap(_ed) : undefined;
+  var _en = __polygon_registry_find(_ed, _node);
+
+  if (_en != undefined) {
+    _en.label = _p.label;
+  }
+
+  if (_commit) {
+    __polygon_history_commit(_ed, _before);
+  }
+
+  return { id: _p.id, label: _p.label };
+}
+
+function __polygon_ai_op_delete(_ed, _p, _commit) {
+  if (!variable_struct_exists(_p, "ids") || !is_array(_p.ids) || array_length(_p.ids) == 0) {
+    return { error: true, error_code: "bad_params", error_msg: "ids (non-empty array) required" };
+  }
+
+  var _victims = [];
+  var _missing = [];
+
+  for (var _i = 0, _n = array_length(_p.ids); _i < _n; _i++) {
+    var _node = __polygon_ai_node(_ed, _p.ids[_i]);
+
+    if (_node == undefined) {
+      array_push(_missing, _p.ids[_i]);
+      continue;
+    }
+
+    if (_ed.rt != undefined && __polygon_node_same(_node, _ed.rt.cam)) {
+      array_push(_missing, _p.ids[_i]);
+      continue;
+    }
+
+    array_push(_victims, _node);
+  }
+
+  if (array_length(_missing) > 0) {
+    return { error: true, error_code: "not_found", error_msg: "unknown/protected node(s): " + json_stringify(_missing) };
+  }
+
+  // Same destroy path as manual multi-delete (silent: no confirm dialog).
+  // Selection is filtered BEFORE destroying (destroyed nodes are unreadable).
+  var _before = _commit ? __polygon_history_snap(_ed) : undefined;
+  var _ids = [];
+  var _kept = [];
+
+  for (var _k = 0, _nk = array_length(_ed.sel); _k < _nk; _k++) {
+    var _dead = false;
+
+    for (var _v = 0, _nv = array_length(_victims); _v < _nv; _v++) {
+      if (__polygon_sel_same(_ed.sel[_k], _victims[_v])) {
+        _dead = true;
+        break;
+      }
+    }
+
+    if (!_dead) {
+      array_push(_kept, _ed.sel[_k]);
+    }
+  }
+
+  for (var _j = 0, _m = array_length(_victims); _j < _m; _j++) {
+    var _en = __polygon_registry_find(_ed, _victims[_j]);
+
+    if (_en != undefined) {
+      array_push(_ids, _en.id);
+    }
+
+    __polygon_spawn_unregister(_ed, _victims[_j]);
+    __polygon_destroy_subtree(_victims[_j]);
+  }
+
+  _ed.rt.scene.update(0);
+  _ed.sel = _kept;
+  _ed.giz.drag = -1;
+  __polygon_sel_apply_tool(_ed);
+
+  if (_commit) {
+    __polygon_history_commit(_ed, _before);
+  }
+
+  return { deleted: _ids };
+}
+
+function __polygon_ai_op_save(_ed, _p) {
+  var _name = (variable_struct_exists(_p, "name") && is_string(_p.name)) ? _p.name : "";
+
+  if (_name != "") {
+    if (!__polygon_save_named(_ed, _name)) {
+      return { error: true, error_code: "failed", error_msg: "could not save scene as: " + _name };
+    }
+  } else {
+    if (!is_string(_ed.scene_file) || _ed.scene_file == "") {
+      return { error: true, error_code: "no_file", error_msg: "no scene file yet: pass name" };
+    }
+
+    if (!__polygon_save_scene(_ed)) {
+      return { error: true, error_code: "failed", error_msg: "could not write scene file" };
+    }
+  }
+
+  return { file: _ed.scene_file };
+}
+
+// Validates then applies a batch of ops with a single history entry
+// (one Ctrl+Z undoes the whole batch). Ops: create|transform|rename|
+// delete|select (each with its own params struct).
+function __polygon_ai_op_batch(_ed, _p) {
+  if (!variable_struct_exists(_p, "ops") || !is_array(_p.ops) || array_length(_p.ops) == 0) {
+    return { error: true, error_code: "bad_params", error_msg: "ops (non-empty array) required" };
+  }
+
+  if (array_length(_p.ops) > 64) {
+    return { error: true, error_code: "bad_params", error_msg: "at most 64 ops per batch" };
+  }
+
+  // Phase 1: validate everything before touching the scene.
+  for (var _i = 0, _n = array_length(_p.ops); _i < _n; _i++) {
+    var _op = _p.ops[_i];
+
+    if (!is_struct(_op) || !variable_struct_exists(_op, "op") || !is_string(_op.op)) {
+      return { error: true, error_code: "bad_params", error_msg: "ops[" + string(_i) + "].op (string) required" };
+    }
+
+    var _pp = (variable_struct_exists(_op, "params") && is_struct(_op.params)) ? _op.params : {};
+    var _chk = __polygon_ai_check(_ed, _op.op, _pp);
+
+    if (_chk != "") {
+      return { error: true, error_code: "bad_params", error_msg: "ops[" + string(_i) + "] " + _op.op + ": " + _chk };
+    }
+  }
+
+  // Phase 2: apply with one history entry.
+  var _before = __polygon_history_snap(_ed);
+  var _results = [];
+
+  for (var _j = 0, _m = array_length(_p.ops); _j < _m; _j++) {
+    var _op2 = _p.ops[_j];
+    var _pp2 = (variable_struct_exists(_op2, "params") && is_struct(_op2.params)) ? _op2.params : {};
+    var _r = __polygon_ai_apply(_ed, _op2.op, _pp2);
+
+    if (variable_struct_exists(_r, "error")) {
+      __polygon_history_commit(_ed, _before);
+      return { error: true, error_code: _r.error_code, error_msg: "ops[" + string(_j) + "] " + _op2.op + ": " + _r.error_msg };
+    }
+
+    array_push(_results, _r);
+  }
+
+  __polygon_history_commit(_ed, _before);
+  return { results: _results };
+}
+
+// Dry-run validation shared by batch phase 1 ("" = ok, else reason).
+function __polygon_ai_check(_ed, _op, _p) {
+  switch (_op) {
+    case "create":
+      if (!variable_struct_exists(_p, "asset") || !is_string(_p.asset) || _p.asset == "") return "asset (library key) required";
+      if (!variable_struct_exists(_p, "position") || !__polygon_ai_num3(_p.position)) return "position ([x, y, z] numbers) required";
+      if (variable_struct_exists(_p, "rotation") && !__polygon_ai_num3(_p.rotation)) return "rotation must be [rx, ry, rz] euler degrees";
+      if (variable_struct_exists(_p, "scale") && !__polygon_ai_num3(_p.scale)) return "scale must be [sx, sy, sz] numbers";
+      if (__polygon_asset_get(_ed, _p.asset) == undefined) return "asset not in library: " + _p.asset;
+      return "";
+    case "transform":
+      if (!variable_struct_exists(_p, "id") || !is_string(_p.id)) return "id (string) required";
+      if (!variable_struct_exists(_p, "position") && !variable_struct_exists(_p, "rotation") && !variable_struct_exists(_p, "scale")) return "one of position/rotation/scale required";
+      if (variable_struct_exists(_p, "position") && !__polygon_ai_num3(_p.position)) return "position must be [x, y, z] numbers";
+      if (variable_struct_exists(_p, "rotation") && !__polygon_ai_num3(_p.rotation)) return "rotation must be [rx, ry, rz] euler degrees";
+      if (variable_struct_exists(_p, "scale") && !__polygon_ai_num3(_p.scale)) return "scale must be [sx, sy, sz] numbers";
+      if (__polygon_ai_node(_ed, _p.id) == undefined) return "unknown or system node: " + _p.id;
+      return "";
+    case "rename":
+      if (!variable_struct_exists(_p, "id") || !is_string(_p.id)) return "id (string) required";
+      if (!variable_struct_exists(_p, "label") || !is_string(_p.label) || _p.label == "" || string_length(_p.label) > 64) return "label (1..64 chars) required";
+      if (__polygon_ai_node(_ed, _p.id) == undefined) return "unknown or system node: " + _p.id;
+      return "";
+    case "delete":
+      if (!variable_struct_exists(_p, "ids") || !is_array(_p.ids) || array_length(_p.ids) == 0) return "ids (non-empty array) required";
+      for (var _di = 0, _dn = array_length(_p.ids); _di < _dn; _di++) {
+        if (__polygon_ai_node(_ed, _p.ids[_di]) == undefined) return "unknown or system node: " + string(_p.ids[_di]);
+      }
+      return "";
+    case "select":
+      if (!variable_struct_exists(_p, "ids") || !is_array(_p.ids)) return "ids (array of string) required";
+      for (var _si = 0, _sn = array_length(_p.ids); _si < _sn; _si++) {
+        if (__polygon_ai_node(_ed, _p.ids[_si]) == undefined) return "unknown or system node: " + string(_p.ids[_si]);
+      }
+      return "";
+  }
+
+  return "unsupported batch op: " + _op;
+}
+
+// Applies one validated batch op without committing (_commit=false).
+function __polygon_ai_apply(_ed, _op, _p) {
+  switch (_op) {
+    case "create": return __polygon_ai_op_create(_ed, _p, false);
+    case "transform": return __polygon_ai_op_transform(_ed, _p, false);
+    case "rename": return __polygon_ai_op_rename(_ed, _p, false);
+    case "delete": return __polygon_ai_op_delete(_ed, _p, false);
+    case "select": return __polygon_ai_op_select(_ed, _p);
+  }
+
+  return { error: true, error_code: "unknown_op", error_msg: "unsupported batch op: " + _op };
+}
