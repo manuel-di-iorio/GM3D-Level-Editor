@@ -292,8 +292,3 @@ function __polygon_delete_scene_named(_name) {
   file_delete(_path);
   return true;
 }
-
-// Creates new empty scene.
-function polygon_new_scene() {
-  __polygon_new_scene(global.polygon_inst);
-}

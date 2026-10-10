@@ -2,8 +2,8 @@
   "FolderOrderSettings":[
     {"name":"Demo Shaders","order":16,"path":"folders/Demo Shaders.yy",},
     {"name":"Gizmo","order":3,"path":"folders/Polygon Editor/Gizmo.yy",},
-    {"name":"ImGUI","order":5,"path":"folders/Polygon Editor/ImGUI.yy",},
     {"name":"Icons","order":6,"path":"folders/Polygon Editor/Icons.yy",},
+    {"name":"ImGUI","order":5,"path":"folders/Polygon Editor/ImGUI.yy",},
     {"name":"Scene","order":1,"path":"folders/Polygon Editor/Scene.yy",},
     {"name":"Shaders","order":4,"path":"folders/Polygon Editor/Shaders.yy",},
     {"name":"Viewport","order":2,"path":"folders/Polygon Editor/Viewport.yy",},

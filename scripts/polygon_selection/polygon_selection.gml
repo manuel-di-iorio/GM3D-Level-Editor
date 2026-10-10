@@ -15,13 +15,24 @@ function __polygon_sel_clear(_ed) {
   }
 }
 
+// Compares two scene nodes by stable identity (wrapper id, never refs).
+function __polygon_sel_same(_a, _b) {
+  return __polygon_node_same(_a, _b);
+}
+
 // Checks if node is selected.
 function __polygon_sel_has(_ed, _node) {
   if (_node == undefined || !is_array(_ed.sel)) {
     return false;
   }
 
-  return array_contains(_ed.sel, _node);
+  for (var _i = 0, _n = array_length(_ed.sel); _i < _n; _i++) {
+    if (__polygon_sel_same(_ed.sel[_i], _node)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 // Checks selection with a known entry (no lookup; pass undefined to resolve).
@@ -30,7 +41,13 @@ function __polygon_sel_match(_ed, _node, _en = undefined) {
     return false;
   }
 
-  return array_contains(_ed.sel, _node);
+  for (var _i = 0, _n = array_length(_ed.sel); _i < _n; _i++) {
+    if (__polygon_sel_same(_ed.sel[_i], _node)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 // Finds the selection index of a node, else -1.
@@ -40,7 +57,7 @@ function __polygon_sel_index(_ed, _node, _en = undefined) {
   }
 
   for (var _i = 0, _n = array_length(_ed.sel); _i < _n; _i++) {
-    if (_ed.sel[_i] == _node) {
+    if (__polygon_sel_same(_ed.sel[_i], _node)) {
       return _i;
     }
   }
@@ -305,7 +322,7 @@ function __polygon_locked_set(_ed, _node, _lock) {
     var _kept = [];
 
     for (var _i = 0, _n = array_length(_ed.sel); _i < _n; _i++) {
-      if (_ed.sel[_i] != _node) {
+      if (!__polygon_node_same(_ed.sel[_i], _node)) {
         array_push(_kept, _ed.sel[_i]);
       }
     }

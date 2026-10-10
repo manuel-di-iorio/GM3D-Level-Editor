@@ -11,7 +11,7 @@ function __polygon_is_grid(_ed, _node) {
   }
 
   if (_ed != undefined && variable_struct_exists(_ed, "grid_node") && _ed.grid_node != undefined) {
-    if (_node == _ed.grid_node) {
+    if (__polygon_node_same(_node, _ed.grid_node)) {
       return true;
     }
   }

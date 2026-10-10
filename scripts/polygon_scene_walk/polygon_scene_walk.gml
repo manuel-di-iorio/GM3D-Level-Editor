@@ -1,18 +1,5 @@
 // polygon_scene_walk — subtree walks (roots, mesh components, flags).
 
-// Finds root ancestor of scene node.
-function __polygon_walk_root(_node) {
-  var _root = _node;
-  var _guard = 0;
-
-  while (_root.parent != undefined && _guard < 1024) {
-    _root = _root.parent;
-    _guard++;
-  }
-
-  return _root;
-}
-
 // Collects mesh components from node.
 function __polygon_walk_collect_comps(_node, _out) {
   var _mesh = _node.getMeshComponent();

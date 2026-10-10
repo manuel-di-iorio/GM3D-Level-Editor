@@ -61,7 +61,7 @@ function __polygon_history_commit(_ed, _before) {
   _ed.view_dirty = true;
 
   if (variable_struct_exists(_ed, "outline") && is_struct(_ed.outline)) {
-    _ed.outline.fast = undefined;
+    _ed.outline.cheap = undefined;
   }
 }
 
@@ -146,14 +146,4 @@ function __polygon_history_redo(_ed) {
   }
 
   return __polygon_history_apply(_ed, _ed.redo, _ed.undo);
-}
-
-// Triggers undo on active editor instance.
-function polygon_undo() {
-  return __polygon_history_undo(__polygon_inst());
-}
-
-// Triggers redo on active editor instance.
-function polygon_redo() {
-  return __polygon_history_redo(__polygon_inst());
 }

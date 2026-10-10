@@ -41,12 +41,12 @@ function __polygon_node_to_descriptor(_ed, _node) {
   }
 
   if (_ed != undefined && variable_struct_exists(_ed, "rt") && is_struct(_ed.rt)) {
-    if (variable_struct_exists(_ed.rt, "cam") && _node == _ed.rt.cam) {
+    if (variable_struct_exists(_ed.rt, "cam") && __polygon_node_same(_node, _ed.rt.cam)) {
       return undefined;
     }
   }
 
-  if (_ed != undefined && variable_struct_exists(_ed, "drag_preview") && _node == _ed.drag_preview) {
+  if (_ed != undefined && variable_struct_exists(_ed, "drag_preview") && __polygon_node_same(_node, _ed.drag_preview)) {
     return undefined;
   }
 
@@ -438,8 +438,7 @@ function __polygon_rebuild_clear(_ed) {
   _ed.view_dirty = true;
 
   if (variable_struct_exists(_ed, "outline") && is_struct(_ed.outline)) {
-    _ed.outline.fast = undefined;
-    _ed.outline.sig = undefined;
+    _ed.outline.cheap = undefined;
     _ed.outline.has = false;
   }
 

@@ -19,27 +19,79 @@ function __polygon_outline_cfg(_ed) {
       white: undefined,
       whiteSkin: undefined,
       mats_ok: undefined,
-      warned: false,
       warmed: false,
       color: [ 0.369, 0.467, 0.608 ], // #5E779B (was orange [1.0, 0.55, 0.1], keep for future use)
       thickness: 1,
       strength: 1.5,
       glow: 0.75,
       threshold: 0.9,
-      sig: undefined,
+      // Mask resolution factor (1 = full-res).
+      scale: 1,
+      // Cached shader uniform handles (avoids 6 lookups per composite).
+      uniforms: undefined,
+      // Cheap change-detection snapshot (plain numbers + selection refs,
+      // zero string alloc). Represents the state of the last rendered mask.
+      cheap: undefined,
+      // Mass-selection single box (world-space, camera-independent).
+      mass_active: false,
+      mass_valid: false,
+      mass_key: undefined,
+      mass_min: undefined,
+      mass_max: undefined,
     };
   }
 
   return _ed.outline;
 }
 
-// Logs outline warning once.
-function __polygon_outline_warn(_ed, _o, _msg) {
-  if (_o.warned) {
-    return;
+// Backfills fields added after the outline struct was first created.
+function __polygon_outline_ensure_fields(_o) {
+  if (!variable_struct_exists(_o, "scale") || !is_real(_o.scale) || _o.scale <= 0) {
+    _o.scale = 1;
   }
 
-  _o.warned = true;
+  if (!variable_struct_exists(_o, "uniforms")) {
+    _o.uniforms = undefined;
+  }
+
+  if (!variable_struct_exists(_o, "cheap")) {
+    _o.cheap = undefined;
+  }
+
+  if (!variable_struct_exists(_o, "mass_active")) {
+    _o.mass_active = false;
+  }
+
+  if (!variable_struct_exists(_o, "mass_valid")) {
+    _o.mass_valid = false;
+  }
+
+  if (!variable_struct_exists(_o, "mass_key")) {
+    _o.mass_key = undefined;
+  }
+
+  if (!variable_struct_exists(_o, "mass_min")) {
+    _o.mass_min = undefined;
+  }
+
+  if (!variable_struct_exists(_o, "mass_max")) {
+    _o.mass_max = undefined;
+  }
+}
+
+// Returns a cached uniform handle, looking it up once.
+function __polygon_outline_uniform_cached(_o, _name) {
+  if (!is_struct(_o.uniforms)) {
+    _o.uniforms = {};
+  }
+
+  if (variable_struct_exists(_o.uniforms, _name)) {
+    return variable_struct_get(_o.uniforms, _name);
+  }
+
+  var _h = shader_get_uniform(shPolygonEditorOutline, _name);
+  variable_struct_set(_o.uniforms, _name, _h);
+  return _h;
 }
 
 // Ensures outline mask materials exist.
@@ -78,7 +130,10 @@ function __polygon_outline_warmup(_ed, _o) {
     return;
   }
 
-  __polygon_outline_mask_surface(_ed, _o, _ed.scene_w, _ed.scene_h);
+  __polygon_outline_ensure_fields(_o);
+  var _ws = max(1, round(_ed.scene_w * _o.scale));
+  var _hs = max(1, round(_ed.scene_h * _o.scale));
+  __polygon_outline_mask_surface(_ed, _o, _ws, _hs);
 }
 
 // Frees outline surfaces and materials.
@@ -215,114 +270,183 @@ function __polygon_outline_walk_tree(_root, _entry, _excluded, _sel_epoch, _o, _
 }
 
 // ---------------------------------------------------------------------------
-// Fast cache key
+// Change detection (cheap gate, zero string alloc)
 // ---------------------------------------------------------------------------
 
-// Appends a vec3 to the outline cache key.
-function __polygon_key_vec3(_key, _tag, _v) {
-  return _key + _tag + string(_v.x) + "," + string(_v.y) + "," + string(_v.z);
-}
-
-// Appends one subtree (transforms + mesh states) to the outline cache key.
-function __polygon_outline_node_key(_key, _root) {
-  var _scan = [ _root ];
-
-  while (array_length(_scan) > 0) {
-    var _cur = array_pop(_scan);
-
-    if (_cur == undefined) {
-      continue;
-    }
-
-    var _pos = _cur.getLocalPosition();
-    var _rot = _cur.getLocalRotation();
-    var _sca = _cur.getLocalScale();
-    var _mesh = _cur.getMeshComponent();
-    var _skin = _cur.getSkinnedMeshComponent();
-    _key += "|n" + string(_cur.name);
-    _key = __polygon_key_vec3(_key, "p", _pos);
-    _key += "q" + string(_rot.x) + "," + string(_rot.y) + "," + string(_rot.z) + "," + string(_rot.w);
-    _key = __polygon_key_vec3(_key, "s", _sca);
-    _key += "e" + string(_mesh != undefined ? _mesh.getEnabled() : false);
-    _key += "k" + string(_skin != undefined ? _skin.getEnabled() : false);
-    var _kids = _cur.getChildren();
-
-    for (var _k = array_length(_kids) - 1; _k >= 0; --_k) {
-      array_push(_scan, _kids[_k]);
-    }
+// Reads the cheap change-detection snapshot (plain numbers + selection
+// refs, zero strings). Returns undefined when it cannot be built reliably,
+// forcing the render path.
+function __polygon_outline_cheap_read(_ed, _o) {
+  if (!is_array(_ed.sel) || _ed.vp == undefined || _ed.rt == undefined) {
+    return undefined;
   }
 
-  return _key;
-}
-
-// Appends the live camera pose to the outline cache key.
-// 5 decimals like the view key: string() rounds to 2, so slow orbit steps
-// (0.18 deg/px) would not flip the key and the mask would lag behind.
-function __polygon_outline_cam_key(_key, _ed) {
   var _cam = undefined;
 
   if (_ed.viewcam != undefined) {
     _cam = _ed.viewcam;
-  } else if (_ed.rt != undefined) {
+  } else {
     _cam = _ed.rt.cam;
   }
 
   if (_cam == undefined) {
-    return _key;
-  }
-
-  var _pos = _cam.getLocalPosition();
-
-  if (_pos != undefined) {
-    _key += string_format(_pos.x, 0, 5) + "," + string_format(_pos.y, 0, 5) + "," + string_format(_pos.z, 0, 5) + "|";
-  }
-
-  var _rot = _cam.getLocalRotation();
-
-  if (_rot != undefined) {
-    _key += string_format(_rot.x, 0, 5) + "," + string_format(_rot.y, 0, 5) + "," + string_format(_rot.z, 0, 5) + "," + string_format(_rot.w, 0, 5) + "|";
-  }
-
-  return _key;
-}
-
-// Builds tiny pre-check key (camera, sizes, sel count, drag, tracked count).
-// Returns undefined when it cannot be built reliably (forces full path).
-function __polygon_outline_fast(_ed) {
-  if (!is_array(_ed.sel) || _ed.vp == undefined) {
     return undefined;
   }
 
-  var _vp = _ed.vp;
-  var _dragging = variable_struct_exists(_ed, "giz") && is_struct(_ed.giz) && _ed.giz.drag != -1;
-  var _tracked = __polygon_reg_count(_ed);
-  var _key = __polygon_outline_cam_key("", _ed);
-  _key += "|p" + string(_vp.fovY) + "," + string(_vp.near) + "," + string(_vp.far);
-  _key += "," + string(_vp.winW) + "x" + string(_vp.winH);
-  _key += "|s" + string(array_length(_ed.sel)) + "d" + string(_dragging ? 1 : 0);
-  _key += "|t" + string(_tracked) + "|v" + string(_ed.scene_w) + "x" + string(_ed.scene_h);
+  var _cp = _cam.getLocalPosition();
+  var _cr = _cam.getLocalRotation();
 
-  for (var _i = 0, _n = array_length(_ed.sel); _i < _n; _i++) {
-    var _node = _ed.sel[_i];
-
-    if (_node == undefined) {
-      _key += "|x";
-      continue;
-    }
-
-    var _en = __polygon_registry_find(_ed, _node);
-
-    if (_en == undefined) {
-      _key += "|?";
-      continue;
-    }
-
-    // Include all selected subtree transforms and mesh enabled state.
-    _key = __polygon_outline_node_key(_key, _node);
-    _key += _en.hidden == true ? "h" : "v";
+  if (_cp == undefined || _cr == undefined) {
+    return undefined;
   }
 
-  return _key;
+  var _sel = [];
+
+  for (var _i = 0, _n = array_length(_ed.sel); _i < _n; _i++) {
+    array_push(_sel, _ed.sel[_i]);
+  }
+
+  return {
+    cpx: _cp.x, cpy: _cp.y, cpz: _cp.z,
+    crx: _cr.x, cry: _cr.y, crz: _cr.z, crw: _cr.w,
+    fov: _ed.vp.fovY, nr: _ed.vp.near, fr: _ed.vp.far,
+    ww: _ed.vp.winW, wh: _ed.vp.winH,
+    n: array_length(_ed.sel),
+    trk: __polygon_reg_count(_ed),
+    sw: _ed.scene_w, sh: _ed.scene_h,
+    sc: _o.scale,
+    sel: _sel,
+  };
+}
+
+// Compares a fresh snapshot against the stored one (state of the last
+// rendered mask). Selection is compared by node identity: any transform
+// edit flows through code that sets view_dirty or drags the gizmo, both of
+// which bypass this gate; silent drift is caught by the viewport key,
+// which clears the stored snapshot (see __polygon_view_needs_render).
+function __polygon_outline_cheap_same(_a, _b) {
+  if (!is_struct(_a) || !is_struct(_b)) {
+    return false;
+  }
+
+  if (_a.cpx != _b.cpx || _a.cpy != _b.cpy || _a.cpz != _b.cpz
+    || _a.crx != _b.crx || _a.cry != _b.cry || _a.crz != _b.crz || _a.crw != _b.crw
+    || _a.fov != _b.fov || _a.nr != _b.nr || _a.fr != _b.fr
+    || _a.ww != _b.ww || _a.wh != _b.wh
+    || _a.n != _b.n || _a.trk != _b.trk
+    || _a.sw != _b.sw || _a.sh != _b.sh || _a.sc != _b.sc) {
+    return false;
+  }
+
+  if (!is_array(_a.sel) || !is_array(_b.sel) || array_length(_a.sel) != array_length(_b.sel)) {
+    return false;
+  }
+
+  for (var _i = 0, _n = array_length(_a.sel); _i < _n; _i++) {
+    if (!__polygon_node_same(_a.sel[_i], _b.sel[_i])) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+// More than this many selected roots: single combined AABB instead of a
+// per-pixel mask (no second geometry render, no per-node material walks).
+function __polygon_outline_mass_limit() {
+  return 50;
+}
+
+// Compares two mass-selection keys (selection identity + tracked count).
+function __polygon_outline_mass_same(_a, _b) {
+  if (!is_struct(_a) || !is_struct(_b) || _a.n != _b.n || _a.trk != _b.trk) {
+    return false;
+  }
+
+  if (!is_array(_a.sel) || !is_array(_b.sel) || array_length(_a.sel) != array_length(_b.sel)) {
+    return false;
+  }
+
+  for (var _i = 0, _n = array_length(_a.sel); _i < _n; _i++) {
+    if (!__polygon_node_same(_a.sel[_i], _b.sel[_i])) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+// Refreshes the combined world-space AABB of the selection. World-space
+// means camera motion never invalidates it: orbit frames reuse the stored
+// box at zero cost. Mutations (view_dirty) and gizmo drags recompute.
+function __polygon_outline_mass_refresh(_ed, _o) {
+  var _dragging = variable_struct_exists(_ed, "giz") && is_struct(_ed.giz) && _ed.giz.drag != -1;
+  var _sel = [];
+  var _n = is_array(_ed.sel) ? array_length(_ed.sel) : 0;
+
+  for (var _i = 0; _i < _n; _i++) {
+    array_push(_sel, _ed.sel[_i]);
+  }
+
+  var _key = { n: _n, trk: __polygon_reg_count(_ed), sel: _sel };
+
+  if (!_dragging && _ed.view_dirty != true && _o.mass_valid == true && __polygon_outline_mass_same(_key, _o.mass_key)) {
+    return;
+  }
+
+  var _mm = { min: undefined, max: undefined };
+
+  for (var _j = 0; _j < _n; _j++) {
+    var _node = _ed.sel[_j];
+
+    if (_node == undefined || __polygon_hidden_get(_ed, _node)) {
+      continue;
+    }
+
+    if (__polygon_kind_of(_ed, _node) != "instance") {
+      continue;
+    }
+
+    var _bb = __polygon_node_aabb(_node);
+
+    if (!is_struct(_bb) || _bb.valid != true || _bb.min == undefined || _bb.max == undefined) {
+      continue;
+    }
+
+    __polygon_aabb_grow(_mm, _bb.min);
+    __polygon_aabb_grow(_mm, _bb.max);
+  }
+
+  _o.mass_min = _mm.min;
+  _o.mass_max = _mm.max;
+  _o.mass_valid = (_mm.min != undefined && _mm.max != undefined);
+  _o.mass_key = _key;
+  // Fresh box: the main surface must re-render to show it.
+  _ed.view_dirty = true;
+}
+
+// Draws the stored combined AABB (mass-selection mode, no per-frame walks).
+function __polygon_outline_mass_draw(_ed, _vp, _o) {
+  if (_o.mass_valid != true || _o.mass_min == undefined || _o.mass_max == undefined) {
+    return;
+  }
+
+  var _lx = _o.mass_min.x;
+  var _ly = _o.mass_min.y;
+  var _lz = _o.mass_min.z;
+  var _hx = _o.mass_max.x;
+  var _hy = _o.mass_max.y;
+  var _hz = _o.mass_max.z;
+  __polygon_overlay_box(_ed, _vp, [
+    new GM3D_Vec3(_lx, _ly, _lz),
+    new GM3D_Vec3(_hx, _ly, _lz),
+    new GM3D_Vec3(_lx, _hy, _lz),
+    new GM3D_Vec3(_hx, _hy, _lz),
+    new GM3D_Vec3(_lx, _ly, _hz),
+    new GM3D_Vec3(_hx, _ly, _hz),
+    new GM3D_Vec3(_lx, _hy, _hz),
+    new GM3D_Vec3(_hx, _hy, _hz),
+  ], 1.5, make_colour_rgb(255, 220, 80));
 }
 
 // ---------------------------------------------------------------------------
@@ -380,19 +504,42 @@ function __polygon_outline_capture(_ed) {
   }
 
   __polygon_outline_warmup(_ed, _o);
+  __polygon_outline_ensure_fields(_o);
 
-  // Cheap pre-check BEFORE invalidating has: camera, sizes, selection,
-  // drag state and counts. While gizmo-dragging the selection moves every
-  // frame, so the full path always runs then.
-  var _dragging = variable_struct_exists(_ed, "giz") && is_struct(_ed.giz) && _ed.giz.drag != -1;
-  var _fast = _dragging ? undefined : __polygon_outline_fast(_ed);
+  // Selection size for the idle fast path below.
+  var _sel_n = is_array(_ed.sel) ? array_length(_ed.sel) : 0;
 
-  if (_fast != undefined && variable_struct_exists(_o, "fast") && _o.fast == _fast && _o.has && _o.mask != undefined && surface_exists(_o.mask)) {
+  // Mass selection: one combined AABB instead of a per-pixel mask (no
+  // second geometry render, no per-node material walks, orbit-safe).
+  if (_sel_n > __polygon_outline_mass_limit()) {
+    _o.mass_active = true;
+    _o.has = false;
+    __polygon_outline_mass_refresh(_ed, _o);
     return;
   }
 
+  _o.mass_active = false;
+
+  // Cheap gate: transient states always re-render; view_dirty (set by every
+  // editor mutation: history, props, hide, serializers) forces a refresh;
+  // otherwise a plain-numbers snapshot decides. No string building, no
+  // subtree walks on this path — that was the orbit bottleneck.
+  var _dragging = variable_struct_exists(_ed, "giz") && is_struct(_ed.giz) && _ed.giz.drag != -1;
+
+  if (!_dragging && _ed.view_dirty != true) {
+    var _peek = __polygon_outline_cheap_read(_ed, _o);
+    var _prev = variable_struct_exists(_o, "cheap") ? _o.cheap : undefined;
+
+    if (_peek != undefined && __polygon_outline_cheap_same(_peek, _prev)) {
+      // Static and mask matches: nothing to do. Empty selection reuses
+      // this path too (no mask to render, snapshot still tracks state).
+      if (_sel_n == 0 || (_o.has && _o.mask != undefined && surface_exists(_o.mask))) {
+        return;
+      }
+    }
+  }
+
   _o.has = false;
-  _o.fast = _fast;
 
   if (!variable_struct_exists(_o, "sel_epoch")) {
     _o.sel_epoch = 0;
@@ -402,7 +549,15 @@ function __polygon_outline_capture(_ed) {
   var _epoch = _o.sel_epoch;
 
   if (__polygon_outline_mark_sel(_ed, _epoch) == 0) {
-    _o.sig = undefined;
+    // Outline just disappeared (deselect/hide): force the main surface to
+    // re-render, or the stale outline stays baked in with no later change
+    // to invalidate it.
+    if (_o.has == true) {
+      _ed.view_dirty = true;
+    }
+
+    // Nothing renderable: remember the state so idle frames skip above.
+    _o.cheap = __polygon_outline_cheap_read(_ed, _o);
     return;
   }
 
@@ -432,7 +587,11 @@ function __polygon_outline_capture(_ed) {
     return;
   }
 
-  if (!__polygon_outline_mask_surface(_ed, _o, _w, _h)) {
+  // Scaled mask: same silhouette at a fraction of the geometry + fill cost.
+  var _mw = max(1, round(_w * _o.scale));
+  var _mh = max(1, round(_h * _o.scale));
+
+  if (!__polygon_outline_mask_surface(_ed, _o, _mw, _mh)) {
     return;
   }
 
@@ -450,7 +609,7 @@ function __polygon_outline_capture(_ed) {
     }
 
     var _entry = __polygon_registry_find(_ed, _root);
-    var _excluded = (_grid != undefined && _root == _grid) || (_preview != undefined && _root == _preview);
+    var _excluded = (_grid != undefined && __polygon_node_same(_root, _grid)) || (_preview != undefined && __polygon_node_same(_root, _preview));
     __polygon_outline_walk_tree(_root, _entry, _excluded, _epoch, _o, _swapped, _muted);
   }
 
@@ -463,7 +622,9 @@ function __polygon_outline_capture(_ed) {
   _ed.renderer.render(_ed.rt.scene);
   surface_reset_target();
   _o.has = true;
-  _o.sig = _o.fast;
+  // Snapshot the rendered state AFTER rendering (resize-settle and surface
+  // failures above bail out without storing, so the next frame retries).
+  _o.cheap = __polygon_outline_cheap_read(_ed, _o);
   // Fresh mask: force the main surface to re-render so it gets
   // composited. Without this, a mask that becomes ready on a frame where
   // the view key does not change (e.g. selecting in a still viewport)
@@ -471,11 +632,6 @@ function __polygon_outline_capture(_ed) {
   _ed.view_dirty = true;
 
   __polygon_walk_restore(_swapped, _muted);
-}
-
-// Reads one outline shader uniform handle.
-function __polygon_outline_uniform(_name) {
-  return shader_get_uniform(shPolygonEditorOutline, _name);
 }
 
 // Draws outline glow from mask.
@@ -489,6 +645,7 @@ function __polygon_outline_composite(_ed) {
   }
 
   var _o = _ed.outline;
+  __polygon_outline_ensure_fields(_o);
 
   if (!_o.has || _o.mask == undefined || !surface_exists(_o.mask)) {
     return;
@@ -501,12 +658,12 @@ function __polygon_outline_composite(_ed) {
     return;
   }
 
-  var _u_color = __polygon_outline_uniform("u_color");
-  var _u_texel = __polygon_outline_uniform("u_texel");
-  var _u_thick = __polygon_outline_uniform("u_thickness");
-  var _u_strength = __polygon_outline_uniform("u_strength");
-  var _u_glow = __polygon_outline_uniform("u_glow");
-  var _u_thresh = __polygon_outline_uniform("u_threshold");
+  var _u_color = __polygon_outline_uniform_cached(_o, "u_color");
+  var _u_texel = __polygon_outline_uniform_cached(_o, "u_texel");
+  var _u_thick = __polygon_outline_uniform_cached(_o, "u_thickness");
+  var _u_strength = __polygon_outline_uniform_cached(_o, "u_strength");
+  var _u_glow = __polygon_outline_uniform_cached(_o, "u_glow");
+  var _u_thresh = __polygon_outline_uniform_cached(_o, "u_threshold");
   var _was_blend = gpu_get_blendenable();
   shader_set(shPolygonEditorOutline);
 
@@ -519,7 +676,10 @@ function __polygon_outline_composite(_ed) {
   }
 
   if (_u_thick != -1) {
-    shader_set_uniform_f(_u_thick, _o.thickness);
+    // Keep the on-screen outline width constant across mask scales:
+    // 1 mask texel covers 1/scale screen pixels, so the Sobel radius
+    // in mask-texel units must shrink with the scale.
+    shader_set_uniform_f(_u_thick, _o.thickness * _o.scale);
   }
 
   if (_u_strength != -1) {

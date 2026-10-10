@@ -29,6 +29,37 @@ function __polygon_wrap_id_of(_node) {
   return _node.name;
 }
 
+// Compares two scene nodes by stable identity: the node name, which IS the
+// wrapper id. Never compare node references with ==: GMRT queries may hand
+// out fresh structs for the same native node, so == misses across queries
+// (duplicated selection, stale anchors, chrome leaking into passes).
+function __polygon_node_same(_a, _b) {
+  if (_a == undefined || _b == undefined) {
+    return false;
+  }
+
+  if (!is_string(_a.name) || !is_string(_b.name) || _a.name == "") {
+    return false;
+  }
+
+  return _a.name == _b.name;
+}
+
+// Checks whether a node list contains a node (by stable identity).
+function __polygon_node_list_has(_list, _node) {
+  if (!is_array(_list) || _node == undefined) {
+    return false;
+  }
+
+  for (var _i = 0, _n = array_length(_list); _i < _n; _i++) {
+    if (__polygon_node_same(_list[_i], _node)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 // Parses the numeric suffix of a wrapper id (or -1).
 function __polygon_wrap_id_num(_id) {
   if (!is_string(_id)) {
@@ -380,7 +411,7 @@ function __polygon_root_pairs(_ed) {
       continue;
     }
 
-    if (variable_struct_exists(_ed, "drag_preview") && _node == _ed.drag_preview) {
+    if (variable_struct_exists(_ed, "drag_preview") && __polygon_node_same(_node, _ed.drag_preview)) {
       continue;
     }
 
@@ -411,7 +442,7 @@ function __polygon_tracked_nodes(_ed) {
       continue;
     }
 
-    if (variable_struct_exists(_ed, "drag_preview") && _node == _ed.drag_preview) {
+    if (variable_struct_exists(_ed, "drag_preview") && __polygon_node_same(_node, _ed.drag_preview)) {
       continue;
     }
 

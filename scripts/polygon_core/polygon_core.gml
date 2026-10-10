@@ -224,8 +224,12 @@ function polygon_postrender() {
   }
 
   __polygon_thumb_graveyard_step(_ed);
-  __polygon_outline_capture(_ed);
+  // Pick first: it applies pending clicks/rects to the selection, and the
+  // outline capture must see the post-pick state — otherwise a deselect
+  // re-renders the main surface with the stale mask and nothing ever
+  // invalidates it again.
   __polygon_gpupick_execute(_ed);
+  __polygon_outline_capture(_ed);
   __polygon_surf_graveyard_step(_ed);
   __polygon_scene_panel_render(_ed);
 }
@@ -383,6 +387,11 @@ function __polygon_compose_viewport(_ed) {
   gpu_set_blendenable(true);
   gpu_set_blendmode_ext_sepalpha(bm_src_alpha, bm_inv_src_alpha, bm_inv_dest_alpha, bm_one);
   __polygon_outline_composite(_ed);
+
+  if (variable_struct_exists(_ed, "outline") && is_struct(_ed.outline) && _ed.outline.mass_active == true) {
+    __polygon_outline_mass_draw(_ed, _vp, _ed.outline);
+  }
+
   __polygon_gizmo_draw(_ed, _vp);
   __polygon_overlay_draw(_ed, _vp);
   __polygon_viewcube_draw(_ed, _vp);
@@ -722,28 +731,6 @@ function polygon_is_active() {
   }
 
   return _ed.active == true;
-}
-
-// Focuses camera on current selection.
-function polygon_focus() {
-  return __polygon_focus_selection(global.polygon_inst);
-}
-
-// Saves scene to file.
-function polygon_save(_fname) {
-  var _ed = global.polygon_inst;
-  var _old = _ed.scene_file;
-
-  if (_fname != undefined) {
-    _ed.scene_file = _fname;
-  }
-
-  if (__polygon_save_or_ask(_ed)) {
-    return true;
-  }
-
-  _ed.scene_file = _old;
-  return false;
 }
 
 // ---------------------------------------------------------------------------

@@ -175,7 +175,7 @@ function __polygon_delete_ask(_ed) {
   var _victims = 0;
 
   for (var _i = 0, _n = array_length(_ed.sel); _i < _n; _i++) {
-    if (_ed.rt != undefined && _ed.sel[_i] == _ed.rt.cam) {
+    if (_ed.rt != undefined && __polygon_node_same(_ed.sel[_i], _ed.rt.cam)) {
       continue;
     }
 
@@ -199,7 +199,7 @@ function __polygon_delete_sel(_ed) {
   var _victims = [];
 
   for (var _i = 0, _n = array_length(_ed.sel); _i < _n; _i++) {
-    if (_ed.rt != undefined && _ed.sel[_i] == _ed.rt.cam) {
+    if (_ed.rt != undefined && __polygon_node_same(_ed.sel[_i], _ed.rt.cam)) {
       continue;
     }
 
@@ -573,11 +573,11 @@ function __polygon_scene_range(
   for (var _i = 0, _n = array_length(_visible); _i < _n; _i++) {
     var _node = __polygon_row_node(_visible[_i]);
 
-    if (_node == _anchor_node) {
+    if (__polygon_node_same(_node, _anchor_node)) {
       _ai = _i;
     }
 
-    if (_node == _clicked_node) {
+    if (__polygon_node_same(_node, _clicked_node)) {
       _ci = _i;
     }
   }

@@ -175,7 +175,7 @@ function __polygon_view_sel_changed(_ed) {
     _changed = false;
 
     for (var _i = 0; _i < _n; _i++) {
-      if (_prev[_i] != _ed.sel[_i]) {
+      if (!__polygon_node_same(_prev[_i], _ed.sel[_i])) {
         _changed = true;
         break;
       }
@@ -195,6 +195,63 @@ function __polygon_view_sel_changed(_ed) {
   return _changed;
 }
 
+// Reads the cheap viewport snapshot (plain numbers, no strings).
+// Covers every scalar input of __polygon_view_key; selection transforms
+// stay in the string key (exact fallback below). Returns undefined when
+// it cannot be built, forcing the exact path.
+function __polygon_view_cheap_read(_ed) {
+  if (_ed.vp == undefined || _ed.rt == undefined) {
+    return undefined;
+  }
+
+  var _cam = undefined;
+
+  if (_ed.viewcam != undefined) {
+    _cam = _ed.viewcam;
+  } else {
+    _cam = _ed.rt.cam;
+  }
+
+  if (_cam == undefined) {
+    return undefined;
+  }
+
+  var _cp = _cam.getLocalPosition();
+  var _cr = _cam.getLocalRotation();
+
+  if (_cp == undefined || _cr == undefined) {
+    return undefined;
+  }
+
+  return {
+    cpx: _cp.x, cpy: _cp.y, cpz: _cp.z,
+    crx: _cr.x, cry: _cr.y, crz: _cr.z, crw: _cr.w,
+    sw: _ed.scene_w, sh: _ed.scene_h,
+    gs: _ed.grid_step, sg: _ed.show_grid == true ? 1 : 0,
+    sh_: _ed.show_shadows != false ? 1 : 0, un: _ed.show_unlit == true ? 1 : 0,
+    hov: _ed.giz.hover, cube: _ed.cube_hover, tool: _ed.giz.tool,
+    trk: __polygon_reg_count(_ed),
+    pv: (variable_struct_exists(_ed, "drag_preview") && _ed.drag_preview != undefined) ? 1 : 0,
+    rc: (variable_struct_exists(_ed, "rect") && is_struct(_ed.rect) && _ed.rect.on == true) ? 1 : 0,
+    nt: (is_real(_ed.cam_speed_notice) && _ed.cam_speed_notice > 0) ? 1 : 0,
+  };
+}
+
+// Compares two cheap viewport snapshots.
+function __polygon_view_cheap_same(_a, _b) {
+  if (!is_struct(_a) || !is_struct(_b)) {
+    return false;
+  }
+
+  return _a.cpx == _b.cpx && _a.cpy == _b.cpy && _a.cpz == _b.cpz
+    && _a.crx == _b.crx && _a.cry == _b.cry && _a.crz == _b.crz && _a.crw == _b.crw
+    && _a.sw == _b.sw && _a.sh == _b.sh
+    && _a.gs == _b.gs && _a.sg == _b.sg
+    && _a.sh_ == _b.sh_ && _a.un == _b.un
+    && _a.hov == _b.hov && _a.cube == _b.cube && _a.tool == _b.tool
+    && _a.trk == _b.trk && _a.pv == _b.pv && _a.rc == _b.rc && _a.nt == _b.nt;
+}
+
 // Checks if the scene surface needs a re-render (dirty flag, key change
 // or transient activity). FPS text is excluded on purpose: it is drawn
 // live in Draw GUI instead of baked into the surface.
@@ -212,10 +269,27 @@ function __polygon_view_needs_render(_ed) {
     return true;
   }
 
+  // Cheap gate: static frames skip the string-key build (expensive with
+  // big selections). Any scalar change falls through to the exact key.
+  var _cheap = __polygon_view_cheap_read(_ed);
+  var _prev_cheap = variable_struct_exists(_ed, "view_cheap") ? _ed.view_cheap : undefined;
+
+  if (_cheap != undefined && __polygon_view_cheap_same(_cheap, _prev_cheap)) {
+    return false;
+  }
+
+  _ed.view_cheap = _cheap;
+
   var _key = __polygon_view_key(_ed);
 
   if (!variable_struct_exists(_ed, "view_key") || _ed.view_key != _key) {
     _ed.view_key = _key;
+    // The viewport picture changed in a way the outline gate cannot see
+    // (e.g. silent transform drift): force a mask refresh next capture.
+    if (variable_struct_exists(_ed, "outline") && is_struct(_ed.outline)) {
+      _ed.outline.cheap = undefined;
+    }
+
     return true;
   }
 

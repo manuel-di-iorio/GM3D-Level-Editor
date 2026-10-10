@@ -397,14 +397,6 @@ function __polygon_mat_tex_pv_free(_ed) {
 // Headers and rows
 // ---------------------------------------------------------------------------
 
-function __polygon_imgui_inspector_thumb_outline(_x, _y, _size) {
-  var _dl = ImGui.GetWindowDrawList();
-
-  if (_dl != undefined) {
-    ImGui.DrawListAddRect(_dl, _x, _y, _x + _size, _y + _size, make_colour_rgb(78, 91, 113));
-  }
-}
-
 // Shared header for the Material, Prefab and prefab-instance inspectors.
 function __polygon_imgui_inspector_asset_header(_name, _type, _thumb, _size) {
   var _x = ImGui.GetCursorScreenPosX();

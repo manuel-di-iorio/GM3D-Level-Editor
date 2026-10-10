@@ -208,8 +208,8 @@ function __polygon_gpupick_roots(_ed, _all) {
       continue;
     }
 
-    if ((_grid != undefined && _node == _grid) || (_preview != undefined && _node == _preview)
-      || (_cam != undefined && _node == _cam) || __polygon_is_grid(_ed, _node) || __polygon_is_sky(_node)) {
+    if ((_grid != undefined && __polygon_node_same(_node, _grid)) || (_preview != undefined && __polygon_node_same(_node, _preview))
+      || (_cam != undefined && __polygon_node_same(_node, _cam)) || __polygon_is_grid(_ed, _node) || __polygon_is_sky(_node)) {
       continue;
     }
 
@@ -243,7 +243,7 @@ function __polygon_gpupick_render(_ed, _g, _all, _ignore) {
       return undefined;
     }
 
-    var _skip = (is_array(_ignore) && array_contains(_ignore, _roots[_r])) || __polygon_locked_get(_ed, _roots[_r]);
+    var _skip = (is_array(_ignore) && __polygon_node_list_has(_ignore, _roots[_r])) || __polygon_locked_get(_ed, _roots[_r]);
 
     if (_skip) {
       __polygon_gpupick_paint_tree(_ed, _g, _roots[_r], 0, _swapped, _muted, true);
@@ -271,11 +271,7 @@ function __polygon_gpupick_render(_ed, _g, _all, _ignore) {
 
 // Compares nodes by identity (wrappers are unique by id).
 function __polygon_gpupick_same_node(_a, _b) {
-  if (_a == undefined || _b == undefined) {
-    return false;
-  }
-
-  return _a == _b;
+  return __polygon_sel_same(_a, _b);
 }
 
 // ---------------------------------------------------------------------------

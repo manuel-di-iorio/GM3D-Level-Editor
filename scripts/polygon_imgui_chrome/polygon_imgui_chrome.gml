@@ -413,7 +413,7 @@ function __polygon_menu_brand() {
     // Fixed logo size: it no longer follows FramePadding, so the bar
     // padding stays visible as margin around it (tweak _marg/_max_h).
     var _marg = 3;
-    var _max_h = 30;
+    var _max_h = 25;
     var _fh = ImGui.GetFrameHeight();
     var _h = min(_max_h, max(1, _fh - _marg * 2));
     var _w = _h * sprite_get_width(_logo) / max(1, sprite_get_height(_logo));

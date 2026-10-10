@@ -223,48 +223,6 @@ function __polygon_ray_plane(_origin, _dir, _point, _normal) {
   return _hit;
 }
 
-// Intersects ray with axis-aligned bounding box.
-function __polygon_ray_aabb(_origin, _dir, _min, _max) {
-  var _tmin = 0.0;
-  var _tmax = 1000000000;
-  var _oo = [ _origin.x, _origin.y, _origin.z ];
-  var _dd = [ _dir.x, _dir.y, _dir.z ];
-  var _lo = [ _min.x, _min.y, _min.z ];
-  var _hi = [ _max.x, _max.y, _max.z ];
-
-  for (var _i = 0; _i < 3; _i++) {
-    if (abs(_dd[_i]) < 0.000001) {
-      if (_oo[_i] < _lo[_i] || _oo[_i] > _hi[_i]) {
-        return -1;
-      }
-    } else {
-      var _inv = 1.0 / _dd[_i];
-      var _t1 = (_lo[_i] - _oo[_i]) * _inv;
-      var _t2 = (_hi[_i] - _oo[_i]) * _inv;
-
-      if (_t1 > _t2) {
-        var _tmp = _t1;
-        _t1 = _t2;
-        _t2 = _tmp;
-      }
-
-      if (_t1 > _tmin) {
-        _tmin = _t1;
-      }
-
-      if (_t2 < _tmax) {
-        _tmax = _t2;
-      }
-
-      if (_tmin > _tmax) {
-        return -1;
-      }
-    }
-  }
-
-  return _tmin;
-}
-
 // ---------------------------------------------------------------------------
 // Bounding boxes and draw helpers
 // ---------------------------------------------------------------------------

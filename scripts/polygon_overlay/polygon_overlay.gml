@@ -182,19 +182,6 @@ function __polygon_overlay_icon(_ed, _sp, _label, _col, _sel, _sprname) {
   }
 }
 
-// Draws arrowhead at segment end.
-function __polygon_overlay_head(_e, _dx, _dy, _col) {
-  var _len = 10;
-  var _cos = 0.906;
-  var _sin = 0.423;
-  var _lx = _e[0] - (_dx * _cos - _dy * _sin) * _len;
-  var _ly = _e[1] - (_dx * _sin + _dy * _cos) * _len;
-  var _rx = _e[0] - (_dx * _cos + _dy * _sin) * _len;
-  var _ry = _e[1] - (-_dx * _sin + _dy * _cos) * _len;
-  draw_line_width_color(_e[0], _e[1], _lx, _ly, 2, _col, _col);
-  draw_line_width_color(_e[0], _e[1], _rx, _ry, 2, _col, _col);
-}
-
 // ---------------------------------------------------------------------------
 // Shared overlay bits
 // ---------------------------------------------------------------------------

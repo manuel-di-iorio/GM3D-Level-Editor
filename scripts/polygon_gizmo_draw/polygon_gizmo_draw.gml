@@ -44,15 +44,6 @@ function __polygon_gizmo_draw(_ed, _vp) {
   }
 }
 
-// NOTE: currently unused — selection feedback uses the outline glow +
-// gizmo, not these boxes. Kept for a future bounding-box display/debug mode.
-// Draws selection bounding boxes for selected nodes.
-// function __polygon_gizmo_draw_selboxes(_ed, _vp) {
-//   for (var _i = 0, _n = array_length(_ed.sel); _i < _n; _i++) {
-//     __polygon_draw_selbox(_ed.sel[_i], _vp, _ed);
-//   }
-// }
-
 // ---------------------------------------------------------------------------
 // Translate quads and axes
 // ---------------------------------------------------------------------------
@@ -500,59 +491,3 @@ function __polygon_gizmo_shaft(_ed, _x1, _y1, _x2, _y2, _col, _al) {
 
   draw_set_alpha(1);
 }
-
-// NOTE: currently unused — selection feedback uses the outline glow +
-// gizmo, not these boxes. Kept for a future bounding-box display/debug mode.
-// Draws bounding box outline around single node.
-// function __polygon_draw_selbox(_node, _vp, _ed) {
-//   if (__polygon_hidden_get(_ed, _node)) {
-//     return;
-//   }
-
-//   var _box = __polygon_node_aabb(_node);
-
-//   if (!_box.valid) {
-//     return;
-//   }
-
-//   var _mn = _box.min;
-//   var _mx = _box.max;
-//   var _corners = [
-//     _mn.clone(),
-//     new GM3D_Vec3(_mx.x, _mn.y, _mn.z),
-//     new GM3D_Vec3(_mn.x, _mx.y, _mn.z),
-//     new GM3D_Vec3(_mx.x, _mx.y, _mn.z),
-//     new GM3D_Vec3(_mn.x, _mn.y, _mx.z),
-//     new GM3D_Vec3(_mx.x, _mn.y, _mx.z),
-//     new GM3D_Vec3(_mn.x, _mx.y, _mx.z),
-//     _mx.clone(),
-//   ];
-//   var _scr = __polygon_world_corners_to_screen(_vp, _corners);
-//   static _edges = [
-//     [ 0, 1 ],
-//     [ 1, 3 ],
-//     [ 3, 2 ],
-//     [ 2, 0 ],
-//     [ 4, 5 ],
-//     [ 5, 7 ],
-//     [ 7, 6 ],
-//     [ 6, 4 ],
-//     [ 0, 4 ],
-//     [ 1, 5 ],
-//     [ 2, 6 ],
-//     [ 3, 7 ],
-//   ];
-//   var _col = make_colour_rgb(255, 220, 80);
-//   draw_set_alpha(0.4);
-
-//   for (var _e = 0; _e < 12; _e++) {
-//     var _a = _scr[_edges[_e][0]];
-//     var _b = _scr[_edges[_e][1]];
-
-//     if (_a != undefined && _b != undefined) {
-//       __polygon_vp_line(_ed, _a[0], _a[1], _b[0], _b[1], 1.5, _col);
-//     }
-//   }
-
-//   draw_set_alpha(1);
-// }

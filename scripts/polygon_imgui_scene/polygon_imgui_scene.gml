@@ -162,21 +162,6 @@ function __polygon_rename_at(_ed, _node) {
 // Kind icons
 // ---------------------------------------------------------------------------
 
-// Draws icon image with vertical offset.
-function __polygon_imgui_icon_shifted(_spr, _tint, _iw, _ih, _dy) {
-  var _sx = ImGui.GetCursorScreenPosX();
-  var _sy = ImGui.GetCursorScreenPosY();
-  var _dl = ImGui.GetWindowDrawList();
-  ImGui.Dummy(_iw, _ih);
-
-  if (_sx == undefined || _sy == undefined || _dl == undefined) {
-    return false;
-  }
-
-  ImGui.DrawListAddImage(_dl, _spr, 0, _sx, _sy + _dy, _sx + _iw, _sy + _dy + _ih, _tint);
-  return true;
-}
-
 // Resolves the icon sprite and tooltip for a node kind.
 function __polygon_kind_icon_info(_ed, _node, _kind, _cache) {
   if (_kind == "camera") {
@@ -482,6 +467,25 @@ function __polygon_scene_row_menu(_ed, _meta, _node, _idx, _pending) {
   ImGui.EndPopup();
 }
 
+// Draws the hierarchy status bar ("N items"). Measures its own height so
+// the rows child can reserve exactly that much space next frame.
+function __polygon_hier_status(_ed, _shown, _total) {
+  var _y0 = ImGui.GetCursorPosY();
+  ImGui.Separator();
+
+  if (_shown == _total) {
+    ImGui.TextDisabled(string(_shown) + (_shown == 1 ? " item" : " items"));
+  } else {
+    ImGui.TextDisabled(string(_shown) + " of " + string(_total) + " items");
+  }
+
+  var _h = ImGui.GetCursorPosY() - _y0;
+
+  if (is_real(_h) && _h > 0 && is_struct(_ed.imgui)) {
+    _ed.imgui.hier_status_h = _h;
+  }
+}
+
 // Draws filterable scene list with selection actions.
 function __polygon_imgui_scene_list(_ed) {
   var _ui = _ed.imgui;
@@ -516,6 +520,7 @@ function __polygon_imgui_scene_list(_ed) {
   if (_ed.rt == undefined) {
     ImGui.TextDisabled("No scene");
     _ed.hier_rect = undefined;
+    __polygon_hier_status(_ed, 0, 0);
     return;
   }
 
@@ -530,12 +535,22 @@ function __polygon_imgui_scene_list(_ed) {
     _ed.scene_anchor = undefined;
   }
 
-  var _rows = __polygon_scene_filter(_ed, __polygon_root_pairs(_ed), __polygon_sel_set(_ed), _ui.show_kind, string_lower(_ui.scene_filter));
+  var _pairs = __polygon_root_pairs(_ed);
+  var _rows = __polygon_scene_filter(_ed, _pairs, __polygon_sel_set(_ed), _ui.show_kind, string_lower(_ui.scene_filter));
   var _n = array_length(_rows);
+  var _total = array_length(_pairs);
+  // Reserve bottom space for the status bar: exact measured height once
+  // known, compact estimate on the first frame.
+  var _status_h = ImGui.GetTextLineHeight() + 10;
 
-  if (!ImGui.BeginChild("##hierarchy_node_rows", 0, 0, ImGuiChildFlags.None)) {
+  if (variable_struct_exists(_ui, "hier_status_h") && is_real(_ui.hier_status_h) && _ui.hier_status_h > 0) {
+    _status_h = _ui.hier_status_h;
+  }
+
+  if (!ImGui.BeginChild("##hierarchy_node_rows", 0, -_status_h, ImGuiChildFlags.None)) {
     ImGui.EndChild();
     __polygon_scene_list_commit(_ed, _pending.ren, _pending.foc, _pending.dup, _pending.del);
+    __polygon_hier_status(_ed, _n, _total);
     return;
   }
 
@@ -617,5 +632,6 @@ function __polygon_imgui_scene_list(_ed) {
   }
 
   ImGui.EndChild();
+  __polygon_hier_status(_ed, _n, _total);
   __polygon_scene_list_commit(_ed, _pending.ren, _pending.foc, _pending.dup, _pending.del);
 }

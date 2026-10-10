@@ -33,7 +33,7 @@ function __polygon_mat_inspector_stale(_ed) {
   }
 
   for (var _i = 0, _n = array_length(_ed.sel); _i < _n; _i++) {
-    if (_ed.mat_inspector_sel[_i] != _ed.sel[_i]) {
+    if (!__polygon_node_same(_ed.mat_inspector_sel[_i], _ed.sel[_i])) {
       return true;
     }
   }

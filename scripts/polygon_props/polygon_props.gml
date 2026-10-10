@@ -235,15 +235,6 @@ function __polygon_light_apply(_node, _d) {
   }
 }
 
-// Warns once when the runtime shadow API is missing.
-function __polygon_shadow_warn() {
-  if (variable_global_exists("polygon_shadow_warned") && global.polygon_shadow_warned == true) {
-    return;
-  }
-
-  global.polygon_shadow_warned = true;
-}
-
 // Applies shadow preview override to tracked directionals.
 function __polygon_shadowpreview_apply(_ed) {
   if (_ed == undefined) {
@@ -304,7 +295,7 @@ function __polygon_shadow_owner(_ed, _except) {
   for (var _i = 0, _n = array_length(_roots); _i < _n; _i++) {
     var _node = _roots[_i];
 
-    if (_node == undefined || _node == _except) {
+    if (_node == undefined || __polygon_node_same(_node, _except)) {
       continue;
     }
 
