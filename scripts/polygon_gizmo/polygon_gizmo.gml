@@ -141,20 +141,8 @@ function __polygon_gizmo_world_delta_to_local(_node, _delta) {
 // Rings and quads
 // ---------------------------------------------------------------------------
 
-// Builds world-space circle points for rotation ring.
-function __polygon_gizmo_ring_world(_pivot, _axis, _ws) {
-  var _world = [];
-  var _seg = 36;
-
-  for (var _i = 0; _i <= _seg; _i++) {
-    array_push(_world, __polygon_gizmo_ring_point(_pivot, _axis, _ws, (_i / _seg) * pi * 2));
-  }
-
-  return _world;
-}
-
-// Computes single point on rotation ring circle.
-function __polygon_gizmo_ring_point(_pivot, _axis, _ws, _t) {
+// Builds orthonormal basis (u,v) for a rotation ring axis (computed once per ring).
+function __polygon_gizmo_ring_basis(_axis) {
   var _ref = GM3D_Vec3.up();
 
   if (abs(_axis.dot(_ref)) >= 0.99) {
@@ -166,11 +154,39 @@ function __polygon_gizmo_ring_point(_pivot, _axis, _ws, _t) {
   _u.normalizeSafe(0.000001);
   var _v = new GM3D_Vec3();
   _v.crossVectors(_axis, _u);
+  return [ _u, _v ];
+}
+
+// Computes single point on rotation ring circle from precomputed basis.
+function __polygon_gizmo_ring_point_fast(_pivot, _u, _v, _ws, _t) {
+  var _ct = cos(_t);
+  var _st = sin(_t);
   return new GM3D_Vec3(
-    _pivot.x + (cos(_t) * _u.x + sin(_t) * _v.x) * _ws,
-    _pivot.y + (cos(_t) * _u.y + sin(_t) * _v.y) * _ws,
-    _pivot.z + (cos(_t) * _u.z + sin(_t) * _v.z) * _ws,
+    _pivot.x + (_ct * _u.x + _st * _v.x) * _ws,
+    _pivot.y + (_ct * _u.y + _st * _v.y) * _ws,
+    _pivot.z + (_ct * _u.z + _st * _v.z) * _ws,
   );
+}
+
+// Builds world-space circle points for rotation ring.
+function __polygon_gizmo_ring_world(_pivot, _axis, _ws) {
+  var _seg = 36;
+  var _basis = __polygon_gizmo_ring_basis(_axis);
+  var _u = _basis[0];
+  var _v = _basis[1];
+  var _world = array_create(_seg + 1);
+
+  for (var _i = 0; _i <= _seg; _i++) {
+    _world[_i] = __polygon_gizmo_ring_point_fast(_pivot, _u, _v, _ws, (_i / _seg) * pi * 2);
+  }
+
+  return _world;
+}
+
+// Computes single point on rotation ring circle.
+function __polygon_gizmo_ring_point(_pivot, _axis, _ws, _t) {
+  var _basis = __polygon_gizmo_ring_basis(_axis);
+  return __polygon_gizmo_ring_point_fast(_pivot, _basis[0], _basis[1], _ws, _t);
 }
 
 // Projects rotation ring to screen pixel coordinates.

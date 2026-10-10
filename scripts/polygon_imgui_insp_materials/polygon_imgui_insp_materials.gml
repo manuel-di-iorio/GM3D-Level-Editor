@@ -596,21 +596,12 @@ function __polygon_imgui_clipboard(_text) {
   clipboard_set_text(_text);
 }
 
-// Read-only Col4 swatch: ImGui 4-channel widget, edits discarded.
-// Falls back to a static rect when the Col4 widget is unavailable.
+// Read-only Col4 swatch: static rect. (The ImGui ColorEdit4 widget is NOT
+// used here on purpose: its packed variant takes an integer color, not a
+// float array, and the struct variant needs the ImColor sample helper,
+// which is not vendored in this project. Passing [_r,_g,_b,_a] crashes
+// with "argument 'col' was invalid ... REAL argument is object".)
 function __polygon_imgui_mat_color_ro(_id, _r, _g, _b, _a) {
-  var _done = false;
-  var _edit = ImGui[$ "ColorEdit4"];
-  if (_edit != undefined) {
-    var _col = [ _r, _g, _b, _a ];
-    method(ImGui, _edit)(_id, _col);
-    _done = true;
-  }
-
-  if (_done) {
-    return;
-  }
-
   var _cx = ImGui.GetCursorScreenPosX();
   var _cy = ImGui.GetCursorScreenPosY();
   var _dl = ImGui.GetWindowDrawList();

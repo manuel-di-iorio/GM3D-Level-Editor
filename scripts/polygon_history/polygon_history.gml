@@ -53,8 +53,9 @@ function __polygon_history_commit(_ed, _before) {
   array_push(_ed.undo, _before);
   _ed.redo = [];
 
-  while (array_length(_ed.undo) > 100) {
-    array_delete(_ed.undo, 0, 1);
+  var _excess = array_length(_ed.undo) - 100;
+  if (_excess > 0) {
+    array_delete(_ed.undo, 0, _excess);
   }
 
   _ed.dirty = true;

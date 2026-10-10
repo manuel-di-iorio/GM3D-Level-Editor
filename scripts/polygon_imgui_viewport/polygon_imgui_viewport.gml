@@ -252,6 +252,46 @@ function __polygon_view_cheap_same(_a, _b) {
     && _a.trk == _b.trk && _a.pv == _b.pv && _a.rc == _b.rc && _a.nt == _b.nt;
 }
 
+// Dirty-reason bitmask for the cheap viewport snapshot: tells *what* changed
+// without building the expensive string key (string_format x7 + quat_to_euler
+// per selected node). Any bit set means the surface must re-render.
+enum PolygonViewDirty {
+  None     = 0,
+  Camera   = 1, // posa camera (caso hot: navigazione continua)
+  Size     = 2, // dimensioni surface scena
+  Settings = 4, // grid_step/show_grid/shadows/unlit
+  State    = 8, // hover/tool/cube/regcount/preview/rect/notice
+}
+
+// Diffs two cheap snapshots into a PolygonViewDirty mask (0 = identici).
+function __polygon_view_cheap_mask(_a, _b) {
+  if (!is_struct(_a) || !is_struct(_b)) {
+    return PolygonViewDirty.Camera | PolygonViewDirty.Size | PolygonViewDirty.Settings | PolygonViewDirty.State;
+  }
+
+  var _m = PolygonViewDirty.None;
+
+  if (_a.cpx != _b.cpx || _a.cpy != _b.cpy || _a.cpz != _b.cpz
+    || _a.crx != _b.crx || _a.cry != _b.cry || _a.crz != _b.crz || _a.crw != _b.crw) {
+    _m |= PolygonViewDirty.Camera;
+  }
+
+  if (_a.sw != _b.sw || _a.sh != _b.sh) {
+    _m |= PolygonViewDirty.Size;
+  }
+
+  if (_a.gs != _b.gs || _a.sg != _b.sg || _a.sh_ != _b.sh_ || _a.un != _b.un) {
+    _m |= PolygonViewDirty.Settings;
+  }
+
+  if (_a.hov != _b.hov || _a.cube != _b.cube || _a.tool != _b.tool || _a.trk != _b.trk
+    || _a.pv != _b.pv || _a.rc != _b.rc || _a.nt != _b.nt) {
+    _m |= PolygonViewDirty.State;
+  }
+
+  return _m;
+}
+
 // Checks if the scene surface needs a re-render (dirty flag, key change
 // or transient activity). FPS text is excluded on purpose: it is drawn
 // live in Draw GUI instead of baked into the surface.
@@ -270,7 +310,9 @@ function __polygon_view_needs_render(_ed) {
   }
 
   // Cheap gate: static frames skip the string-key build (expensive with
-  // big selections). Any scalar change falls through to the exact key.
+  // big selections). Any scalar change short-circuits to render via the
+  // dirty-reason mask; the string key stays only as fallback when the
+  // cheap snapshot cannot be built.
   var _cheap = __polygon_view_cheap_read(_ed);
   var _prev_cheap = variable_struct_exists(_ed, "view_cheap") ? _ed.view_cheap : undefined;
 
@@ -280,6 +322,22 @@ function __polygon_view_needs_render(_ed) {
 
   _ed.view_cheap = _cheap;
 
+  if (_cheap != undefined) {
+    // Uno scalare è cambiato: il re-render serve di certo, la chiave
+    // stringa sarebbe solo costo (caso hot = camera in movimento).
+    // La maschera resta su _ed per debug/profilo.
+    _ed.view_mask = __polygon_view_cheap_mask(_cheap, _prev_cheap);
+
+    // Come il vecchio path a chiave esatta: un cambio picture invalida
+    // lo snapshot cheap dell'outline (copre silent transform drift).
+    if (variable_struct_exists(_ed, "outline") && is_struct(_ed.outline)) {
+      _ed.outline.cheap = undefined;
+    }
+
+    return true;
+  }
+
+  // Cheap non costruibile (vp/cam assenti): fallback alla chiave esatta.
   var _key = __polygon_view_key(_ed);
 
   if (!variable_struct_exists(_ed, "view_key") || _ed.view_key != _key) {
