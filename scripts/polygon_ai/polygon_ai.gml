@@ -12,8 +12,11 @@
 //   game  -> relay (response): { "id": "<uuid>", "ok": true, "result": { ... } }
 //                              { "id": "<uuid>", "ok": false, "error": "code: message" }
 //
-// Ops: status | hierarchy | selection | details | assets | select | focus |
-//      create | transform | rename | delete | save | batch
+// Ops: status | hierarchy | selection | details | assets | raycast_down |
+//      select | focus | create | transform | rename | delete | save | batch |
+//      drop_to_ground | place_on
+// Read ops expose world/model-space AABBs (see bounds below) so callers
+// never guess Y: spawn with base_y / on_top_of, or snap with the two ops.
 // Conventions (same as the scene format / save system):
 //   - node identity is the stable wrapper id ("__PolygonEditor__N"), never the label.
 //   - transforms are LOCAL to the wrapper node (it owns the instance transform).
@@ -493,7 +496,69 @@ function __polygon_ai_node_info(_ed, _node) {
     _info.transform = _t;
   }
 
+  // World-space AABB (uses the existing __polygon_node_aabb helper):
+  // { valid, min:[x,y,z], max, size, center, bottom, top }.
+  // bottom/top are world Y: rest objects with bottom == support top.
+  var _b = __polygon_ai_bounds_of(_node);
+
+  if (_b != undefined) {
+    _info.bounds = _b;
+  }
+
   return _info;
+}
+
+// Computes the world-space AABB of a wrapper subtree as plain data.
+// Returns { valid:false } when the subtree has no measurable geometry.
+function __polygon_ai_bounds_of(_node) {
+  if (_node == undefined) {
+    return { valid: false };
+  }
+
+  var _box = __polygon_node_aabb(_node);
+
+  if (!is_struct(_box) || _box.valid != true || _box.min == undefined || _box.max == undefined) {
+    return { valid: false };
+  }
+
+  var _mn = _box.min;
+  var _mx = _box.max;
+  return {
+    valid: true,
+    min: [ _mn.x, _mn.y, _mn.z ],
+    max: [ _mx.x, _mx.y, _mx.z ],
+    size: [ _mx.x - _mn.x, _mx.y - _mn.y, _mx.z - _mn.z ],
+    center: [ (_mn.x + _mx.x) * 0.5, (_mn.y + _mx.y) * 0.5, (_mn.z + _mx.z) * 0.5 ],
+    bottom: _mn.y,
+    top: _mx.y,
+  };
+}
+
+// Shifts a root wrapper vertically so its world bottom lands on
+// _desired (world Y). Wrappers live at scene root, so a local Y shift
+// equals a world shift; one correction is exact for translations.
+// Returns the fresh world bounds, or undefined when unmeasurable.
+function __polygon_ai_snap_bottom(_ed, _node, _desired) {
+  if (_ed == undefined || _node == undefined || !is_real(_desired)) {
+    return undefined;
+  }
+
+  _ed.rt.scene.update(0);
+  var _before = __polygon_ai_bounds_of(_node);
+
+  if (!is_struct(_before) || _before.valid != true) {
+    return undefined;
+  }
+
+  var _dy = _desired - _before.bottom;
+
+  if (abs(_dy) > 0.000001) {
+    var _pos = _node.getLocalPosition();
+    _node.setLocalPosition(new GM3D_Vec3(_pos.x, _pos.y + _dy, _pos.z));
+    _ed.rt.scene.update(0);
+  }
+
+  return __polygon_ai_bounds_of(_node);
 }
 
 // Executes one relay request, returning the response map.
@@ -510,6 +575,7 @@ function __polygon_ai_exec(_ed, _msg) {
   switch (_op) {
     case "select": case "focus": case "create": case "transform":
     case "rename": case "delete": case "save": case "batch":
+    case "drop_to_ground": case "place_on":
       if (__polygon_ai_busy(_ed)) {
         return __polygon_ai_fail(_id, "busy", "editor dialog or drag in progress");
       }
@@ -532,6 +598,9 @@ function __polygon_ai_exec(_ed, _msg) {
     case "delete": _r = __polygon_ai_op_delete(_ed, _p, true); break;
     case "save": _r = __polygon_ai_op_save(_ed, _p); break;
     case "batch": _r = __polygon_ai_op_batch(_ed, _p); break;
+    case "raycast_down": _r = __polygon_ai_op_raycast(_ed, _p); break;
+    case "drop_to_ground": _r = __polygon_ai_op_drop(_ed, _p, true); break;
+    case "place_on": _r = __polygon_ai_op_stack(_ed, _p, true); break;
     default: return __polygon_ai_fail(_id, "unknown_op", "unsupported op: " + _op);
   }
 
@@ -600,7 +669,17 @@ function __polygon_ai_op_assets(_ed) {
       var _entry = _ed.assets[_i];
 
       if (is_struct(_entry) && is_string(_entry.key)) {
-        array_push(_out, { key: _entry.key, label: __polygon_asset_label(_entry) });
+        var _item = { key: _entry.key, label: __polygon_asset_label(_entry) };
+        // Model-space bounds + pivot: bottom is the model-space min Y,
+        // so resting Y = supportTopY - bottom * scaleY (before rotation).
+        // origin is "base" (bottom ~= 0), "center", or "custom".
+        var _ab = __polygon_asset_bounds(_entry);
+
+        if (is_struct(_ab)) {
+          _item.bounds = _ab;
+        }
+
+        array_push(_out, _item);
       }
     }
   }
@@ -626,6 +705,24 @@ function __polygon_ai_op_details(_ed, _p) {
   }
 
   _desc.selected = __polygon_sel_has(_ed, _node);
+  // World-space AABB of this instance + model-space bounds of its asset,
+  // so callers can rest objects exactly (bottom == support top).
+  var _wb = __polygon_ai_bounds_of(_node);
+
+  if (is_struct(_wb)) {
+    _desc.bounds = _wb;
+  }
+
+  var _en = __polygon_registry_find(_ed, _node);
+
+  if (_en != undefined && is_string(_en.asset) && _en.asset != "") {
+    var _ab2 = __polygon_asset_bounds(__polygon_asset_get(_ed, _en.asset));
+
+    if (is_struct(_ab2)) {
+      _desc.asset_bounds = _ab2;
+    }
+  }
+
   return _desc;
 }
 
@@ -726,10 +823,57 @@ function __polygon_ai_op_create(_ed, _p, _commit) {
     _sca = [ max(_p.scale[0], 0.01), max(_p.scale[1], 0.01), max(_p.scale[2], 0.01) ];
   }
 
+  // Optional resting: base_y (world bottom target), on_top_of (support id),
+  // gap (extra lift, default 0). X/Z always come from position; Y is
+  // corrected after spawn by measuring the real world AABB, so any pivot
+  // convention (base/center) lands exactly.
+  var _base_y = undefined;
+  var _on_id = undefined;
+  var _gap = 0.0;
+
+  if (variable_struct_exists(_p, "base_y")) {
+    if (!is_real(_p.base_y) || is_nan(_p.base_y) || abs(_p.base_y) >= 1000000000) {
+      return { error: true, error_code: "bad_params", error_msg: "base_y must be a number (world bottom Y)" };
+    }
+
+    _base_y = _p.base_y;
+  }
+
+  if (variable_struct_exists(_p, "on_top_of")) {
+    if (!is_string(_p.on_top_of) || _p.on_top_of == "") {
+      return { error: true, error_code: "bad_params", error_msg: "on_top_of must be a node id string" };
+    }
+
+    _on_id = _p.on_top_of;
+  }
+
+  if (variable_struct_exists(_p, "gap")) {
+    if (!is_real(_p.gap) || is_nan(_p.gap) || abs(_p.gap) >= 1000000000) {
+      return { error: true, error_code: "bad_params", error_msg: "gap must be a number" };
+    }
+
+    _gap = _p.gap;
+  }
+
+  if (_on_id != undefined && _base_y != undefined) {
+    return { error: true, error_code: "bad_params", error_msg: "use only one of base_y / on_top_of" };
+  }
+
   var _entry = __polygon_asset_get(_ed, _p.asset);
 
   if (_entry == undefined || _entry.model == undefined) {
     return { error: true, error_code: "unknown_asset", error_msg: "asset not in library: " + _p.asset };
+  }
+
+  // Fail fast on unknown support before touching the scene.
+  var _support = undefined;
+
+  if (_on_id != undefined) {
+    _support = __polygon_ai_node(_ed, _on_id);
+
+    if (_support == undefined) {
+      return { error: true, error_code: "not_found", error_msg: "unknown or system node: " + _on_id };
+    }
   }
 
   var _base = __polygon_asset_label(_entry);
@@ -755,6 +899,38 @@ function __polygon_ai_op_create(_ed, _p, _commit) {
 
   __polygon_spawn_shadow_apply(_ed, _entry, _node);
   _ed.rt.scene.update(0);
+
+  // Resting correction (measured, not guessed).
+  var _bounds = __polygon_ai_bounds_of(_node);
+
+  if (_on_id != undefined || _base_y != undefined) {
+    var _want = undefined;
+
+    if (_on_id != undefined) {
+      var _sb = __polygon_ai_bounds_of(_support);
+
+      if (!is_struct(_sb) || _sb.valid != true) {
+        __polygon_spawn_unregister(_ed, _node);
+        __polygon_destroy_subtree(_node);
+        _ed.rt.scene.update(0);
+        return { error: true, error_code: "failed", error_msg: "support has no measurable bounds: " + _on_id };
+      }
+
+      _want = _sb.top + _gap;
+    } else {
+      _want = _base_y + _gap;
+    }
+
+    _bounds = __polygon_ai_snap_bottom(_ed, _node, _want);
+
+    if (!is_struct(_bounds) || _bounds.valid != true) {
+      __polygon_spawn_unregister(_ed, _node);
+      __polygon_destroy_subtree(_node);
+      _ed.rt.scene.update(0);
+      return { error: true, error_code: "failed", error_msg: "spawned node has no measurable bounds" };
+    }
+  }
+
   var _en = __polygon_registry_find(_ed, _node);
   _ed.sel = [ _node ];
   _ed.giz.drag = -1;
@@ -764,7 +940,186 @@ function __polygon_ai_op_create(_ed, _p, _commit) {
     __polygon_history_commit(_ed, _before);
   }
 
-  return { id: _en != undefined ? _en.id : _node.name, label: _en != undefined ? _en.label : "" };
+  var _res = { id: _en != undefined ? _en.id : _node.name, label: _en != undefined ? _en.label : "" };
+
+  if (is_struct(_bounds) && _bounds.valid == true) {
+    _res.bounds = _bounds;
+  }
+
+  return _res;
+}
+
+// Casts a vertical ray down from (x, from_y, z) and reports the first hit:
+// the highest tracked top at/below from_y whose XZ footprint contains the
+// point. No physics involved (the editor scene has no PhysicsWorld): the
+// "ray" is resolved by scanning world AABBs. Read-only.
+// Returns { found:false } or { found:true, top, id }.
+function __polygon_ai_op_raycast(_ed, _p) {
+  if (!variable_struct_exists(_p, "x") || !is_real(_p.x) || is_nan(_p.x) || abs(_p.x) >= 1000000000) {
+    return { error: true, error_code: "bad_params", error_msg: "x (number) required" };
+  }
+
+  if (!variable_struct_exists(_p, "z") || !is_real(_p.z) || is_nan(_p.z) || abs(_p.z) >= 1000000000) {
+    return { error: true, error_code: "bad_params", error_msg: "z (number) required" };
+  }
+
+  var _from = 1000000000.0;
+
+  if (variable_struct_exists(_p, "from_y")) {
+    if (!is_real(_p.from_y) || is_nan(_p.from_y) || abs(_p.from_y) >= 1000000000) {
+      return { error: true, error_code: "bad_params", error_msg: "from_y must be a number (ray origin height)" };
+    }
+
+    _from = _p.from_y;
+  }
+
+  var _ignore = undefined;
+
+  if (variable_struct_exists(_p, "ignore") && is_string(_p.ignore) && _p.ignore != "") {
+    _ignore = _p.ignore;
+  }
+
+  var _eps = 0.001;
+  var _best_top = undefined;
+  var _best_id = undefined;
+  var _pairs = __polygon_root_pairs(_ed);
+
+  for (var _i = 0, _n = array_length(_pairs); _i < _n; _i++) {
+    var _en = _pairs[_i].en;
+
+    if (_en == undefined || !is_string(_en.id)) {
+      continue;
+    }
+
+    if (_ignore != undefined && _en.id == _ignore) {
+      continue;
+    }
+
+    var _b = __polygon_ai_bounds_of(_pairs[_i].node);
+
+    if (!is_struct(_b) || _b.valid != true) {
+      continue;
+    }
+
+    if (_p.x < _b.min[0] - _eps || _p.x > _b.max[0] + _eps) {
+      continue;
+    }
+
+    if (_p.z < _b.min[2] - _eps || _p.z > _b.max[2] + _eps) {
+      continue;
+    }
+
+    if (_b.top > _from + _eps) {
+      continue;
+    }
+
+    if (_best_top == undefined || _b.top > _best_top) {
+      _best_top = _b.top;
+      _best_id = _en.id;
+    }
+  }
+
+  if (_best_top == undefined) {
+    return { found: false };
+  }
+
+  return { found: true, top: _best_top, id: _best_id };
+}
+
+// Snaps one node so its world bottom rests on ground_y (default 0).
+function __polygon_ai_op_drop(_ed, _p, _commit) {
+  if (!variable_struct_exists(_p, "id") || !is_string(_p.id)) {
+    return { error: true, error_code: "bad_params", error_msg: "id (string) required" };
+  }
+
+  var _gy = 0.0;
+
+  if (variable_struct_exists(_p, "ground_y")) {
+    if (!is_real(_p.ground_y) || is_nan(_p.ground_y) || abs(_p.ground_y) >= 1000000000) {
+      return { error: true, error_code: "bad_params", error_msg: "ground_y must be a number" };
+    }
+
+    _gy = _p.ground_y;
+  }
+
+  var _node = __polygon_ai_node(_ed, _p.id);
+
+  if (_node == undefined) {
+    return { error: true, error_code: "not_found", error_msg: "unknown or system node: " + _p.id };
+  }
+
+  if (__polygon_locked_get(_ed, _node)) {
+    return { error: true, error_code: "locked", error_msg: "node is locked: " + _p.id };
+  }
+
+  var _before = _commit ? __polygon_history_snap(_ed) : undefined;
+  var _b = __polygon_ai_snap_bottom(_ed, _node, _gy);
+
+  if (!is_struct(_b) || _b.valid != true) {
+    return { error: true, error_code: "failed", error_msg: "node has no measurable bounds: " + _p.id };
+  }
+
+  if (_commit) {
+    __polygon_history_commit(_ed, _before);
+  }
+
+  return { id: _p.id, ground_y: _gy, bounds: _b };
+}
+
+// Rests one node on top of another (bottom = support top + gap).
+function __polygon_ai_op_stack(_ed, _p, _commit) {
+  if (!variable_struct_exists(_p, "id") || !is_string(_p.id)) {
+    return { error: true, error_code: "bad_params", error_msg: "id (string) required" };
+  }
+
+  if (!variable_struct_exists(_p, "on") || !is_string(_p.on) || _p.on == "") {
+    return { error: true, error_code: "bad_params", error_msg: "on (support node id) required" };
+  }
+
+  var _gap = 0.0;
+
+  if (variable_struct_exists(_p, "gap")) {
+    if (!is_real(_p.gap) || is_nan(_p.gap) || abs(_p.gap) >= 1000000000) {
+      return { error: true, error_code: "bad_params", error_msg: "gap must be a number" };
+    }
+
+    _gap = _p.gap;
+  }
+
+  var _node = __polygon_ai_node(_ed, _p.id);
+
+  if (_node == undefined) {
+    return { error: true, error_code: "not_found", error_msg: "unknown or system node: " + _p.id };
+  }
+
+  if (__polygon_locked_get(_ed, _node)) {
+    return { error: true, error_code: "locked", error_msg: "node is locked: " + _p.id };
+  }
+
+  var _support = __polygon_ai_node(_ed, _p.on);
+
+  if (_support == undefined) {
+    return { error: true, error_code: "not_found", error_msg: "unknown or system node: " + _p.on };
+  }
+
+  var _sb = __polygon_ai_bounds_of(_support);
+
+  if (!is_struct(_sb) || _sb.valid != true) {
+    return { error: true, error_code: "failed", error_msg: "support has no measurable bounds: " + _p.on };
+  }
+
+  var _before = _commit ? __polygon_history_snap(_ed) : undefined;
+  var _b = __polygon_ai_snap_bottom(_ed, _node, _sb.top + _gap);
+
+  if (!is_struct(_b) || _b.valid != true) {
+    return { error: true, error_code: "failed", error_msg: "node has no measurable bounds: " + _p.id };
+  }
+
+  if (_commit) {
+    __polygon_history_commit(_ed, _before);
+  }
+
+  return { id: _p.id, on: _p.on, gap: _gap, bounds: _b };
 }
 
 function __polygon_ai_op_transform(_ed, _p, _commit) {
@@ -949,7 +1304,10 @@ function __polygon_ai_op_save(_ed, _p) {
 
 // Validates then applies a batch of ops with a single history entry
 // (one Ctrl+Z undoes the whole batch). Ops: create|transform|rename|
-// delete|select (each with its own params struct).
+// delete|select|drop_to_ground|place_on (each with its own params struct).
+// Note: like transform, on_top_of/on must reference an already existing
+// node (same-batch forward refs fail validation); create platforms first,
+// then stack in a second batch.
 function __polygon_ai_op_batch(_ed, _p) {
   if (!variable_struct_exists(_p, "ops") || !is_array(_p.ops) || array_length(_p.ops) == 0) {
     return { error: true, error_code: "bad_params", error_msg: "ops (non-empty array) required" };
@@ -1005,6 +1363,11 @@ function __polygon_ai_check(_ed, _op, _p) {
       if (variable_struct_exists(_p, "rotation") && !__polygon_ai_num3(_p.rotation)) return "rotation must be [rx, ry, rz] euler degrees";
       if (variable_struct_exists(_p, "scale") && !__polygon_ai_num3(_p.scale)) return "scale must be [sx, sy, sz] numbers";
       if (__polygon_asset_get(_ed, _p.asset) == undefined) return "asset not in library: " + _p.asset;
+      if (variable_struct_exists(_p, "base_y") && (!is_real(_p.base_y) || is_nan(_p.base_y))) return "base_y must be a number";
+      if (variable_struct_exists(_p, "on_top_of") && (!is_string(_p.on_top_of) || _p.on_top_of == "")) return "on_top_of must be a node id string";
+      if (variable_struct_exists(_p, "gap") && (!is_real(_p.gap) || is_nan(_p.gap))) return "gap must be a number";
+      if (variable_struct_exists(_p, "base_y") && variable_struct_exists(_p, "on_top_of")) return "use only one of base_y / on_top_of";
+      if (variable_struct_exists(_p, "on_top_of") && __polygon_ai_node(_ed, _p.on_top_of) == undefined) return "unknown or system node: " + _p.on_top_of;
       return "";
     case "transform":
       if (!variable_struct_exists(_p, "id") || !is_string(_p.id)) return "id (string) required";
@@ -1031,6 +1394,18 @@ function __polygon_ai_check(_ed, _op, _p) {
         if (__polygon_ai_node(_ed, _p.ids[_si]) == undefined) return "unknown or system node: " + string(_p.ids[_si]);
       }
       return "";
+    case "drop_to_ground":
+      if (!variable_struct_exists(_p, "id") || !is_string(_p.id)) return "id (string) required";
+      if (variable_struct_exists(_p, "ground_y") && (!is_real(_p.ground_y) || is_nan(_p.ground_y))) return "ground_y must be a number";
+      if (__polygon_ai_node(_ed, _p.id) == undefined) return "unknown or system node: " + _p.id;
+      return "";
+    case "place_on":
+      if (!variable_struct_exists(_p, "id") || !is_string(_p.id)) return "id (string) required";
+      if (!variable_struct_exists(_p, "on") || !is_string(_p.on) || _p.on == "") return "on (support node id) required";
+      if (variable_struct_exists(_p, "gap") && (!is_real(_p.gap) || is_nan(_p.gap))) return "gap must be a number";
+      if (__polygon_ai_node(_ed, _p.id) == undefined) return "unknown or system node: " + _p.id;
+      if (__polygon_ai_node(_ed, _p.on) == undefined) return "unknown or system node: " + _p.on;
+      return "";
   }
 
   return "unsupported batch op: " + _op;
@@ -1044,6 +1419,8 @@ function __polygon_ai_apply(_ed, _op, _p) {
     case "rename": return __polygon_ai_op_rename(_ed, _p, false);
     case "delete": return __polygon_ai_op_delete(_ed, _p, false);
     case "select": return __polygon_ai_op_select(_ed, _p);
+    case "drop_to_ground": return __polygon_ai_op_drop(_ed, _p, false);
+    case "place_on": return __polygon_ai_op_stack(_ed, _p, false);
   }
 
   return { error: true, error_code: "unknown_op", error_msg: "unsupported batch op: " + _op };

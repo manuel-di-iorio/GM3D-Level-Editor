@@ -236,3 +236,95 @@ function __polygon_spawn_shadow_apply(_ed, _entry, _node) {
   _en.data.receiveShadows = _sh.recv == true;
   __polygon_flags_apply(_node, _en.data.castShadows, _en.data.receiveShadows);
 }
+
+// ---------------------------------------------------------------------------
+// Model-space bounds (pivot derivation)
+//
+// A glb never declares "pivot at base/center": the pivot IS the model-space
+// origin. We derive it from the geometry AABB (GM3D getBoundingBox):
+//   bottomOffset = min.y  (0 = base pivot, -h/2 = center pivot)
+// Resting math only needs bottomOffset, so callers never guess Y again.
+// Cached per library entry (source scenes are frozen, bounds are static).
+// ---------------------------------------------------------------------------
+
+/// Returns model-space bounds for a source model, or undefined.
+/// Shape: { min:[x,y,z], max:[x,y,z], size:[x,y,z], bottom, top, height,
+///          pivot_ratio (0=base, 0.5=center), origin ("base"|"center"|"custom") }
+function __polygon_asset_measure(_model) {
+  if (_model == undefined) {
+    return undefined;
+  }
+
+  var _get = _model[$ "getBoundingBox"];
+
+  if (_get == undefined) {
+    return undefined;
+  }
+
+  var _bb = method(_model, _get)();
+
+  if (!is_struct(_bb)) {
+    return undefined;
+  }
+
+  if (!variable_struct_exists(_bb, "min") || !variable_struct_exists(_bb, "max")) {
+    return undefined;
+  }
+
+  var _mn = _bb.min;
+  var _mx = _bb.max;
+
+  if (_mn == undefined || _mx == undefined) {
+    return undefined;
+  }
+
+  var _min = [ _mn.x, _mn.y, _mn.z ];
+  var _max = [ _mx.x, _mx.y, _mx.z ];
+  var _sx = _max[0] - _min[0];
+  var _sy = _max[1] - _min[1];
+  var _sz = _max[2] - _min[2];
+  var _h = _sy;
+  var _ratio = 0.0;
+
+  if (_h > 0.000001) {
+    _ratio = (0.0 - _min[1]) / _h;
+  }
+
+  var _origin = "custom";
+
+  if (abs(_min[1]) <= 0.02) {
+    _origin = "base";
+  } else if (_h > 0.000001 && abs(_min[1] + _h * 0.5) <= max(_h * 0.05, 0.02)) {
+    _origin = "center";
+  }
+
+  return {
+    min: _min,
+    max: _max,
+    size: [ _sx, _sy, _sz ],
+    bottom: _min[1],
+    top: _max[1],
+    height: _h,
+    pivot_ratio: _ratio,
+    origin: _origin,
+  };
+}
+
+// Returns cached model-space bounds for a library entry, measuring lazily.
+function __polygon_asset_bounds(_entry) {
+  if (!is_struct(_entry) || _entry.model == undefined) {
+    return undefined;
+  }
+
+  if (variable_struct_exists(_entry, "bounds_local") && is_struct(_entry.bounds_local)) {
+    return _entry.bounds_local;
+  }
+
+  var _b = __polygon_asset_measure(_entry.model);
+
+  if (_b != undefined) {
+    _entry.bounds_local = _b;
+  }
+
+  return _b;
+}

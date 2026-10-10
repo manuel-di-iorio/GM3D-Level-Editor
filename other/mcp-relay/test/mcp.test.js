@@ -24,6 +24,9 @@ const EXPECTED_TOOLS = [
   "polygon_delete_objects",
   "polygon_save_scene",
   "polygon_apply_batch",
+  "polygon_drop_to_ground",
+  "polygon_place_on",
+  "polygon_raycast_down",
 ];
 
 function launch() {

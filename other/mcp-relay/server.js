@@ -6,7 +6,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { BridgeLink, BridgeError } from "./bridge.js";
 
-const RELAY_VERSION = "1.0.0";
+const RELAY_VERSION = "1.1.0";
 const DEFAULT_PORT = 5192;
 const VEC3 = z.array(z.number()).length(3);
 
@@ -94,7 +94,7 @@ async function main() {
     {}, "status");
 
   bridgeTool(server, bridge, "polygon_get_scene_hierarchy",
-    "List tracked root nodes of the current scene: stable id, kind (instance|light|camera|environment), label, asset key, local transform, selection/hidden/locked flags.",
+    "List tracked root nodes of the current scene: stable id, kind (instance|light|camera|environment), label, asset key, local transform, world-space bounds (AABB min/max/size/bottom/top), selection/hidden/locked flags. Use bounds.bottom/top to rest objects exactly instead of guessing Y.",
     {}, "hierarchy");
 
   bridgeTool(server, bridge, "polygon_get_selection",
@@ -102,11 +102,20 @@ async function main() {
     {}, "selection");
 
   bridgeTool(server, bridge, "polygon_get_assets",
-    "Library assets available for polygon_create_object: key (use as asset) + display label.",
+    "Library assets available for polygon_create_object: key (use as asset) + display label + model-space bounds (min/max/size) and pivot info (bottom offset, origin base|center|custom). Resting Y = supportTopY - bounds.bottom * scaleY; or just use base_y / on_top_of in create.",
     {}, "assets");
 
+  bridgeTool(server, bridge, "polygon_raycast_down",
+    "Cast a vertical ray down from (x, from_y, z) and report the first hit: the highest surface (world top Y + node id) at/below from_y. No physics involved (resolved from world AABBs). Returns { found:false } or { found:true, top, id }. Use to find what to rest on, then create with on_top_of or snap with polygon_place_on.",
+    {
+      x: z.number().describe("World X (ray origin)"),
+      z: z.number().describe("World Z (ray origin)"),
+      from_y: z.number().optional().describe("Ray origin height, default +inf (sky)"),
+      ignore: z.string().optional().describe("Node id to exclude (e.g. the node itself)"),
+    }, "raycast_down");
+
   bridgeTool(server, bridge, "polygon_get_object_details",
-    "Full descriptor of one node by stable id (transform, asset, light/camera/environment data when present).",
+    "Full descriptor of one node by stable id (transform, world-space bounds AABB, asset model-space bounds, light/camera/environment data when present).",
     { id: z.string().describe("Stable node id, e.g. __PolygonEditor__7") }, "details");
 
   bridgeTool(server, bridge, "polygon_select_objects",
@@ -118,13 +127,16 @@ async function main() {
     { id: z.string().describe("Stable node id") }, "focus");
 
   bridgeTool(server, bridge, "polygon_create_object",
-    "Spawn a library asset as a new instance. Position is [x,y,z] world units. Rotation is optional Euler degrees [rx,ry,rz] (XYZ order). Scale defaults to [1,1,1]. Returns the new stable id. List valid keys first with polygon_get_assets; unknown keys are rejected.",
+    "Spawn a library asset as a new instance. Position is [x,y,z] world units (X/Z always used; Y is the spawn guess unless resting params are given). Rotation is optional Euler degrees [rx,ry,rz] (XYZ order). Scale defaults to [1,1,1]. Optional resting (measured from the real AABB, any pivot): base_y = desired world bottom Y, or on_top_of = support node id + optional gap. Returns the new stable id + final bounds. List valid keys first with polygon_get_assets; unknown keys are rejected.",
     {
       asset: z.string().describe("Library asset key, e.g. models/tree.glb"),
       position: VEC3.describe("Spawn position [x, y, z]"),
       rotation: VEC3.optional().describe("Euler degrees [rx, ry, rz], XYZ order"),
       scale: VEC3.optional().describe("Scale [sx, sy, sz], clamped to >= 0.01"),
       label: z.string().optional().describe("Display label (id stays stable regardless)"),
+      base_y: z.number().optional().describe("Desired world bottom Y (mutually exclusive with on_top_of)"),
+      on_top_of: z.string().optional().describe("Support node id to rest on (bottom = support top + gap)"),
+      gap: z.number().optional().describe("Extra lift above the support top, default 0"),
     }, "create");
 
   bridgeTool(server, bridge, "polygon_set_transform",
@@ -154,13 +166,28 @@ async function main() {
     { name: z.string().optional() }, "save");
 
   bridgeTool(server, bridge, "polygon_apply_batch",
-    "Validate-then-apply up to 64 ops (create|transform|rename|delete|select) with a single undo entry. Nothing is touched if any op is invalid.",
+    "Validate-then-apply up to 64 ops (create|transform|rename|delete|select|drop_to_ground|place_on) with a single undo entry. Nothing is touched if any op is invalid. NOTE: on_top_of/on must reference an already existing node (same-batch forward refs fail validation like transform does): create supports first, then stack in a second batch.",
     {
       ops: z.array(z.object({
-        op: z.enum(["create", "transform", "rename", "delete", "select"]),
+        op: z.enum(["create", "transform", "rename", "delete", "select", "drop_to_ground", "place_on"]),
         params: z.record(z.string(), z.any()).default({}),
       })).min(1).max(64),
     }, "batch");
+
+  bridgeTool(server, bridge, "polygon_drop_to_ground",
+    "Snap one node so its world bottom (measured AABB, any pivot) rests on ground_y (default 0). Undoable. Use after manual transforms that left objects floating or sunk.",
+    {
+      id: z.string().describe("Stable node id"),
+      ground_y: z.number().optional().describe("World ground Y, default 0"),
+    }, "drop_to_ground");
+
+  bridgeTool(server, bridge, "polygon_place_on",
+    "Rest one node on top of another: bottom = support top + gap, measured from real world AABBs (any pivot). Undoable. X/Z unchanged.",
+    {
+      id: z.string().describe("Stable node id to move"),
+      on: z.string().describe("Support node id"),
+      gap: z.number().optional().describe("Extra lift above the support top, default 0"),
+    }, "place_on");
 
   const shutdown = async () => {
     await bridge.stop();
